@@ -1,92 +1,113 @@
 use std::{collections::HashMap, sync::Arc};
 
-use serde_derive::{Deserialize, Serialize};
+use crate::message;
 use tokio::{
-    select,
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
     sync::{mpsc, oneshot},
-    task::JoinHandle,
 };
+use tokio_util::io::SyncIoBridge;
 use tracing::{debug, error, trace, warn};
 
 use crate::error::*;
 
-/// A `MessagePack-RPC` request
-#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
-pub struct Request {
-    pub id: u32,
-    pub method: String,
-    pub params: Vec<rmpv::Value>,
-}
-
-/// A `MessagePack-RPC` response
-#[derive(PartialEq, Clone, Debug)]
-pub struct Response {
-    pub id: u32,
-    pub result: Result<rmpv::Value, rmpv::Value>,
-}
-
-/// A `MessagePack-RPC` notification
-#[derive(PartialEq, Clone, Debug)]
-pub struct Notification {
-    pub method: String,
-    pub params: Vec<rmpv::Value>,
-}
-
 pub struct Subscription {
-    pub chan: mpsc::Sender<Arc<Notification>>,
+    pub chan: mpsc::Sender<Arc<message::Notification>>,
 }
 
 /// A request that is awaiting response from the editor. If the value is None,
 /// the acknowledgement is dropped, else it is forwarded on the oneshot channel.
 struct PendingRequest {
+    // Keep track of the method for debugging
     method: String,
-    channel: oneshot::Sender<Result<rmpv::Value, rmpv::Value>>,
+    channel: oneshot::Sender<Result<rmpv::Value>>,
 }
 
 /// Core runs the communication loop with the browser, ensures that each command
 /// has a unique ID, and maintains our accounting datastructures, and posts to
 /// the response oneshots when responses arrive.
-pub(super) struct Rpc {
-    pending_commands: HashMap<u32, PendingRequest>,
+pub struct Rpc<T>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    stream: T,
+    pending_commands: HashMap<u64, PendingRequest>,
     subscriptions: Vec<Subscription>,
-    id: u32,
+    id: u64,
 }
 
-impl Rpc {
-    pub fn new() -> Self {
+impl<T> Rpc<T>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    pub fn new(stream: T) -> Self {
         Rpc {
+            stream,
             pending_commands: HashMap::new(),
             subscriptions: Vec::new(),
             id: 0,
         }
     }
 
-    fn get_id(&mut self) -> u32 {
+    fn get_id(&mut self) -> u64 {
         self.id += 1;
         self.id
     }
 
-    async fn handle_response(&mut self, v: Response) {
-        if let Some(ret) = self.pending_commands.remove(&v.id) {
-            match ret.channel.send(v.result) {
-                Ok(_) => (),
-                Err(e) => {
-                    warn!("error sending command response: {:?}", e)
-                }
-            }
-        } else {
-            warn!("response for unregistered mesage: {:?}", &v.id)
-        }
+    pub async fn send_request(
+        &mut self,
+        method: String,
+        params: Vec<rmpv::Value>,
+    ) -> Result<rmpv::Value> {
+        let id = self.get_id();
+        let (tx, rx) = oneshot::channel();
+        let m = message::Message::Request(message::Request {
+            id,
+            method: method.clone(),
+            params,
+        });
+        // We write to a buffer, then flush it async to the stream. This should have very little
+        // performance impact compared to writing directly.
+        let mut buf = Vec::new();
+        m.encode(&mut buf)?;
+        self.stream.write_all(&buf).await?;
+        self.pending_commands.insert(
+            id,
+            PendingRequest {
+                method: method.clone(),
+                channel: tx,
+            },
+        );
+        rx.await.map_err(|_| Error::Timeout {
+            method: method.clone(),
+        })?
     }
 
-    async fn handle_notification(&mut self, v: Notification) -> Result<()> {
-        self.subscriptions.retain(|s| !s.chan.is_closed());
-        let n = Arc::new(v);
-        for s in &self.subscriptions {
-            _ = s.chan.send(n.clone()).await;
-        }
+    async fn run(&mut self) -> Result<()> {
+        let b = SyncIoBridge::new(self.stream);
         Ok(())
     }
+
+    // async fn handle_response(&mut self, v: Response) {
+    //     if let Some(ret) = self.pending_commands.remove(&v.id) {
+    //         match ret.channel.send(v.result) {
+    //             Ok(_) => (),
+    //             Err(e) => {
+    //                 warn!("error sending command response: {:?}", e)
+    //             }
+    //         }
+    //     } else {
+    //         warn!("response for unregistered mesage: {:?}", &v.id)
+    //     }
+    // }
+    //
+    // async fn handle_notification(&mut self, v: Notification) -> Result<()> {
+    //     self.subscriptions.retain(|s| !s.chan.is_closed());
+    //     let n = Arc::new(v);
+    //     for s in &self.subscriptions {
+    //         _ = s.chan.send(n.clone()).await;
+    //     }
+    //     Ok(())
+    // }
     //
     // /// Handle a command from the handler. Returns true if the core runloop should disconnect.
     // async fn handle_client_command(

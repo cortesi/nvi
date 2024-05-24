@@ -10,6 +10,8 @@ pub enum Error {
     Encode { msg: String },
     #[error("io error: {msg:?}")]
     IO { msg: String },
+    #[error("remote error: {msg:?}")]
+    RemoteError { msg: rmpv::Value },
 }
 
 impl From<rmp::encode::ValueWriteError> for Error {

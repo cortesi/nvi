@@ -72,19 +72,11 @@ impl Message {
                         let id = rmp::decode::read_u64(r)?;
                         let err = rmpv::decode::read_value(r)?;
                         let result = rmpv::decode::read_value(r)?;
-                        Ok(Message::Response(if err.is_nil() {
-                            Response {
-                                id,
-                                result: Ok(result),
-                            }
-                        } else {
-                            Response {
-                                id,
-                                result: Err(err),
-                            }
+                        Ok(Message::Response(Response {
+                            id,
+                            result: if err.is_nil() { Ok(result) } else { Err(err) },
                         }))
                     }
-
                     _ => Err(Error::Decode {
                         msg: "invalid message type".to_string(),
                     }),
@@ -176,6 +168,13 @@ mod tests {
         t_idemp(Message::Response(Response {
             id: 1,
             result: Ok(rmpv::Value::from(vec![
+                rmpv::Value::from(1),
+                rmpv::Value::from("test"),
+            ])),
+        }));
+        t_idemp(Message::Response(Response {
+            id: 1,
+            result: Err(rmpv::Value::from(vec![
                 rmpv::Value::from(1),
                 rmpv::Value::from("test"),
             ])),
