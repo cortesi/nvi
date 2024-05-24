@@ -1,3 +1,8 @@
+/// To generate these values, I inspect the output of `nvim --api-info`, like so:
+///  
+/// ```sh
+// nvim --api-info | msgpack2json | jq
+/// ```
 use regex::Regex;
 use serde::de::IntoDeserializer;
 use serde_derive::Deserialize;
@@ -26,6 +31,33 @@ pub enum Type {
     Window,
 }
 
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Type::Array => write!(f, "array"),
+            Type::ArrayOf { typ, length } => {
+                write!(f, "arrayOf({}", typ)?;
+                if let Some(length) = length {
+                    write!(f, ", {}", length)?;
+                }
+                write!(f, ")")
+            }
+            Type::Boolean => write!(f, "bool"),
+            Type::Buffer => write!(f, "buffer"),
+            Type::Dictionary => write!(f, "dict"),
+            Type::Float => write!(f, "float"),
+            Type::Function => write!(f, "func"),
+            Type::Integer => write!(f, "int"),
+            Type::LuaRef => write!(f, "luaRef"),
+            Type::Object => write!(f, "object"),
+            Type::String => write!(f, "string"),
+            Type::Tabpage => write!(f, "tabpage"),
+            Type::Void => write!(f, "void"),
+            Type::Window => write!(f, "window"),
+        }
+    }
+}
+
 impl<'de> serde::Deserialize<'de> for Type {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -48,47 +80,49 @@ impl<'de> serde::Deserialize<'de> for Type {
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct ExtType {
-    id: u32,
-    prefix: Option<String>,
+    pub id: u32,
+    pub prefix: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
-pub struct Parameter(Type, String);
+pub struct Parameter(pub Type, pub String);
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Function {
-    method: bool,
-    name: String,
-    since: u32,
-    parameters: Vec<Parameter>,
-    return_type: Type,
+    pub method: bool,
+    pub name: String,
+    pub since: u32,
+    pub parameters: Vec<Parameter>,
+    pub return_type: Type,
+    pub deprecated_since: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct UIEvent {
-    name: String,
-    since: u32,
-    parameters: Vec<Parameter>,
+    pub name: String,
+    pub since: u32,
+    pub parameters: Vec<Parameter>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Version {
-    major: u32,
-    minor: u32,
-    patch: u32,
-    build: String,
-    prerelease: bool,
-    api_level: u32,
-    api_compatible: u32,
-    api_prerelease: bool,
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+    pub build: String,
+    pub prerelease: bool,
+    pub api_level: u32,
+    pub api_compatible: u32,
+    // This suddenly switched from bool to now returning null - I'm assuming it's an Option<bool>
+    pub api_prerelease: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Api {
-    version: Version,
-    functions: Vec<Function>,
-    ui_events: Vec<UIEvent>,
-    ui_options: Vec<String>,
-    error_types: HashMap<String, ExtType>,
-    types: HashMap<String, ExtType>,
+    pub version: Version,
+    pub functions: Vec<Function>,
+    pub ui_events: Vec<UIEvent>,
+    pub ui_options: Vec<String>,
+    pub error_types: HashMap<String, ExtType>,
+    pub types: HashMap<String, ExtType>,
 }
