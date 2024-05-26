@@ -3,10 +3,10 @@ use nvi;
 #[derive(Clone)]
 struct Client {}
 
-impl nvi::VimService for Client {
+impl nvi::NviService for Client {
     async fn handle_nvim_notification(
         &mut self,
-        client: &mut nvi::Client,
+        client: &mut nvi::NviClient,
         method: &str,
         params: &[nvi::Value],
     ) {
@@ -15,10 +15,11 @@ impl nvi::VimService for Client {
 
     async fn handle_nvim_request(
         &mut self,
-        client: &mut nvi::Client,
+        client: &mut nvi::NviClient,
         method: &str,
         params: &[nvi::Value],
     ) -> Result<nvi::Value, nvi::Value> {
+        let _ = client.raw_request("foo", &[]).await;
         println!("handle_nvim_request");
         Ok(nvi::Value::Nil)
     }
@@ -26,8 +27,6 @@ impl nvi::VimService for Client {
 
 #[tokio::main]
 async fn main() {
-    nvi::listen_tcp("127.0.0.1:54321".parse().unwrap(), || Client {})
-        .await
-        .unwrap();
+    nvi::connect_unix("/tmp/sock", Client {}).await.unwrap();
     println!("Hello, world!");
 }
