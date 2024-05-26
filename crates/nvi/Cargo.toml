@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+futures = "0.3.30"
+msgpack-rpc = "0.4.2"
 rmp = "0.8.14"
 rmp-serde = "1.1.2"
 rmpv = {version ="1.0.1", features = ["with-serde"]}

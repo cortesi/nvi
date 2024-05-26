@@ -1,0 +1,9 @@
+[package]
+name = "client"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+nvi = { path = "../../crates/nvi" }
+tokio = "1.37.0"

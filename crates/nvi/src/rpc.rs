@@ -1,242 +1,147 @@
-use std::{collections::HashMap, sync::Arc};
+use std::io;
+use std::net::SocketAddr;
+use std::pin::Pin;
 
-use crate::message;
-use tokio::{
-    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-    sync::{mpsc, oneshot},
-};
-use tokio_util::io::SyncIoBridge;
-use tracing::{debug, error, trace, warn};
+use futures::Future;
+use msgpack_rpc::{Endpoint, ServiceWithClient, Value};
+use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
+use tokio_util::compat::TokioAsyncReadCompatExt;
+use tracing::{debug, error};
 
-use crate::error::*;
+use crate::client::Client;
 
-pub struct Subscription {
-    pub chan: mpsc::Sender<Arc<message::Notification>>,
-}
-
-/// A request that is awaiting response from the editor. If the value is None,
-/// the acknowledgement is dropped, else it is forwarded on the oneshot channel.
-struct PendingRequest {
-    // Keep track of the method for debugging
-    method: String,
-    channel: oneshot::Sender<Result<rmpv::Value>>,
-}
-
-/// Core runs the communication loop with the browser, ensures that each command
-/// has a unique ID, and maintains our accounting datastructures, and posts to
-/// the response oneshots when responses arrive.
-pub struct Rpc<T>
+// Service handles a single connection to neovim.
+#[derive(Clone)]
+pub struct Service<T>
 where
-    T: AsyncRead + AsyncWrite + Unpin,
+    T: VimService,
 {
-    stream: T,
-    pending_commands: HashMap<u64, PendingRequest>,
-    subscriptions: Vec<Subscription>,
-    id: u64,
+    vimservice: T,
 }
 
-impl<T> Rpc<T>
+impl<T> Service<T>
 where
-    T: AsyncRead + AsyncWrite + Unpin,
+    T: VimService,
 {
-    pub fn new(stream: T) -> Self {
-        Rpc {
-            stream,
-            pending_commands: HashMap::new(),
-            subscriptions: Vec::new(),
-            id: 0,
-        }
+    fn new(vimservice: T) -> Self {
+        Service { vimservice }
     }
+}
 
-    fn get_id(&mut self) -> u64 {
-        self.id += 1;
-        self.id
-    }
-
-    pub async fn send_request(
+pub trait VimService {
+    async fn handle_nvim_notification(
         &mut self,
-        method: String,
-        params: Vec<rmpv::Value>,
-    ) -> Result<rmpv::Value> {
-        let id = self.get_id();
-        let (tx, rx) = oneshot::channel();
-        let m = message::Message::Request(message::Request {
-            id,
-            method: method.clone(),
-            params,
-        });
-        // We write to a buffer, then flush it async to the stream. This should have very little
-        // performance impact compared to writing directly.
-        let mut buf = Vec::new();
-        m.encode(&mut buf)?;
-        self.stream.write_all(&buf).await?;
-        self.pending_commands.insert(
-            id,
-            PendingRequest {
-                method: method.clone(),
-                channel: tx,
-            },
-        );
-        rx.await.map_err(|_| Error::Timeout {
-            method: method.clone(),
-        })?
-    }
+        client: &mut Client,
+        method: &str,
+        params: &[Value],
+    );
 
-    async fn run(&mut self) -> Result<()> {
-        let b = SyncIoBridge::new(self.stream);
-        Ok(())
-    }
-
-    // async fn handle_response(&mut self, v: Response) {
-    //     if let Some(ret) = self.pending_commands.remove(&v.id) {
-    //         match ret.channel.send(v.result) {
-    //             Ok(_) => (),
-    //             Err(e) => {
-    //                 warn!("error sending command response: {:?}", e)
-    //             }
-    //         }
-    //     } else {
-    //         warn!("response for unregistered mesage: {:?}", &v.id)
-    //     }
-    // }
-    //
-    // async fn handle_notification(&mut self, v: Notification) -> Result<()> {
-    //     self.subscriptions.retain(|s| !s.chan.is_closed());
-    //     let n = Arc::new(v);
-    //     for s in &self.subscriptions {
-    //         _ = s.chan.send(n.clone()).await;
-    //     }
-    //     Ok(())
-    // }
-    //
-    // /// Handle a command from the handler. Returns true if the core runloop should disconnect.
-    // async fn handle_client_command(
-    //     &mut self,
-    //     browser_send: mpsc::UnboundedSender<MethodCall>,
-    //     v: ClientMessage,
-    // ) -> Result<bool> {
-    //     Ok(match v {
-    //         ClientMessage::Subscribe(s) => {
-    //             self.subscriptions.push(s);
-    //             false
-    //         }
-    //         ClientMessage::Exit => {
-    //             debug!("received close event, exiting");
-    //             true
-    //         }
-    //         ClientMessage::Command(v) => {
-    //             let id = self.get_id();
-    //             let m = MethodCall {
-    //                 id,
-    //                 method: v.method.clone().into(),
-    //                 session_id: v.session_id,
-    //                 params: v.params,
-    //             };
-    //             trace!(
-    //                 proto_core = "",
-    //                 proto_src = "core",
-    //                 proto_dst = "browser",
-    //                 "command: {:?}",
-    //                 m
-    //             );
-    //             browser_send
-    //                 .send(m)
-    //                 .map_err(|_| Error::Disconnect("command sent to closed browser".into()))?;
-    //             self.pending_commands.insert(
-    //                 id,
-    //                 PendingCommand {
-    //                     command: v.method.clone(),
-    //                     channel: v.response,
-    //                 },
-    //             );
-    //             false
-    //         }
-    //     })
-    // }
-    //
-    // pub async fn inner_run(
-    //     &mut self,
-    //     mut browser_recv: mpsc::UnboundedReceiver<BrowserMessage>,
-    //     browser_send: mpsc::UnboundedSender<MethodCall>,
-    //     mut client_recv: mpsc::UnboundedReceiver<ClientMessage>,
-    //     mut bh: JoinHandle<Result<()>>,
-    // ) -> Result<()> {
-    //     let mut exited = false;
-    //     loop {
-    //         select! {
-    //             _ = &mut bh => {
-    //                 debug!("browser exited");
-    //                 exited = true;
-    //                 break
-    //             }
-    //             msg = browser_recv.recv() => {
-    //                 match msg {
-    //                     None => {
-    //                         debug!("browser channel dropped, exiting");
-    //                         break
-    //                     }
-    //                     Some(BrowserMessage::Response(v)) => {
-    //                         if let Some(p) = self.pending_commands.remove(&v.id) {
-    //                             self.handle_pending_response(v, p).await?;
-    //                         } else {
-    //                             warn!("response created by unknown sender: id={:?} resp={:?}", v.id, v.result);
-    //                         }
-    //                     }
-    //                     Some(BrowserMessage::Event(v)) => {
-    //                         self.handle_event(v).await?;
-    //                     }
-    //                     Some(BrowserMessage::Exit) => {
-    //                         debug!("browser exited");
-    //                         break
-    //                     }
-    //                 }
-    //             }
-    //             msg = client_recv.recv() => {
-    //                 match msg {
-    //                     None => {
-    //                         debug!("all clients dropped, exiting");
-    //                         break
-    //                     },
-    //                     Some(v) => {
-    //                         if self.handle_client_command(browser_send.clone(), v).await? {
-    //                             break
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     drop(browser_send);
-    //     drop(browser_recv);
-    //     if !exited {
-    //         bh.await.map_err(Error::from_join)??;
-    //     }
-    //     Ok(())
-    // }
-    //
-    // pub async fn run(
-    //     mut self,
-    //     browser_recv: mpsc::UnboundedReceiver<BrowserMessage>,
-    //     browser_send: mpsc::UnboundedSender<MethodCall>,
-    //     client_recv: mpsc::UnboundedReceiver<ClientMessage>,
-    //     bh: JoinHandle<Result<()>>,
-    // ) -> Result<()> {
-    //     let res = self
-    //         .inner_run(browser_recv, browser_send, client_recv, bh)
-    //         .await;
-    //
-    //     if let Err(ref e) = res {
-    //         warn!("core loop exited: {}", e);
-    //     };
-    //
-    //     res
-    // }
+    fn handle_nvim_request(
+        &mut self,
+        client: &mut Client,
+        method: &str,
+        params: &[Value],
+    ) -> Pin<Box<dyn Future<Output = Result<Value, Value>> + Send>>;
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+type ServiceMaker = dyn Fn(Client) -> Box<dyn VimService + Send>;
 
-    #[test]
-    fn test_deserialize() {}
+// Implement how the endpoint handles incoming requests and notifications.
+// In this example, the endpoint does not handle notifications.
+impl<T> ServiceWithClient for Service<T>
+where
+    T: VimService,
+{
+    type RequestFuture = Pin<Box<dyn Future<Output = Result<Value, Value>> + Send>>;
+
+    fn handle_request(
+        &mut self,
+        client: &mut msgpack_rpc::Client,
+        method: &str,
+        params: &[Value],
+    ) -> Self::RequestFuture {
+        Box::pin(self.vimservice.handle_nvim_request(
+            &mut Client { m_client: client },
+            method,
+            params,
+        ))
+    }
+
+    fn handle_notification(
+        &mut self,
+        client: &mut msgpack_rpc::Client,
+        method: &str,
+        params: &[Value],
+    ) {
+        self.vimservice
+            .handle_nvim_notification(&mut Client { m_client: client }, method, params);
+    }
+}
+
+pub async fn connect_unix<T>(path: &str, service: T) -> io::Result<()>
+where
+    T: VimService + Unpin,
+{
+    let socket = UnixStream::connect(path).await?;
+    let client = Service::new(service);
+    let endpoint = Endpoint::new(socket.compat(), client);
+    endpoint.await?;
+    Ok(())
+}
+
+pub async fn connect_tcp<T>(addr: SocketAddr, service: T) -> io::Result<()>
+where
+    T: VimService + Unpin,
+{
+    let socket = TcpStream::connect(&addr).await?;
+    let client = Service::new(service);
+    let endpoint = Endpoint::new(socket.compat(), client);
+    endpoint.await?;
+    Ok(())
+}
+
+pub async fn listen_unix<T, F>(path: &str, service_maker: F) -> io::Result<()>
+where
+    F: Fn() -> T + Send + 'static,
+    T: VimService + Unpin + Send + Clone + 'static,
+{
+    let listener = UnixListener::bind(path)?;
+    let _ = tokio::spawn(async move {
+        loop {
+            match listener.accept().await {
+                Ok((socket, _)) => {
+                    tokio::spawn(Endpoint::new(
+                        socket.compat(),
+                        Service::new(service_maker()),
+                    ));
+                }
+                Err(e) => error!("Error accepting connection: {}", e),
+            }
+        }
+    })
+    .await;
+    Ok(())
+}
+
+pub async fn listen_tcp<T, F>(addr: SocketAddr, service_maker: F) -> io::Result<()>
+where
+    F: Fn() -> T + Send + 'static,
+    T: VimService + Unpin + Send + Clone + 'static,
+{
+    let listener = TcpListener::bind(&addr).await?;
+    let _ = tokio::spawn(async move {
+        loop {
+            match listener.accept().await {
+                Ok((socket, _)) => {
+                    tokio::spawn(Endpoint::new(
+                        socket.compat(),
+                        Service::new(service_maker()),
+                    ));
+                }
+                Err(e) => debug!("Error accepting connection: {}", e),
+            }
+        }
+    })
+    .await;
+    Ok(())
 }

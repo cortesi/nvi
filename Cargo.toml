@@ -7,4 +7,4 @@ authors = ["Aldo Cortesi <aldo@corte.si>"]
 
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "examples/*"]

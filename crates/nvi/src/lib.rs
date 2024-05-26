@@ -1,3 +1,7 @@
+pub mod client;
 pub mod error;
-pub mod message;
-pub mod rpc;
+mod rpc;
+
+pub use msgpack_rpc::Client;
+pub use msgpack_rpc::Value;
+pub use rpc::*;
