@@ -1,8 +1,8 @@
-pub struct Client<'a> {
-    pub(crate) m_client: &'a msgpack_rpc::Client,
+pub struct Client {
+    pub(crate) m_client: msgpack_rpc::Client,
 }
 
-impl<'a> Client<'a> {
+impl Client {
     async fn raw_request(
         &mut self,
         method: &str,
@@ -12,7 +12,6 @@ impl<'a> Client<'a> {
     }
 
     async fn raw_notify(&mut self, method: &str, params: &[msgpack_rpc::Value]) -> Result<(), ()> {
-        self.m_client.notify(method, params).await;
-        Ok(())
+        self.m_client.notify(method, params).await
     }
 }

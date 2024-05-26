@@ -4,7 +4,10 @@ use std::pin::Pin;
 
 use futures::Future;
 use msgpack_rpc::{Endpoint, ServiceWithClient, Value};
-use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
+use tokio::{
+    net::{TcpListener, TcpStream, UnixListener, UnixStream},
+    runtime::Handle,
+};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, error};
 
@@ -28,13 +31,13 @@ where
     }
 }
 
-pub trait VimService {
-    async fn handle_nvim_notification(
+pub trait VimService: Clone + Send {
+    fn handle_nvim_notification(
         &mut self,
         client: &mut Client,
         method: &str,
         params: &[Value],
-    );
+    ) -> impl std::future::Future<Output = ()> + Send;
 
     fn handle_nvim_request(
         &mut self,
@@ -44,13 +47,11 @@ pub trait VimService {
     ) -> Pin<Box<dyn Future<Output = Result<Value, Value>> + Send>>;
 }
 
-type ServiceMaker = dyn Fn(Client) -> Box<dyn VimService + Send>;
-
 // Implement how the endpoint handles incoming requests and notifications.
 // In this example, the endpoint does not handle notifications.
 impl<T> ServiceWithClient for Service<T>
 where
-    T: VimService,
+    T: VimService + Send + 'static,
 {
     type RequestFuture = Pin<Box<dyn Future<Output = Result<Value, Value>> + Send>>;
 
@@ -60,6 +61,7 @@ where
         method: &str,
         params: &[Value],
     ) -> Self::RequestFuture {
+        let client = client.clone();
         Box::pin(self.vimservice.handle_nvim_request(
             &mut Client { m_client: client },
             method,
@@ -73,14 +75,22 @@ where
         method: &str,
         params: &[Value],
     ) {
-        self.vimservice
-            .handle_nvim_notification(&mut Client { m_client: client }, method, params);
+        let handle = Handle::current();
+        let mut vimservice = self.vimservice.clone();
+        let client = client.clone();
+        let method = method.to_string();
+        let params = params.to_vec();
+        handle.spawn(async move {
+            vimservice
+                .handle_nvim_notification(&mut Client { m_client: client }, &method, &params)
+                .await;
+        });
     }
 }
 
 pub async fn connect_unix<T>(path: &str, service: T) -> io::Result<()>
 where
-    T: VimService + Unpin,
+    T: VimService + Unpin + 'static,
 {
     let socket = UnixStream::connect(path).await?;
     let client = Service::new(service);
@@ -91,7 +101,7 @@ where
 
 pub async fn connect_tcp<T>(addr: SocketAddr, service: T) -> io::Result<()>
 where
-    T: VimService + Unpin,
+    T: VimService + Unpin + 'static,
 {
     let socket = TcpStream::connect(&addr).await?;
     let client = Service::new(service);

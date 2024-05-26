@@ -4,7 +4,7 @@ use nvi;
 struct Client {}
 
 impl nvi::VimService for Client {
-    fn handle_nvim_notification(
+    async fn handle_nvim_notification(
         &mut self,
         client: &mut nvi::Client,
         method: &str,
