@@ -44,7 +44,7 @@ pub trait VimService: Clone + Send {
         client: &mut Client,
         method: &str,
         params: &[Value],
-    ) -> Pin<Box<dyn Future<Output = Result<Value, Value>> + Send>>;
+    ) -> impl std::future::Future<Output = Result<Value, Value>> + Send;
 }
 
 // Implement how the endpoint handles incoming requests and notifications.
@@ -61,12 +61,18 @@ where
         method: &str,
         params: &[Value],
     ) -> Self::RequestFuture {
-        let client = client.clone();
-        Box::pin(self.vimservice.handle_nvim_request(
-            &mut Client { m_client: client },
-            method,
-            params,
-        ))
+        let mut vimservice = self.vimservice.clone();
+        let mut client = Client {
+            m_client: client.clone(),
+        };
+        let method = method.to_string();
+        let params = params.to_vec();
+
+        Box::pin(async move {
+            vimservice
+                .handle_nvim_request(&mut client, &method, &params)
+                .await
+        })
     }
 
     fn handle_notification(

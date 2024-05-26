@@ -13,15 +13,14 @@ impl nvi::VimService for Client {
         println!("handle_nvim_notification");
     }
 
-    fn handle_nvim_request(
+    async fn handle_nvim_request(
         &mut self,
         client: &mut nvi::Client,
         method: &str,
         params: &[nvi::Value],
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<nvi::Value, nvi::Value>> + Send>>
-    {
+    ) -> Result<nvi::Value, nvi::Value> {
         println!("handle_nvim_request");
-        Box::pin(async { Ok(nvi::Value::Nil) })
+        Ok(nvi::Value::Nil)
     }
 }
 
