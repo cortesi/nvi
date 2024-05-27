@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cargo run --release --bin nvic -- protoc > ./crates/nvi/src/client.rs
+

@@ -1,6 +1,4 @@
-use std::io;
-use std::net::SocketAddr;
-use std::pin::Pin;
+use std::{io, net::SocketAddr, pin::Pin};
 
 use futures::Future;
 use msgpack_rpc::{Endpoint, ServiceWithClient, Value};
@@ -12,31 +10,13 @@ use tokio::{
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, error, trace};
 
-use crate::client::NviClient;
-
-// Service handles a single connection to neovim.
-#[derive(Clone)]
-struct Service<T>
-where
-    T: NviService,
-{
-    vimservice: T,
-}
-
-impl<T> Service<T>
-where
-    T: NviService,
-{
-    fn new(vimservice: T) -> Self {
-        Service { vimservice }
-    }
-}
+use crate::{api::Api, client::NviClient};
 
 /// NvService is the trait that must be implemented an addon that speaks to Neovim.
 pub trait NviService: Clone + Send {
     fn connected(
         &mut self,
-        client: &mut NviClient,
+        _client: &mut NviClient,
     ) -> impl std::future::Future<Output = ()> + Send {
         async {}
     }
@@ -54,6 +34,24 @@ pub trait NviService: Clone + Send {
         method: &str,
         params: &[Value],
     ) -> impl std::future::Future<Output = Result<Value, Value>> + Send;
+}
+
+// Service handles a single connection to neovim.
+#[derive(Clone)]
+struct Service<T>
+where
+    T: NviService,
+{
+    vimservice: T,
+}
+
+impl<T> Service<T>
+where
+    T: NviService,
+{
+    fn new(vimservice: T) -> Self {
+        Service { vimservice }
+    }
 }
 
 /// A wrapper service that translates from msgpack_rpc to NviService.
@@ -98,7 +96,13 @@ where
         let params = params.to_vec();
         handle.spawn(async move {
             vimservice
-                .handle_nvim_notification(&mut NviClient { m_client: client }, &method, &params)
+                .handle_nvim_notification(
+                    &mut NviClient {
+                        m_client: client.clone(),
+                    },
+                    &method,
+                    &params,
+                )
                 .await;
         });
     }

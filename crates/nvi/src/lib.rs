@@ -1,4 +1,3 @@
-pub mod api;
 mod client;
 pub mod error;
 mod rpc;

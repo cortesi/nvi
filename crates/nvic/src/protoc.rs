@@ -10,11 +10,11 @@ use quote::quote;
 use crate::api;
 
 /// A map for rewriting identifiers in arguments to avoid built-ins
-const IDENT_MAP: &'static [(&str, &str)] = &[("fn", "func"), ("type", "typ")];
+const IDENT_MAP: &[(&str, &str)] = &[("fn", "func"), ("type", "typ")];
 
 /// Skip these, because they have LuaRef parameters, that don't seem to be supported on the client
 /// yet.
-const SKIP_FUNCTIONS: &'static [&str] = &["nvim_buf_call", "nvim_win_call"];
+const SKIP_FUNCTIONS: &[&str] = &["nvim_buf_call", "nvim_win_call"];
 
 fn format_with_rustfmt(code: TokenStream) -> String {
     let mut rustfmt = Command::new("rustfmt")
@@ -284,15 +284,34 @@ pub fn protoc() -> Result<()> {
         #![allow(clippy::needless_borrow)]
 
         use msgpack_rpc::Value;
+        use tracing::trace;
 
         use crate::error::{Result, Error};
         use crate::types::*;
 
-        pub struct Api {
-            m_client: msgpack_rpc::Client,
+        pub struct NviClient {
+            pub(crate) m_client: msgpack_rpc::Client,
         }
 
-        impl Api {
+        impl NviClient {
+            pub async fn raw_request(
+                &mut self,
+                method: &str,
+                params: &[msgpack_rpc::Value],
+            ) -> Result<msgpack_rpc::Value, msgpack_rpc::Value> {
+                trace!("send request: {:?} {:?}", method, params);
+                self.m_client.request(method, params).await
+            }
+
+            pub async fn raw_notify(
+                &mut self,
+                method: &str,
+                params: &[msgpack_rpc::Value],
+            ) -> Result<(), ()> {
+                trace!("send notification: {:?} {:?}", method, params);
+                self.m_client.notify(method, params).await
+            }
+
             #(#funcs)*
         }
     );
