@@ -3,12 +3,15 @@
 /// ```sh
 // nvim --api-info | msgpack2json | jq
 /// ```
+use std::{collections::HashMap, process::Command};
+
+use anyhow::Result;
 use regex::Regex;
+use rmp_serde as rmps;
 use serde::de::IntoDeserializer;
 use serde_derive::Deserialize;
-use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
 #[serde(remote = "Type")]
 pub enum Type {
     Array,
@@ -125,4 +128,9 @@ pub struct Api {
     pub ui_options: Vec<String>,
     pub error_types: HashMap<String, ExtType>,
     pub types: HashMap<String, ExtType>,
+}
+
+pub fn get_api() -> Result<Api> {
+    let output = Command::new("nvim").arg("--api-info").output()?;
+    Ok(rmps::from_slice(&output.stdout)?)
 }

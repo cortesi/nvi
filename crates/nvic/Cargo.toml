@@ -1,12 +1,16 @@
 [package]
-name = "protoc"
+name = "nvic"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+anyhow = "1.0.86"
 clap = { version = "4.5.2", features = ["derive"] }
+proc-macro2 = "1.0.84"
+quote = "1.0.36"
 regex = "1.10.3"
 rmp-serde = "1.1.2"
 serde = "1.0.197"
 serde_derive = "1.0.197"
+syn = "2.0.66"
