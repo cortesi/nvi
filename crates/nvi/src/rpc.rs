@@ -279,7 +279,7 @@ mod tests {
         Ok((tx, socket_path))
     }
 
-    async fn connect_service<T>(nvi: T) -> Result<Sender<()>, Box<dyn std::error::Error>>
+    async fn test_service<T>(nvi: T) -> Result<Sender<()>, Box<dyn std::error::Error>>
     where
         T: NviService + Unpin + 'static,
     {
@@ -316,7 +316,7 @@ mod tests {
             tx: Arc::new(Mutex::new(Some(tx))),
         };
 
-        let _c = connect_service(s).await.unwrap();
+        let _c = test_service(s).await.unwrap();
 
         rx.await.unwrap();
     }
