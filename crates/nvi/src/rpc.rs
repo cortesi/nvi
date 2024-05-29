@@ -1,4 +1,4 @@
-use std::{io, net::SocketAddr, pin::Pin};
+use std::{io, net::SocketAddr, path::Path, pin::Pin};
 
 use futures::Future;
 use msgpack_rpc::{Endpoint, ServiceWithClient, Value};
@@ -8,9 +8,9 @@ use tokio::{
     runtime::Handle,
 };
 use tokio_util::compat::TokioAsyncReadCompatExt;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 
-use crate::{api::Api, client::NviClient};
+use crate::{client::NviClient, error::Result};
 
 /// NvService is the trait that must be implemented an addon that speaks to Neovim.
 pub trait NviService: Clone + Send {
@@ -26,14 +26,20 @@ pub trait NviService: Clone + Send {
         client: &mut NviClient,
         method: &str,
         params: &[Value],
-    ) -> impl std::future::Future<Output = ()> + Send;
+    ) -> impl std::future::Future<Output = ()> + Send {
+        warn!("unhandled notification: {:?}", method);
+        async {}
+    }
 
     fn handle_nvim_request(
         &mut self,
         client: &mut NviClient,
         method: &str,
         params: &[Value],
-    ) -> impl std::future::Future<Output = Result<Value, Value>> + Send;
+    ) -> impl std::future::Future<Output = Result<Value, Value>> + Send {
+        warn!("unhandled request: {:?}", method);
+        async { Err(Value::Nil) }
+    }
 }
 
 // Service handles a single connection to neovim.
@@ -74,7 +80,6 @@ where
         };
         let method = method.to_string();
         let params = params.to_vec();
-
         Box::pin(async move {
             vimservice
                 .handle_nvim_request(&mut client, &method, &params)
@@ -91,53 +96,69 @@ where
         trace!("recv notifcation: {:?} {:?}", method, params);
         let handle = Handle::current();
         let mut vimservice = self.vimservice.clone();
-        let client = client.clone();
+        let m_client = client.clone();
         let method = method.to_string();
         let params = params.to_vec();
         handle.spawn(async move {
             vimservice
-                .handle_nvim_notification(
-                    &mut NviClient {
-                        m_client: client.clone(),
-                    },
-                    &method,
-                    &params,
-                )
+                .handle_nvim_notification(&mut NviClient { m_client }, &method, &params)
                 .await;
         });
     }
 }
 
-pub async fn connect_unix<T>(path: &str, service: T) -> io::Result<()>
+async fn bootstrap(c: &mut NviClient) -> Result<()> {
+    let ret = c.nvim_get_api_info().await?;
+    println!("API Info: {:#?}", ret);
+    Ok(())
+}
+
+pub async fn connect_unix<T, P>(path: P, service: T) -> Result<()>
 where
+    P: AsRef<Path>,
     T: NviService + Unpin + 'static,
 {
     let stream = UnixStream::connect(path).await?;
     let service = Service::new(service);
     let endpoint = Endpoint::new(stream.compat(), service);
-    let c = endpoint.client();
-    let req = c.request("nvim_command", &[Value::String("echo \"hello\"".into())]);
-    let (e1, e2) = join!(req, endpoint);
-    e1.unwrap();
-    e2?;
+
+    let epclient = endpoint.client();
+    println!("pre");
+    tokio::spawn(async move {
+        bootstrap(&mut NviClient { m_client: epclient })
+            .await
+            .unwrap();
+    });
+
+    endpoint.await?;
     Ok(())
 }
 
-pub async fn connect_tcp<T>(addr: SocketAddr, service: T) -> io::Result<()>
+pub async fn connect_tcp<T>(addr: SocketAddr, service: T) -> Result<()>
 where
     T: NviService + Unpin + 'static,
 {
     let stream = TcpStream::connect(&addr).await?;
     let service = Service::new(service);
     let endpoint = Endpoint::new(stream.compat(), service);
+
+    let epclient = endpoint.client();
+    println!("pre");
+    tokio::spawn(async move {
+        bootstrap(&mut NviClient { m_client: epclient })
+            .await
+            .unwrap();
+    });
+    println!("awaiting endpoint");
     endpoint.await?;
     Ok(())
 }
 
-pub async fn listen_unix<T, F>(path: &str, service_maker: F) -> io::Result<()>
+pub async fn listen_unix<T, F, P>(path: P, service_maker: F) -> Result<()>
 where
     F: Fn() -> T + Send + 'static,
     T: NviService + Unpin + Send + Clone + 'static,
+    P: AsRef<Path>,
 {
     let listener = UnixListener::bind(path)?;
 
@@ -145,10 +166,15 @@ where
         loop {
             match listener.accept().await {
                 Ok((socket, _)) => {
-                    tokio::spawn(Endpoint::new(
-                        socket.compat(),
-                        Service::new(service_maker()),
-                    ));
+                    let endpoint = Endpoint::new(socket.compat(), Service::new(service_maker()));
+
+                    bootstrap(&mut NviClient {
+                        m_client: endpoint.client(),
+                    })
+                    .await
+                    .unwrap();
+
+                    tokio::spawn(endpoint);
                 }
                 Err(e) => error!("Error accepting connection: {}", e),
             }
@@ -179,4 +205,75 @@ where
     })
     .await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::{Arc, Mutex};
+    use tempfile;
+    use tokio::process::Command;
+    use tokio::sync::oneshot::{self, Sender};
+
+    async fn start_nvim() -> Result<(Sender<()>, std::path::PathBuf), Box<dyn std::error::Error>> {
+        let tempdir = tempfile::tempdir()?;
+        let socket_path = tempdir.path().join("nvim.socket");
+
+        let mut child = Command::new("nvim")
+            .arg("--headless")
+            .arg("--clean")
+            .arg("--listen")
+            .arg(format!("{}", socket_path.to_string_lossy()))
+            .spawn()?;
+
+        let (tx, rx) = oneshot::channel::<()>();
+
+        tokio::spawn(async move {
+            let _ = rx.await;
+            let _ = child.kill().await;
+            tempdir.close().unwrap();
+        });
+
+        Ok((tx, socket_path))
+    }
+
+    async fn connect_service<T>(nvi: T) -> Result<Sender<()>, Box<dyn std::error::Error>>
+    where
+        T: NviService + Unpin + 'static,
+    {
+        let (tx, socket_path) = start_nvim().await?;
+        for _ in 0..10 {
+            if socket_path.exists() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        connect_unix(socket_path, nvi).await?;
+        Ok(tx)
+    }
+
+    #[tokio::test]
+    async fn it_connects() {
+        let (tx, rx) = oneshot::channel::<()>();
+
+        #[derive(Clone)]
+        struct Service {
+            tx: Arc<Mutex<Option<Sender<()>>>>,
+        }
+
+        impl NviService for Service {
+            async fn connected(&mut self, _client: &mut NviClient) {
+                let _ = self.tx.lock().unwrap().take().unwrap().send(());
+            }
+        }
+
+        let s = Service {
+            tx: Arc::new(Mutex::new(Some(tx))),
+        };
+
+        let _c = connect_service(s).await.unwrap();
+
+        rx.await.unwrap();
+    }
 }

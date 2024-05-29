@@ -2516,7 +2516,7 @@ impl NviClient {
         #[allow(clippy::needless_question_mark)]
         Ok(())
     }
-    pub async fn nvim_get_api_info(&self) -> Result<Vec<Value>> {
+    pub async fn nvim_get_api_info(&self) -> Result<(u64, ApiInfo)> {
         #[allow(unused_variables)]
         let ret = self
             .m_client
@@ -2524,12 +2524,7 @@ impl NviClient {
             .await
             .map_err(Error::RemoteError)?;
         #[allow(clippy::needless_question_mark)]
-        Ok(ret
-            .as_array()
-            .ok_or(Error::Decode {
-                msg: "expected array".into(),
-            })?
-            .to_vec())
+        nvim_get_api_info_return(&ret)
     }
     pub async fn nvim_set_client_info(
         &self,

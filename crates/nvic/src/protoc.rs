@@ -16,6 +16,35 @@ const IDENT_MAP: &[(&str, &str)] = &[("fn", "func"), ("type", "typ")];
 /// yet.
 const SKIP_FUNCTIONS: &[&str] = &["nvim_buf_call", "nvim_win_call"];
 
+struct Return {
+    typ: TokenStream,
+    conversion: TokenStream,
+}
+
+struct Override {
+    ret: Option<Return>,
+}
+
+fn get_override(name: &str) -> Option<Override> {
+    Some(match name {
+        "nvim_get_api_info" => Override {
+            ret: Some(Return {
+                typ: quote! {
+                    (u64, ApiInfo)
+                },
+                conversion: quote! {
+                    nvim_get_api_info_return(&ret)
+                },
+            }),
+        },
+        _ => return None,
+    })
+}
+
+fn get_return_override(name: &str) -> Option<Return> {
+    get_override(name).and_then(|o| o.ret)
+}
+
 fn format_with_rustfmt(code: TokenStream) -> String {
     let mut rustfmt = Command::new("rustfmt")
         .arg("--edition")
@@ -49,19 +78,19 @@ fn clean_name(name: &str) -> String {
 fn generate_argument(p: &api::Parameter) -> TokenStream {
     let argname = clean_name(&p.1);
     let name = Ident::new(&argname, Span::call_site());
-    let typ = to_type_arg(&p.0);
+    let typ = mk_arg_type(&p.0);
     quote! {
         #name: #typ
     }
 }
 
-fn to_type_arg(t: &api::Type) -> TokenStream {
+fn mk_arg_type(t: &api::Type) -> TokenStream {
     match t {
         api::Type::Array => quote! {
             Vec<Value>
         },
         api::Type::ArrayOf { typ, .. } => {
-            let typ = to_type_result(typ);
+            let typ = mk_return_type(typ);
             quote! {
                 Vec<#typ>
             }
@@ -99,13 +128,13 @@ fn to_type_arg(t: &api::Type) -> TokenStream {
     }
 }
 
-fn to_type_result(t: &api::Type) -> TokenStream {
+fn mk_return_type(t: &api::Type) -> TokenStream {
     match t {
         api::Type::Array => quote! {
             Vec<Value>
         },
         api::Type::ArrayOf { typ, .. } => {
-            let typ = to_type_result(typ);
+            let typ = mk_return_type(typ);
             quote! {
                 Vec<#typ>
             }
@@ -145,7 +174,7 @@ fn to_type_result(t: &api::Type) -> TokenStream {
     }
 }
 
-fn to_value(p: &api::Parameter) -> TokenStream {
+fn mk_arg_value(p: &api::Parameter) -> TokenStream {
     let name = Ident::new(&clean_name(&p.1), Span::call_site());
     match p.0 {
         api::Type::Array => quote! {
@@ -191,7 +220,7 @@ fn to_value(p: &api::Parameter) -> TokenStream {
     }
 }
 
-fn from_value(typ: &api::Type) -> TokenStream {
+fn mk_return_value(typ: &api::Type) -> TokenStream {
     match typ {
         api::Type::Array => quote! {
             ret.as_array()
@@ -199,7 +228,7 @@ fn from_value(typ: &api::Type) -> TokenStream {
                 .to_vec()
         },
         api::Type::ArrayOf { typ, .. } => {
-            let typ = from_value(typ);
+            let typ = mk_return_value(typ);
             quote! {
                 ret.as_array()
                     .ok_or(Error::Decode{msg: "expected array".into()})?
@@ -255,17 +284,29 @@ fn from_value(typ: &api::Type) -> TokenStream {
 fn generate_function(f: api::Function) -> TokenStream {
     let id = Ident::new(&f.name, Span::call_site());
     let name = &f.name;
+
     let args: Vec<TokenStream> = f.parameters.iter().map(generate_argument).collect();
-    let ret_type = to_type_result(&f.return_type);
-    let arg_vals: Vec<TokenStream> = f.parameters.iter().map(to_value).collect();
-    let ret_val = from_value(&f.return_type);
+
+    let (ret_type, ret_val) = if let Some(v) = get_return_override(name) {
+        (v.typ, v.conversion)
+    } else {
+        let retv = mk_return_value(&f.return_type);
+        (
+            mk_return_type(&f.return_type),
+            quote! {
+                Ok(#retv)
+            },
+        )
+    };
+
+    let arg_vals: Vec<TokenStream> = f.parameters.iter().map(mk_arg_value).collect();
     quote! {
         pub async fn #id(&self, #(#args),*) -> Result<#ret_type> {
             #[allow(unused_variables)]
             let ret = self.m_client.request(#name, &[#(#arg_vals),*]).await
             .map_err(Error::RemoteError)?;
             #[allow(clippy::needless_question_mark)]
-            Ok(#ret_val)
+            #ret_val
         }
     }
 }

@@ -48,6 +48,14 @@ impl From<rmpv::decode::Error> for Error {
     }
 }
 
+impl From<rmpv::Value> for Error {
+    fn from(e: rmpv::Value) -> Self {
+        Error::Decode {
+            msg: "value error".into(),
+        }
+    }
+}
+
 impl From<std::convert::Infallible> for Error {
     fn from(_e: std::convert::Infallible) -> Self {
         panic!("infallible")
