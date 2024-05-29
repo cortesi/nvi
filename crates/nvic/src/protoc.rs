@@ -330,11 +330,11 @@ pub fn protoc() -> Result<()> {
         use crate::error::{Result, Error};
         use crate::types::*;
 
-        pub struct NviClient {
+        pub struct NvimApi {
             pub(crate) m_client: msgpack_rpc::Client,
         }
 
-        impl NviClient {
+        impl NvimApi {
             pub async fn raw_request(
                 &mut self,
                 method: &str,

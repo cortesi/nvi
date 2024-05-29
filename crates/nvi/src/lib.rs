@@ -1,5 +1,6 @@
 mod client;
 pub mod error;
+pub mod nvim_api;
 mod rpc;
 mod types;
 

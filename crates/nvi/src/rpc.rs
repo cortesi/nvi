@@ -75,9 +75,7 @@ where
     ) -> Self::RequestFuture {
         trace!("recv request: {:?} {:?}", method, params);
         let mut vimservice = self.vimservice.clone();
-        let mut client = NviClient {
-            m_client: client.clone(),
-        };
+        let mut client = NviClient::new(client);
         let method = method.to_string();
         let params = params.to_vec();
         Box::pin(async move {
@@ -101,14 +99,14 @@ where
         let params = params.to_vec();
         handle.spawn(async move {
             vimservice
-                .handle_nvim_notification(&mut NviClient { m_client }, &method, &params)
+                .handle_nvim_notification(&mut NviClient::new(&m_client), &method, &params)
                 .await;
         });
     }
 }
 
 async fn bootstrap(c: &mut NviClient) -> Result<()> {
-    let ret = c.nvim_get_api_info().await?;
+    let ret = c.api.nvim_get_api_info().await?;
     println!("API Info: {:#?}", ret);
     Ok(())
 }
@@ -123,11 +121,8 @@ where
     let endpoint = Endpoint::new(stream.compat(), service);
 
     let epclient = endpoint.client();
-    println!("pre");
     tokio::spawn(async move {
-        bootstrap(&mut NviClient { m_client: epclient })
-            .await
-            .unwrap();
+        bootstrap(&mut NviClient::new(&epclient)).await.unwrap();
     });
 
     endpoint.await?;
@@ -145,9 +140,7 @@ where
     let epclient = endpoint.client();
     println!("pre");
     tokio::spawn(async move {
-        bootstrap(&mut NviClient { m_client: epclient })
-            .await
-            .unwrap();
+        bootstrap(&mut NviClient::new(&epclient)).await.unwrap();
     });
     println!("awaiting endpoint");
     endpoint.await?;
@@ -168,11 +161,9 @@ where
                 Ok((socket, _)) => {
                     let endpoint = Endpoint::new(socket.compat(), Service::new(service_maker()));
 
-                    bootstrap(&mut NviClient {
-                        m_client: endpoint.client(),
-                    })
-                    .await
-                    .unwrap();
+                    bootstrap(&mut NviClient::new(&endpoint.client()))
+                        .await
+                        .unwrap();
 
                     tokio::spawn(endpoint);
                 }
@@ -212,7 +203,6 @@ mod tests {
     use super::*;
 
     use std::sync::{Arc, Mutex};
-    use tempfile;
     use tokio::process::Command;
     use tokio::sync::oneshot::{self, Sender};
 
