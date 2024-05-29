@@ -1,22 +1,30 @@
 use std::{io, net::SocketAddr, path::Path, pin::Pin};
 
-use futures::Future;
-use msgpack_rpc::{Endpoint, ServiceWithClient, Value};
+use futures::{
+    io::{AsyncRead, AsyncWrite},
+    Future,
+};
+
+use msgpack_rpc::{Endpoint, Value};
 use tokio::{
-    join,
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
     runtime::Handle,
+    sync::mpsc,
+    task::JoinSet,
 };
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, error, trace, warn};
 
 use crate::{client::NviClient, error::Result};
 
+const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
+
 /// NvService is the trait that must be implemented an addon that speaks to Neovim.
+#[allow(unused_variables)]
 pub trait NviService: Clone + Send {
     fn connected(
         &mut self,
-        _client: &mut NviClient,
+        client: &mut NviClient,
     ) -> impl std::future::Future<Output = ()> + Send {
         async {}
     }
@@ -44,24 +52,30 @@ pub trait NviService: Clone + Send {
 
 // Service handles a single connection to neovim.
 #[derive(Clone)]
-struct Service<T>
+struct ServiceWrapper<T>
 where
     T: NviService,
 {
-    vimservice: T,
+    nvi_service: T,
+    shutdown_tx: mpsc::UnboundedSender<()>,
+    channel_id: Option<u64>,
 }
 
-impl<T> Service<T>
+impl<T> ServiceWrapper<T>
 where
     T: NviService,
 {
-    fn new(vimservice: T) -> Self {
-        Service { vimservice }
+    fn new(nvi_service: T, shutdown_tx: mpsc::UnboundedSender<()>) -> Self {
+        ServiceWrapper {
+            nvi_service,
+            shutdown_tx,
+            channel_id: None,
+        }
     }
 }
 
 /// A wrapper service that translates from msgpack_rpc to NviService.
-impl<T> ServiceWithClient for Service<T>
+impl<T> msgpack_rpc::ServiceWithClient for ServiceWrapper<T>
 where
     T: NviService + Send + 'static,
 {
@@ -74,8 +88,8 @@ where
         params: &[Value],
     ) -> Self::RequestFuture {
         trace!("recv request: {:?} {:?}", method, params);
-        let mut vimservice = self.vimservice.clone();
-        let mut client = NviClient::new(client);
+        let mut vimservice = self.nvi_service.clone();
+        let mut client = NviClient::new(client, self.channel_id, self.shutdown_tx.clone());
         let method = method.to_string();
         let params = params.to_vec();
         Box::pin(async move {
@@ -92,78 +106,113 @@ where
         params: &[Value],
     ) {
         trace!("recv notifcation: {:?} {:?}", method, params);
+        let mut vimservice = self.nvi_service.clone();
         let handle = Handle::current();
-        let mut vimservice = self.vimservice.clone();
         let m_client = client.clone();
+        if method == BOOTSTRAP_NOTIFICATION {
+            let id = params[0].as_u64().unwrap();
+            trace!("bootstrapped with channel id: {:?}", id);
+            self.channel_id = Some(id);
+            let channel_id = self.channel_id;
+            let shutdown_tx = self.shutdown_tx.clone();
+            handle.spawn(async move {
+                vimservice
+                    .connected(&mut NviClient::new(&m_client, channel_id, shutdown_tx))
+                    .await;
+            });
+            return;
+        }
         let method = method.to_string();
         let params = params.to_vec();
+        let channel_id = self.channel_id;
+        let shutdown_tx = self.shutdown_tx.clone();
         handle.spawn(async move {
             vimservice
-                .handle_nvim_notification(&mut NviClient::new(&m_client), &method, &params)
+                .handle_nvim_notification(
+                    &mut NviClient::new(&m_client, channel_id, shutdown_tx),
+                    &method,
+                    &params,
+                )
                 .await;
         });
     }
 }
 
-async fn bootstrap(c: &mut NviClient) -> Result<()> {
-    let ret = c.api.nvim_get_api_info().await?;
-    println!("API Info: {:#?}", ret);
+async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: mpsc::UnboundedSender<()>) -> Result<()> {
+    let nc = &mut NviClient::new(&c, None, shutdown_tx);
+    let (id, _) = nc.api.nvim_get_api_info().await?;
+    nc.api
+        .nvim_exec_lua(
+            &format!("vim.rpcnotify(..., '{}', ...)", BOOTSTRAP_NOTIFICATION),
+            vec![id.into()],
+        )
+        .await?;
     Ok(())
 }
 
-pub async fn connect_unix<T, P>(path: P, service: T) -> Result<()>
+/// Connect on a stream, and return a sender to shutdown the connection.
+pub async fn connect_stream<T, S>(stream: S, service: T) -> Result<mpsc::UnboundedSender<()>>
+where
+    S: AsyncRead + AsyncWrite + Send + 'static,
+    T: NviService + Unpin + 'static,
+{
+    let (shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
+    let endpoint = Endpoint::new(stream, ServiceWrapper::new(service, shutdown_tx.clone()));
+
+    let mut js = JoinSet::new();
+    let epclient = endpoint.client();
+    {
+        let stx = shutdown_tx.clone();
+        js.spawn(async move { bootstrap(epclient, stx).await });
+    }
+    {
+        let stx = shutdown_tx.clone();
+        js.spawn(async move {
+            let ret = endpoint.await.map_err(|e| e.into());
+            stx.send(()).unwrap();
+            ret
+        });
+    }
+    let _ = shutdown_rx.recv().await;
+    js.abort_all();
+    while js.join_next().await.is_some() {}
+    Ok(shutdown_tx.clone())
+}
+
+/// Connect on a Unix socket, and return a sender to shutdown the connection.
+pub async fn connect_unix<T, P>(path: P, service: T) -> Result<mpsc::UnboundedSender<()>>
 where
     P: AsRef<Path>,
     T: NviService + Unpin + 'static,
 {
-    let stream = UnixStream::connect(path).await?;
-    let service = Service::new(service);
-    let endpoint = Endpoint::new(stream.compat(), service);
-
-    let epclient = endpoint.client();
-    tokio::spawn(async move {
-        bootstrap(&mut NviClient::new(&epclient)).await.unwrap();
-    });
-
-    endpoint.await?;
-    Ok(())
+    connect_stream(UnixStream::connect(path).await?.compat(), service).await
 }
 
-pub async fn connect_tcp<T>(addr: SocketAddr, service: T) -> Result<()>
+/// Connect to a TCP address, and return a sender to shutdown the connection.
+pub async fn connect_tcp<T>(addr: SocketAddr, service: T) -> Result<mpsc::UnboundedSender<()>>
 where
     T: NviService + Unpin + 'static,
 {
-    let stream = TcpStream::connect(&addr).await?;
-    let service = Service::new(service);
-    let endpoint = Endpoint::new(stream.compat(), service);
-
-    let epclient = endpoint.client();
-    println!("pre");
-    tokio::spawn(async move {
-        bootstrap(&mut NviClient::new(&epclient)).await.unwrap();
-    });
-    println!("awaiting endpoint");
-    endpoint.await?;
-    Ok(())
+    connect_stream(TcpStream::connect(&addr).await?.compat(), service).await
 }
 
-pub async fn listen_unix<T, F, P>(path: P, service_maker: F) -> Result<()>
+pub async fn listen_unix<T, F, P>(path: P, nvi_service_maker: F) -> Result<()>
 where
     F: Fn() -> T + Send + 'static,
-    T: NviService + Unpin + Send + Clone + 'static,
+    T: NviService + Unpin + 'static,
     P: AsRef<Path>,
 {
+    let (mut shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
     let listener = UnixListener::bind(path)?;
 
     let _ = tokio::spawn(async move {
         loop {
             match listener.accept().await {
                 Ok((socket, _)) => {
-                    let endpoint = Endpoint::new(socket.compat(), Service::new(service_maker()));
-
-                    bootstrap(&mut NviClient::new(&endpoint.client()))
-                        .await
-                        .unwrap();
+                    let endpoint = Endpoint::new(
+                        socket.compat(),
+                        ServiceWrapper::new(nvi_service_maker(), shutdown_tx.clone()),
+                    );
 
                     tokio::spawn(endpoint);
                 }
@@ -175,11 +224,12 @@ where
     Ok(())
 }
 
-pub async fn listen_tcp<T, F>(addr: SocketAddr, service_maker: F) -> io::Result<()>
+pub async fn listen_tcp<T, F>(addr: SocketAddr, nvi_service_maker: F) -> io::Result<()>
 where
     F: Fn() -> T + Send + 'static,
-    T: NviService + Unpin + Send + Clone + 'static,
+    T: NviService + Unpin + 'static,
 {
+    let (mut shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
     let listener = TcpListener::bind(&addr).await?;
     let _ = tokio::spawn(async move {
         loop {
@@ -187,7 +237,7 @@ where
                 Ok((socket, _)) => {
                     tokio::spawn(Endpoint::new(
                         socket.compat(),
-                        Service::new(service_maker()),
+                        ServiceWrapper::new(nvi_service_maker(), shutdown_tx.clone()),
                     ));
                 }
                 Err(e) => debug!("Error accepting connection: {}", e),
@@ -205,6 +255,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tokio::process::Command;
     use tokio::sync::oneshot::{self, Sender};
+    use tracing_test::traced_test;
 
     async fn start_nvim() -> Result<(Sender<()>, std::path::PathBuf), Box<dyn std::error::Error>> {
         let tempdir = tempfile::tempdir()?;
@@ -244,6 +295,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn it_connects() {
         let (tx, rx) = oneshot::channel::<()>();
 
@@ -253,8 +305,10 @@ mod tests {
         }
 
         impl NviService for Service {
-            async fn connected(&mut self, _client: &mut NviClient) {
+            async fn connected(&mut self, client: &mut NviClient) {
+                println!("CONNECTED");
                 let _ = self.tx.lock().unwrap().take().unwrap().send(());
+                client.shutdown();
             }
         }
 

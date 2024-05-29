@@ -94,7 +94,7 @@ impl TabPage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct ApiInfo {
     pub major: u64,
     pub minor: u64,
