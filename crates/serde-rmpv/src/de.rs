@@ -33,7 +33,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             rmpv::Value::Boolean(_) => self.deserialize_bool(visitor),
-            _ => Err(Error::Syntax),
+            _ => Err(Error::UnsupportedType),
         }
     }
 
@@ -41,7 +41,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bool(self.input.as_bool().expect("boolean"))
+        visitor.visit_bool(
+            self.input
+                .as_bool()
+                .ok_or(Error::TypeError("expected bool".to_string()))?,
+        )
     }
 
     // The `parse_signed` function is generic over the integer type `T` so here
@@ -50,21 +54,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
@@ -78,21 +82,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
@@ -106,7 +110,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
@@ -120,7 +124,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     // Refer to the "Understanding deserializer lifetimes" page for information
@@ -170,7 +174,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             rmpv::Value::Nil => visitor.visit_unit(),
-            _ => Err(Error::ExpectedNull),
+            _ => Err(Error::TypeError("expected nil".to_string())),
         }
     }
 
@@ -183,7 +187,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(Error::Unimplemented)
+        Err(Error::UnsupportedType)
     }
 
     // Unit struct means a named value containing no data.
@@ -213,7 +217,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             rmpv::Value::Array(_) => visitor.visit_seq(ArrayAccess::new(self)),
-            _ => Err(Error::ExpectedArray),
+            _ => Err(Error::TypeError("expected array".to_string())),
         }
     }
 
@@ -246,7 +250,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         if let rmpv::Value::Map(_) = self.input {
             visitor.visit_map(ValueMapAccess::new(self))
         } else {
-            Err(Error::ExpectedMap)
+            Err(Error::TypeError("expected map".to_string()))
         }
     }
 
