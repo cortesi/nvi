@@ -25,8 +25,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
-    // deserialize as. Not all data formats are able to support this operation.
-    // Formats that support `deserialize_any` are known as self-describing.
+    // deserialize as.
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -75,7 +74,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i64(self.input.as_i64().expect("i64"))
+        visitor.visit_i64(
+            self.input
+                .as_i64()
+                .ok_or(Error::TypeError("expected i64".to_string()))?,
+        )
     }
 
     fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value>
@@ -103,7 +106,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u64(self.input.as_u64().expect("u64"))
+        visitor.visit_u64(
+            self.input
+                .as_u64()
+                .ok_or(Error::TypeError("expected u64".to_string()))?,
+        )
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
@@ -117,7 +124,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_f64(self.input.as_f64().expect("f64"))
+        visitor.visit_f64(
+            self.input
+                .as_f64()
+                .ok_or(Error::TypeError("expected f64".to_string()))?,
+        )
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
@@ -133,14 +144,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.input.as_str().expect("string"))
+        visitor.visit_borrowed_str(
+            self.input
+                .as_str()
+                .ok_or(Error::TypeError("expected string".to_string()))?,
+        )
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.input.as_str().expect("string"))
+        visitor.visit_borrowed_str(
+            self.input
+                .as_str()
+                .ok_or(Error::TypeError("expected string".to_string()))?,
+        )
     }
 
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
@@ -300,7 +319,11 @@ impl<'de, 'a> SeqAccess<'de> for ArrayAccess<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        let arr = self.de.input.as_array().expect("array");
+        let arr = self
+            .de
+            .input
+            .as_array()
+            .ok_or(Error::TypeError("expected array".to_string()))?;
         if self.offset < arr.len() {
             let value = arr[self.offset].clone();
             self.offset += 1;
@@ -332,7 +355,11 @@ impl<'de, 'a> MapAccess<'de> for ValueMapAccess<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
-        let m = self.de.input.as_map().expect("map");
+        let m = self
+            .de
+            .input
+            .as_map()
+            .ok_or(Error::TypeError("expected map".to_string()))?;
         if self.offset < m.len() {
             let key = m[self.offset].0.clone();
             self.offset += 1;
@@ -349,7 +376,11 @@ impl<'de, 'a> MapAccess<'de> for ValueMapAccess<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let m = self.de.input.as_map().expect("map");
+        let m = self
+            .de
+            .input
+            .as_map()
+            .ok_or(Error::TypeError("expected map".to_string()))?;
         let value = m[self.offset - 1].1.clone();
         seed.deserialize(value)
             .map_err(|e| Error::Message(e.to_string()))
