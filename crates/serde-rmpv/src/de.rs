@@ -24,11 +24,19 @@ where
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        match self.input {
+            rmpv::Value::Nil => self.deserialize_unit(visitor),
+            rmpv::Value::Boolean(_) => self.deserialize_bool(visitor),
+            rmpv::Value::Integer(_) => self.deserialize_i64(visitor),
+            rmpv::Value::String(_) => self.deserialize_string(visitor),
+            rmpv::Value::Array(_) => self.deserialize_seq(visitor),
+            rmpv::Value::Map(_) => self.deserialize_map(visitor),
+            _ => Err(Error::UnsupportedType),
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>

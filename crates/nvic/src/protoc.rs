@@ -39,12 +39,18 @@ fn clean_name(name: &str) -> String {
     name
 }
 
-fn generate_argument(p: &api::Parameter) -> TokenStream {
+fn generate_argument(func: &str, p: &api::Parameter) -> TokenStream {
     let argname = clean_name(&p.1);
     let name = Ident::new(&argname, Span::call_site());
-    let typ = mk_arg_type(&p.0);
-    quote! {
-        #name: #typ
+    if let Some(t) = overrides::get_arg_type(func, &argname) {
+        quote! {
+            #name: #t
+        }
+    } else {
+        let typ = mk_arg_type(&p.0);
+        quote! {
+            #name: #typ
+        }
     }
 }
 
@@ -140,108 +146,8 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
 
 fn mk_arg_value(p: &api::Parameter) -> TokenStream {
     let name = Ident::new(&clean_name(&p.1), Span::call_site());
-    match p.0 {
-        api::Type::Array => quote! {
-            Value::Array(#name.to_vec())
-        },
-        api::Type::ArrayOf { .. } => {
-            // Allow clone on copy here, so we can treat values uniformly
-            quote! {
-                #[allow(clippy::clone_on_copy)]
-                Value::Array(#name.iter().map(|x| Value::from(x.clone())).collect())
-            }
-        }
-        api::Type::Boolean => quote! {
-            Value::Boolean(#name)
-        },
-        api::Type::Buffer => quote! {
-            Value::Ext(BUFFER_EXT_TYPE, #name.data.clone())
-        },
-        api::Type::Dictionary => quote! {
-            #name.clone()
-        },
-        api::Type::Float => quote! {
-            Value::F64(#name)
-        },
-        api::Type::Function => unreachable!("function type in return"),
-        api::Type::Integer => quote! {
-            Value::Integer(#name.into())
-        },
-        api::Type::LuaRef => unreachable!("luaref type in return"),
-        api::Type::Object => quote! {
-            #name.clone()
-        },
-        api::Type::String => quote! {
-            Value::String(#name.into())
-        },
-        api::Type::Tabpage => quote! {
-            Value::Ext(TABPAGE_EXT_TYPE, #name.data.clone())
-        },
-        api::Type::Void => unreachable!("void in value position"),
-        api::Type::Window => quote! {
-            Value::Ext(WINDOW_EXT_TYPE, #name.data.clone())
-        },
-    }
-}
-
-fn mk_return_value(typ: &api::Type) -> TokenStream {
-    match typ {
-        api::Type::Array => quote! {
-            ret.as_array()
-                .ok_or(Error::Decode{msg: "expected array".into()})?
-                .to_vec()
-        },
-        api::Type::ArrayOf { typ, .. } => {
-            let typ = mk_return_value(typ);
-            quote! {
-                ret.as_array()
-                    .ok_or(Error::Decode{msg: "expected array".into()})?
-                    .iter()
-                    .map(
-                        |ret| -> Result<_> {
-                            Ok(#typ)
-                        }
-                    )
-                    .collect::<Result<Vec<_>, _>>()?
-            }
-        }
-        api::Type::Boolean => quote! {
-            ret.as_bool()
-                .ok_or(Error::Decode{msg: "expected boolean".into()})?
-        },
-        api::Type::Buffer => quote! {
-            Buffer::from_value(&ret)?
-        },
-        api::Type::Dictionary => quote! {
-            ret.clone()
-        },
-        api::Type::Integer => quote! {
-            ret.as_i64()
-                .ok_or(Error::Decode{msg: "expected integer".into()})?
-        },
-        api::Type::Float => quote! {
-            ret.as_f64()
-                .ok_or(Error::Decode{msg: "expected float".into()})?
-        },
-        api::Type::Function => unreachable!("function type in return"),
-        api::Type::LuaRef => unreachable!("luaref type in return"),
-        api::Type::Object => quote! {
-            ret.clone()
-        },
-        api::Type::String => quote! {
-            ret.as_str()
-                .ok_or(Error::Decode{msg: "expected string".into()})?
-                .to_string()
-        },
-        api::Type::Tabpage => quote! {
-            TabPage::from_value(&ret)?
-        },
-        api::Type::Void => quote! {
-            ()
-        },
-        api::Type::Window => quote! {
-            Window::from_value(&ret)?
-        },
+    quote! {
+        to_value(&#name)?
     }
 }
 
@@ -249,28 +155,23 @@ fn generate_function(f: api::Function) -> TokenStream {
     let id = Ident::new(&f.name, Span::call_site());
     let name = &f.name;
 
-    let args: Vec<TokenStream> = f.parameters.iter().map(generate_argument).collect();
-
-    let (ret_type, ret_val) = if let Some(v) = overrides::get_return_override(name) {
-        (v.typ, v.conversion)
-    } else {
-        let retv = mk_return_value(&f.return_type);
-        (
-            mk_return_type(&f.return_type),
-            quote! {
-                Ok(#retv)
-            },
-        )
-    };
-
+    let args: Vec<TokenStream> = f
+        .parameters
+        .iter()
+        .map(|a| generate_argument(name, a))
+        .collect();
     let arg_vals: Vec<TokenStream> = f.parameters.iter().map(mk_arg_value).collect();
+
+    let ret_type =
+        overrides::get_return_override(name).unwrap_or_else(|| mk_return_type(&f.return_type));
+
     quote! {
         pub async fn #id(&self, #(#args),*) -> Result<#ret_type> {
             #[allow(unused_variables)]
-            let ret = self.m_client.request(#name, &[#(#arg_vals),*]).await
+            let ret = self.raw_request(#name, &[#(#arg_vals),*]).await
             .map_err(Error::RemoteError)?;
             #[allow(clippy::needless_question_mark)]
-            #ret_val
+            Ok(from_value(&ret)?)
         }
     }
 }
@@ -290,7 +191,7 @@ pub fn protoc() -> Result<()> {
 
         use msgpack_rpc::Value;
         use tracing::trace;
-        use serde_rmpv::from_value;
+        use serde_rmpv::{from_value, to_value};
 
         use crate::error::{Result, Error};
         use crate::types::*;
@@ -301,7 +202,7 @@ pub fn protoc() -> Result<()> {
 
         impl NvimApi {
             pub async fn raw_request(
-                &mut self,
+                &self,
                 method: &str,
                 params: &[msgpack_rpc::Value],
             ) -> Result<msgpack_rpc::Value, msgpack_rpc::Value> {
@@ -310,7 +211,7 @@ pub fn protoc() -> Result<()> {
             }
 
             pub async fn raw_notify(
-                &mut self,
+                &self,
                 method: &str,
                 params: &[msgpack_rpc::Value],
             ) -> Result<(), ()> {

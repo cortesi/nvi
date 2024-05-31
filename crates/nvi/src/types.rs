@@ -1,14 +1,15 @@
 /* A compendium of types for working with the Neovim msgrpc API */
 
 use crate::error::{Error, Result};
+use derive_builder::Builder;
 use rmpv::Value;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 
 pub const BUFFER_EXT_TYPE: i8 = 0;
 pub const WINDOW_EXT_TYPE: i8 = 1;
 pub const TABPAGE_EXT_TYPE: i8 = 2;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Buffer {
     pub(crate) data: Vec<u8>,
 }
@@ -37,7 +38,7 @@ impl Buffer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Window {
     pub(crate) data: Vec<u8>,
 }
@@ -66,7 +67,7 @@ impl Window {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct TabPage {
     pub(crate) data: Vec<u8>,
 }
@@ -109,4 +110,45 @@ pub struct APIVersion {
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct ApiInfo {
     pub version: APIVersion,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Group {
+    Name(String),
+    Id(u64),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
+#[builder(setter(strip_option), default)]
+pub struct CreateAutocmdOpts {
+    pub group: Option<Group>,
+    pub pattern: Vec<String>,
+    pub buffer: Option<u64>,
+    pub desc: Option<String>,
+    pub callback: Option<String>,
+    pub command: Option<String>,
+    pub once: Option<bool>,
+    pub nested: Option<bool>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_rmpv::{from_value, to_value};
+
+    #[test]
+    fn test_serialize_group() {
+        let group = Group::Name("test".to_string());
+        let serialized = to_value(&group).unwrap();
+        assert_eq!(serialized, Value::String("test".to_string().into()));
+        let g2: Group = from_value(&serialized).unwrap();
+        assert_eq!(group, g2);
+
+        let group = Group::Id(5);
+        let serialized = to_value(&group).unwrap();
+        assert_eq!(serialized, Value::Integer(5.into()));
+        let g2: Group = from_value(&serialized).unwrap();
+        assert_eq!(group, g2);
+    }
 }

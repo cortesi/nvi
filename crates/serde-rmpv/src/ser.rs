@@ -2,11 +2,6 @@ use serde::{ser, Serialize};
 
 use crate::error::{Error, Result};
 
-// By convention, the public API of a Serde serializer is one or more `to_abc`
-// functions such as `to_string`, `to_bytes`, or `to_writer` depending on what
-// Rust types the serializer is able to produce as output.
-//
-// This basic serializer supports only `to_string`.
 pub fn to_value<T>(value: &T) -> Result<rmpv::Value>
 where
     T: Serialize,
@@ -77,8 +72,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_i64(i64::from(v))
     }
 
-    // Not particularly efficient but this is example code anyway. A more
-    // performant approach would be to use the `itoa` crate.
     fn serialize_i64(self, v: i64) -> Result<()> {
         self.output = rmpv::Value::Integer(v.into());
         Ok(())
@@ -262,15 +255,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 }
 
-// This impl is SerializeSeq so these methods are called after `serialize_seq`
-// is called on the Serializer.
 impl<'a> ser::SerializeSeq for &'a mut Serializer {
-    // Must match the `Ok` type of the serializer.
     type Ok = ();
-    // Must match the `Error` type of the serializer.
     type Error = Error;
 
-    // Serialize a single element of the sequence.
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -278,13 +266,11 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
         self.serialize_seq_element(value)
     }
 
-    // Close the sequence. Does nothing in this case.
     fn end(self) -> Result<()> {
         Ok(())
     }
 }
 
-// Same thing but for tuples.
 impl<'a> ser::SerializeTuple for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -301,7 +287,6 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
     }
 }
 
-// Same thing but for tuple structs.
 impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -318,7 +303,6 @@ impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
     }
 }
 
-/// Tuple variants are represented as Array<Vec[NAME, ... DATA ...]>.
 impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -335,26 +319,10 @@ impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
     }
 }
 
-// Some `Serialize` types are not able to hold a key and value in memory at the
-// same time so `SerializeMap` implementations are required to support
-// `serialize_key` and `serialize_value` individually.
-//
-// There is a third optional method on the `SerializeMap` trait. The
-// `serialize_entry` method allows serializers to optimize for the case where
-// key and value are both available simultaneously. In JSON it doesn't make a
-// difference so the default behavior for `serialize_entry` is fine.
 impl<'a> ser::SerializeMap for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    // The Serde data model allows map keys to be any serializable type. JSON
-    // only allows string keys so the implementation below will produce invalid
-    // JSON if the key serializes as something other than a string.
-    //
-    // A real JSON serializer would need to validate that map keys are strings.
-    // This can be done by using a different Serializer to serialize the key
-    // (instead of `&mut **self`) and having that other serializer only
-    // implement `serialize_str` and return an error on any other data type.
     fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -372,9 +340,6 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
         }
     }
 
-    // It doesn't make a difference whether the colon is printed at the end of
-    // `serialize_key` or at the beginning of `serialize_value`. In this case
-    // the code is a bit simpler having it here.
     fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -398,8 +363,6 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     }
 }
 
-// Structs are like maps in which the keys are constrained to be compile-time
-// constant strings.
 impl<'a> ser::SerializeStruct for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -432,8 +395,6 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 }
 
-// Similar to `SerializeTupleVariant`, here the `end` method is responsible for
-// closing both of the curly braces opened by `serialize_struct_variant`.
 impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
