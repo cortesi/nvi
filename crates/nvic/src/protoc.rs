@@ -7,39 +7,7 @@ use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::api;
-
-/// A map for rewriting identifiers in arguments to avoid built-ins
-const IDENT_MAP: &[(&str, &str)] = &[("fn", "func"), ("type", "typ")];
-
-/// Skip these, because they have LuaRef parameters, that don't seem to be supported on the client
-/// yet.
-const SKIP_FUNCTIONS: &[&str] = &["nvim_buf_call", "nvim_win_call"];
-
-struct Return {
-    typ: TokenStream,
-    conversion: TokenStream,
-}
-
-struct Override {
-    ret: Option<Return>,
-}
-
-fn get_override(name: &str) -> Option<Override> {
-    Some(match name {
-        "nvim_get_api_info" => Override {
-            ret: Some(Return {
-                typ: quote! { (u64, ApiInfo) },
-                conversion: quote! { Ok(from_value::<(u64, ApiInfo)>(&ret)?) },
-            }),
-        },
-        _ => return None,
-    })
-}
-
-fn get_return_override(name: &str) -> Option<Return> {
-    get_override(name).and_then(|o| o.ret)
-}
+use crate::{api, overrides};
 
 fn format_with_rustfmt(code: TokenStream) -> String {
     let mut rustfmt = Command::new("rustfmt")
@@ -63,7 +31,7 @@ fn format_with_rustfmt(code: TokenStream) -> String {
 
 fn clean_name(name: &str) -> String {
     let mut name = name.to_string();
-    for (a, b) in IDENT_MAP {
+    for (a, b) in overrides::IDENT_MAP {
         if name == *a {
             name = b.to_string();
         }
@@ -283,7 +251,7 @@ fn generate_function(f: api::Function) -> TokenStream {
 
     let args: Vec<TokenStream> = f.parameters.iter().map(generate_argument).collect();
 
-    let (ret_type, ret_val) = if let Some(v) = get_return_override(name) {
+    let (ret_type, ret_val) = if let Some(v) = overrides::get_return_override(name) {
         (v.typ, v.conversion)
     } else {
         let retv = mk_return_value(&f.return_type);
@@ -313,7 +281,7 @@ pub fn protoc() -> Result<()> {
     let funcs: Vec<TokenStream> = a
         .functions
         .into_iter()
-        .filter(|f| !SKIP_FUNCTIONS.contains(&f.name.as_str()))
+        .filter(|f| !overrides::SKIP_FUNCTIONS.contains(&f.name.as_str()))
         .map(generate_function)
         .collect();
     let toks = quote!(

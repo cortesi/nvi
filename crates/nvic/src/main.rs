@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 
 mod api;
 mod dump;
+mod overrides;
 mod protoc;
 
 #[derive(Parser)]
