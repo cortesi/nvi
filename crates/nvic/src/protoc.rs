@@ -29,12 +29,8 @@ fn get_override(name: &str) -> Option<Override> {
     Some(match name {
         "nvim_get_api_info" => Override {
             ret: Some(Return {
-                typ: quote! {
-                    (u64, ApiInfo)
-                },
-                conversion: quote! {
-                    nvim_get_api_info_return(&ret)
-                },
+                typ: quote! { (u64, ApiInfo) },
+                conversion: quote! { Ok(from_value::<(u64, ApiInfo)>(&ret)?) },
             }),
         },
         _ => return None,
@@ -326,6 +322,7 @@ pub fn protoc() -> Result<()> {
 
         use msgpack_rpc::Value;
         use tracing::trace;
+        use serde_rmpv::from_value;
 
         use crate::error::{Result, Error};
         use crate::types::*;

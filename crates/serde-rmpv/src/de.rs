@@ -24,16 +24,11 @@ where
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    // Look at the input data to decide what Serde data model type to
-    // deserialize as.
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        match self.input {
-            rmpv::Value::Boolean(_) => self.deserialize_bool(visitor),
-            _ => Err(Error::UnsupportedType),
-        }
+        Err(Error::UnsupportedType)
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -259,9 +254,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    // Much like `deserialize_seq` but calls the visitors `visit_map` method
-    // with a `MapAccess` implementation, rather than the visitor's `visit_seq`
-    // method with a `SeqAccess` implementation.
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -273,7 +265,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    // The type that identifies a field of a struct or the variant of an enum.
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -390,12 +381,35 @@ impl<'de, 'a> MapAccess<'de> for ValueMapAccess<'a, 'de> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_enum() {
+    fn test_deserialize() {
         use super::*;
+        use serde_derive::Deserialize;
 
-        let v = rmpv::Value::from("string");
-        assert_eq!("string", from_value::<String>(&v).unwrap());
+        super::from_value::<i8>(&rmpv::Value::from("foo")).expect_err("expected unimplemented");
 
-        from_value::<i8>(&v).expect_err("expected unimplemented");
+        assert_eq!(
+            "string",
+            from_value::<String>(&rmpv::Value::from("string")).unwrap()
+        );
+
+        assert_eq!(42, from_value::<i64>(&rmpv::Value::from(42)).unwrap());
+
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct TestStruct {
+            a: i32,
+            b: String,
+        }
+
+        assert_eq!(
+            TestStruct {
+                a: 42,
+                b: "string".to_string()
+            },
+            from_value::<TestStruct>(&rmpv::Value::Map(vec![
+                (rmpv::Value::from("a"), rmpv::Value::from(42)),
+                (rmpv::Value::from("b"), rmpv::Value::from("string")),
+            ]))
+            .unwrap()
+        );
     }
 }

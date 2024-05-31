@@ -3,6 +3,7 @@
 use crate::error::{Error, Result};
 use crate::types::*;
 use msgpack_rpc::Value;
+use serde_rmpv::from_value;
 use tracing::trace;
 pub struct NvimApi {
     pub(crate) m_client: msgpack_rpc::Client,
@@ -2524,7 +2525,7 @@ impl NvimApi {
             .await
             .map_err(Error::RemoteError)?;
         #[allow(clippy::needless_question_mark)]
-        nvim_get_api_info_return(&ret)
+        Ok(from_value::<(u64, ApiInfo)>(&ret)?)
     }
     pub async fn nvim_set_client_info(
         &self,

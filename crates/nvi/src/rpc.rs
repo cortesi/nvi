@@ -140,7 +140,7 @@ where
 
 async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: mpsc::UnboundedSender<()>) -> Result<()> {
     let nc = &mut NviClient::new(&c, None, shutdown_tx);
-    let (id, _) = nc.api.nvim_get_api_info().await?;
+    let (id, v) = nc.api.nvim_get_api_info().await?;
     nc.api
         .nvim_exec_lua(
             &format!("vim.rpcnotify(..., '{}', ...)", BOOTSTRAP_NOTIFICATION),

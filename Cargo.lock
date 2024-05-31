@@ -437,6 +437,7 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "serde",
+ "serde-rmpv",
  "serde_derive",
  "tempfile",
  "thiserror",
@@ -668,6 +669,7 @@ version = "0.0.1"
 dependencies = [
  "rmpv",
  "serde",
+ "serde_derive",
  "thiserror",
 ]
 

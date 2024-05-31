@@ -16,6 +16,14 @@ pub enum Error {
     Unimplemented,
 }
 
+impl From<serde_rmpv::Error> for Error {
+    fn from(e: serde_rmpv::Error) -> Self {
+        Error::Decode {
+            msg: format!("{}", e),
+        }
+    }
+}
+
 impl From<rmp::encode::ValueWriteError> for Error {
     fn from(e: rmp::encode::ValueWriteError) -> Self {
         Error::Encode {
@@ -44,14 +52,6 @@ impl From<rmpv::decode::Error> for Error {
     fn from(e: rmpv::decode::Error) -> Self {
         Error::Decode {
             msg: format!("{}", e),
-        }
-    }
-}
-
-impl From<rmpv::Value> for Error {
-    fn from(e: rmpv::Value) -> Self {
-        Error::Decode {
-            msg: "value error".into(),
         }
     }
 }
