@@ -1,6 +1,9 @@
 use serde::{ser, Serialize};
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    MSGPACK_EXT_STRUCT_NAME,
+};
 
 pub fn to_value<T>(value: &T) -> Result<rmpv::Value>
 where
@@ -154,11 +157,25 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     // As is done here, serializers are encouraged to treat newtype structs as
     // insignificant wrappers around the data they contain.
-    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<()>
+    fn serialize_newtype_struct<T>(self, name: &'static str, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        value.serialize(self)
+        if name == MSGPACK_EXT_STRUCT_NAME {
+            let nv = to_value(&value)?;
+            if let rmpv::Value::Array(vec) = nv {
+                if vec.len() == 2 {
+                    let id: i8 = vec[0].as_u64().unwrap().try_into().unwrap();
+                    if let rmpv::Value::Binary(data) = &vec[1] {
+                        self.output = rmpv::Value::Ext(id, data.clone());
+                        return Ok(());
+                    }
+                }
+            }
+            Err(Error::Message("invalid ext struct".to_string()))
+        } else {
+            value.serialize(self)
+        }
     }
 
     fn serialize_none(self) -> Result<()> {
@@ -436,6 +453,18 @@ mod tests {
     use std::collections::HashMap;
 
     use serde_derive::Serialize;
+    use serde_with::{serde_as, Bytes};
+
+    #[test]
+    fn test_ext_struct() {
+        #[serde_as]
+        #[derive(Serialize)]
+        #[serde(rename = "_ExtStruct")]
+        struct Foo(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
+
+        let foo = Foo((42, vec![1, 2, 3]));
+        assert_eq!(to_value(&foo).unwrap(), rmpv::Value::Ext(42, vec![1, 2, 3]));
+    }
 
     #[test]
     fn test_serialize() {

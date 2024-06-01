@@ -35,6 +35,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             rmpv::Value::String(_) => self.deserialize_string(visitor),
             rmpv::Value::Array(_) => self.deserialize_seq(visitor),
             rmpv::Value::Map(_) => self.deserialize_map(visitor),
+            rmpv::Value::Binary(_) => self.deserialize_bytes(visitor),
             _ => Err(Error::UnsupportedType),
         }
     }
@@ -165,18 +166,26 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         )
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_bytes(
+            self.input
+                .as_slice()
+                .ok_or(Error::TypeError("expected binary".to_string()))?,
+        )
     }
 
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_bytes(
+            self.input
+                .as_slice()
+                .ok_or(Error::TypeError("expected binary".to_string()))?,
+        )
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
@@ -238,8 +247,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match self.input {
+            rmpv::Value::Binary(v) => visitor.visit_bytes(v),
+            rmpv::Value::Ext(_, _) => visitor.visit_seq(ExtAccess::new(self)),
             rmpv::Value::Array(_) => visitor.visit_seq(ArrayAccess::new(self)),
-            _ => Err(Error::TypeError("expected array".to_string())),
+            _ => Err(Error::TypeError("expected sequence type".to_string())),
         }
     }
 
@@ -297,6 +308,43 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         self.deserialize_any(visitor)
+    }
+}
+
+struct ExtAccess<'a, 'de: 'a> {
+    de: &'a mut Deserializer<'de>,
+    offset: usize,
+}
+
+impl<'a, 'de> ExtAccess<'a, 'de> {
+    fn new(de: &'a mut Deserializer<'de>) -> Self {
+        ExtAccess { de, offset: 0 }
+    }
+}
+
+impl<'de, 'a> SeqAccess<'de> for ExtAccess<'a, 'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        let arr = self
+            .de
+            .input
+            .as_ext()
+            .ok_or(Error::TypeError("expected array".to_string()))?;
+        Ok(Some(if self.offset == 0 {
+            self.offset += 1;
+            seed.deserialize(rmpv::Value::from(arr.0))
+                .map_err(|e| Error::Message(e.to_string()))?
+        } else if self.offset == 1 {
+            self.offset += 1;
+            seed.deserialize(rmpv::Value::Binary(arr.1.to_vec()))
+                .map_err(|e| Error::Message(e.to_string()))?
+        } else {
+            return Err(Error::Message("expected only two elements".to_string()));
+        }))
     }
 }
 
@@ -388,6 +436,23 @@ impl<'de, 'a> MapAccess<'de> for ValueMapAccess<'a, 'de> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use serde_derive::Deserialize;
+
+    use serde_with::{serde_as, Bytes};
+
+    #[test]
+    fn test_exttype() {
+        #[serde_as]
+        #[derive(Deserialize, Debug, PartialEq)]
+        #[serde(rename = "_ExtStruct")]
+        struct Foo(#[serde_as(as = "(_, Bytes)")] (u8, Vec<u8>));
+
+        let ext = rmpv::Value::Ext(42, vec![1, 2, 3]);
+        let foo: Foo = from_value(&ext).unwrap();
+        assert_eq!(Foo((42, vec![1, 2, 3])), foo);
+    }
+
     #[test]
     fn test_deserialize() {
         use super::*;
