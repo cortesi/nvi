@@ -1,8 +1,9 @@
-use nvi;
+use async_trait::async_trait;
 
 #[derive(Clone)]
 struct Client {}
 
+#[async_trait]
 impl nvi::NviService for Client {
     async fn handle_nvim_notification(
         &mut self,

@@ -5,11 +5,12 @@ use futures::{
     Future,
 };
 
+use async_trait::async_trait;
 use msgpack_rpc::{Endpoint, Value};
 use tokio::{
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
     runtime::Handle,
-    sync::mpsc,
+    sync::{broadcast, mpsc},
     task::JoinSet,
 };
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -19,34 +20,64 @@ use crate::{client::NviClient, error::Result};
 
 const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
 
-/// NvService is the trait that must be implemented an addon that speaks to Neovim.
 #[allow(unused_variables)]
+#[async_trait]
 pub trait NviService: Clone + Send {
-    fn connected(
-        &mut self,
-        client: &mut NviClient,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        async {}
-    }
+    async fn connected(&mut self, client: &mut NviClient) {}
 
-    fn handle_nvim_notification(
+    async fn handle_nvim_notification(
         &mut self,
         client: &mut NviClient,
         method: &str,
         params: &[Value],
-    ) -> impl std::future::Future<Output = ()> + Send {
+    ) {
         warn!("unhandled notification: {:?}", method);
-        async {}
     }
 
-    fn handle_nvim_request(
+    async fn handle_nvim_request(
         &mut self,
         client: &mut NviClient,
         method: &str,
         params: &[Value],
-    ) -> impl std::future::Future<Output = Result<Value, Value>> + Send {
+    ) -> Result<Value, Value> {
         warn!("unhandled request: {:?}", method);
-        async { Err(Value::Nil) }
+        Err(Value::Nil)
+    }
+}
+
+#[derive(Clone)]
+pub struct AsyncClosureService<F>
+where
+    F: for<'a> Fn(&'a mut NviClient) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+        + Clone
+        + Send
+        + 'static,
+{
+    connected_closure: F,
+}
+
+impl<F> AsyncClosureService<F>
+where
+    F: for<'a> Fn(&'a mut NviClient) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+        + Clone
+        + Send
+        + 'static,
+{
+    pub fn new(connected_closure: F) -> Self {
+        AsyncClosureService { connected_closure }
+    }
+}
+
+#[async_trait]
+impl<F> NviService for AsyncClosureService<F>
+where
+    F: for<'a> Fn(&'a mut NviClient) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+        + Clone
+        + Send
+        + 'static,
+{
+    async fn connected(&mut self, client: &mut NviClient) {
+        (self.connected_closure)(client).await;
     }
 }
 
@@ -140,7 +171,7 @@ where
 
 async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: mpsc::UnboundedSender<()>) -> Result<()> {
     let nc = &mut NviClient::new(&c, None, shutdown_tx);
-    let (id, v) = nc.api.nvim_get_api_info().await?;
+    let (id, _v) = nc.api.nvim_get_api_info().await?;
     nc.api
         .nvim_exec_lua(
             &format!("vim.rpcnotify(..., '{}', ...)", BOOTSTRAP_NOTIFICATION),
@@ -202,7 +233,7 @@ where
     T: NviService + Unpin + 'static,
     P: AsRef<Path>,
 {
-    let (mut shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
+    let (shutdown_tx, _) = mpsc::unbounded_channel();
     let listener = UnixListener::bind(path)?;
 
     let _ = tokio::spawn(async move {
@@ -229,7 +260,7 @@ where
     F: Fn() -> T + Send + 'static,
     T: NviService + Unpin + 'static,
 {
-    let (mut shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
+    let (shutdown_tx, _) = mpsc::unbounded_channel();
     let listener = TcpListener::bind(&addr).await?;
     let _ = tokio::spawn(async move {
         loop {
@@ -252,15 +283,13 @@ where
 mod tests {
     use super::*;
 
-    use std::sync::{Arc, Mutex};
-    use tokio::process::Command;
-    use tokio::sync::oneshot::{self, Sender};
+    use tokio::{process::Command, sync::broadcast};
     use tracing_test::traced_test;
 
-    async fn start_nvim() -> Result<(Sender<()>, std::path::PathBuf), Box<dyn std::error::Error>> {
-        let tempdir = tempfile::tempdir()?;
-        let socket_path = tempdir.path().join("nvim.socket");
-
+    async fn start_nvim(
+        mut termrx: broadcast::Receiver<()>,
+        socket_path: std::path::PathBuf,
+    ) -> Result<()> {
         let mut child = Command::new("nvim")
             .arg("--headless")
             .arg("--clean")
@@ -268,56 +297,56 @@ mod tests {
             .arg(format!("{}", socket_path.to_string_lossy()))
             .spawn()?;
 
-        let (tx, rx) = oneshot::channel::<()>();
-
-        tokio::spawn(async move {
-            let _ = rx.await;
-            let _ = child.kill().await;
-            tempdir.close().unwrap();
-        });
-
-        Ok((tx, socket_path))
+        loop {
+            tokio::select! {
+                _ = termrx.recv() => {
+                    let _ = child.kill().await;
+                }
+                _ = child.wait() => {
+                    break;
+                }
+            }
+        }
+        Ok(())
     }
 
-    async fn test_service<T>(nvi: T) -> Result<Sender<()>, Box<dyn std::error::Error>>
+    async fn test_service<T>(nvi: T, termrx: broadcast::Receiver<()>) -> Result<()>
     where
         T: NviService + Unpin + 'static,
     {
-        let (tx, socket_path) = start_nvim().await?;
+        let tempdir = tempfile::tempdir()?;
+        let socket_path = tempdir.path().join("nvim.socket");
+
+        let sp = socket_path.clone();
+        let nv = tokio::spawn(async move { start_nvim(termrx, sp).await });
+
         for _ in 0..10 {
             if socket_path.exists() {
                 break;
             }
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         }
-        connect_unix(socket_path, nvi).await?;
-        Ok(tx)
+        let serv = connect_unix(socket_path, nvi);
+
+        serv.await?;
+        nv.await.unwrap()?;
+        Ok(())
     }
 
     #[tokio::test]
     #[traced_test]
     async fn it_connects() {
-        let (tx, rx) = oneshot::channel::<()>();
+        let (tx, rx) = broadcast::channel(16);
+        let s = AsyncClosureService::new(move |client| {
+            Box::pin({
+                let tx = tx.clone();
+                async move {
+                    tx.send(()).unwrap();
+                    client.shutdown();
+                }
+            })
+        });
 
-        #[derive(Clone)]
-        struct Service {
-            tx: Arc<Mutex<Option<Sender<()>>>>,
-        }
-
-        impl NviService for Service {
-            async fn connected(&mut self, client: &mut NviClient) {
-                println!("CONNECTED");
-                let _ = self.tx.lock().unwrap().take().unwrap().send(());
-                client.shutdown();
-            }
-        }
-
-        let s = Service {
-            tx: Arc::new(Mutex::new(Some(tx))),
-        };
-
-        let _c = test_service(s).await.unwrap();
-
-        rx.await.unwrap();
+        test_service(s, rx).await.unwrap();
     }
 }
