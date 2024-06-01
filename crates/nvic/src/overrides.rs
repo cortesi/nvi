@@ -8,10 +8,6 @@ pub const IDENT_MAP: &[(&str, &str)] = &[("fn", "func"), ("type", "typ")];
 /// yet.
 pub const SKIP_FUNCTIONS: &[&str] = &["nvim_buf_call", "nvim_win_call"];
 
-pub struct Return {
-    pub typ: TokenStream,
-}
-
 pub struct Arg {
     pub name: String,
     pub typ: TokenStream,

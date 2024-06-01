@@ -6,9 +6,9 @@ struct Client {}
 impl nvi::NviService for Client {
     async fn handle_nvim_notification(
         &mut self,
-        client: &mut nvi::NviClient,
-        method: &str,
-        params: &[nvi::Value],
+        _client: &mut nvi::NviClient,
+        _method: &str,
+        _params: &[nvi::Value],
     ) {
         println!("handle_nvim_notification");
     }
@@ -16,8 +16,8 @@ impl nvi::NviService for Client {
     async fn handle_nvim_request(
         &mut self,
         client: &mut nvi::NviClient,
-        method: &str,
-        params: &[nvi::Value],
+        _method: &str,
+        _params: &[nvi::Value],
     ) -> Result<nvi::Value, nvi::Value> {
         let _ = client.raw_request("foo", &[]).await;
         println!("handle_nvim_request");
