@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tokio::sync::broadcast;
 
 #[derive(Clone)]
 struct Client {}
@@ -28,6 +29,8 @@ impl nvi::NviService for Client {
 
 #[tokio::main]
 async fn main() {
-    nvi::connect_unix("/tmp/sock", Client {}).await.unwrap();
+    let (tx, _) = broadcast::channel(16);
+
+    nvi::connect_unix(tx, "/tmp/sock", Client {}).await.unwrap();
     println!("Hello, world!");
 }

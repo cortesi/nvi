@@ -14,6 +14,8 @@ pub enum Error {
     RemoteError(rmpv::Value),
     #[error("unimplemented")]
     Unimplemented,
+    #[error("internal")]
+    Internal { msg: String },
 }
 
 impl From<serde_rmpv::Error> for Error {

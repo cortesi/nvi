@@ -1,4 +1,4 @@
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 use tracing::trace;
 
 use crate::{error::Result, nvim_api};
@@ -9,7 +9,7 @@ pub struct NviClient {
     /// The compiled API for Neovim.
     pub api: nvim_api::NvimApi,
 
-    shutdown_tx: mpsc::UnboundedSender<()>,
+    shutdown_tx: broadcast::Sender<()>,
     pub channel_id: Option<u64>,
 }
 
@@ -17,7 +17,7 @@ impl NviClient {
     pub fn new(
         client: &msgpack_rpc::Client,
         channel_id: Option<u64>,
-        shutdown_tx: mpsc::UnboundedSender<()>,
+        shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
         NviClient {
             m_client: client.clone(),

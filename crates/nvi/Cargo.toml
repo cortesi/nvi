@@ -20,6 +20,7 @@ tracing = "0.1.40"
 derive_builder = "0.20.0"
 serde_with = "3.8.1"
 async-trait = "0.1.80"
+nix = { version = "0.29.0", features = ["signal"] }
 
 [dev-dependencies]
 tracing-test = "0.2.4"
