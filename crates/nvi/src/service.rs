@@ -13,18 +13,15 @@ pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
 #[allow(unused_variables)]
 #[async_trait]
 pub trait NviService: Clone + Send {
-    async fn connected(&mut self, client: &mut NviClient) {}
+    async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+        Ok(())
+    }
 
-    async fn handle_nvim_notification(
-        &mut self,
-        client: &mut NviClient,
-        method: &str,
-        params: &[Value],
-    ) {
+    async fn notification(&mut self, client: &mut NviClient, method: &str, params: &[Value]) {
         warn!("unhandled notification: {:?}", method);
     }
 
-    async fn handle_nvim_request(
+    async fn request(
         &mut self,
         client: &mut NviClient,
         method: &str,
@@ -66,8 +63,9 @@ where
         + Send
         + 'static,
 {
-    async fn connected(&mut self, client: &mut NviClient) {
+    async fn run(&mut self, client: &mut NviClient) -> Result<()> {
         (self.connected_closure)(client).await;
+        Ok(())
     }
 }
 
@@ -113,11 +111,7 @@ where
         let mut client = NviClient::new(client, self.channel_id, self.shutdown_tx.clone());
         let method = method.to_string();
         let params = params.to_vec();
-        Box::pin(async move {
-            vimservice
-                .handle_nvim_request(&mut client, &method, &params)
-                .await
-        })
+        Box::pin(async move { vimservice.request(&mut client, &method, &params).await })
     }
 
     fn handle_notification(
@@ -138,8 +132,8 @@ where
             let shutdown_tx = self.shutdown_tx.clone();
             handle.spawn(async move {
                 vimservice
-                    .connected(&mut NviClient::new(&m_client, channel_id, shutdown_tx))
-                    .await;
+                    .run(&mut NviClient::new(&m_client, channel_id, shutdown_tx))
+                    .await
             });
             return;
         }
@@ -149,7 +143,7 @@ where
         let shutdown_tx = self.shutdown_tx.clone();
         handle.spawn(async move {
             vimservice
-                .handle_nvim_notification(
+                .notification(
                     &mut NviClient::new(&m_client, channel_id, shutdown_tx),
                     &method,
                     &params,

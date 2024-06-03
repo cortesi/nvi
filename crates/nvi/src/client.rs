@@ -107,7 +107,7 @@ mod tests {
     use tokio::sync::broadcast;
     use tracing_test::traced_test;
 
-    use crate::*;
+    use crate::{error::Result, *};
 
     #[tokio::test]
     #[traced_test]
@@ -119,7 +119,7 @@ mod tests {
 
         #[async_trait]
         impl crate::NviService for TestService {
-            async fn connected(&mut self, client: &mut NviClient) {
+            async fn run(&mut self, client: &mut NviClient) -> Result<()> {
                 client
                     .register_method("test_module", "test_fn", &["foo"])
                     .await
@@ -137,9 +137,10 @@ mod tests {
                     .unwrap();
                 assert_eq!(v, Value::from(5));
                 client.shutdown();
+                Ok(())
             }
 
-            async fn handle_nvim_request(
+            async fn request(
                 &mut self,
                 client: &mut NviClient,
                 method: &str,

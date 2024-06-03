@@ -12,7 +12,7 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, error, trace, warn};
 
 use crate::{
-    error::Result,
+    error::{Error, Result},
     service::{ServiceWrapper, BOOTSTRAP_NOTIFICATION},
     NviClient, NviService,
 };
@@ -65,13 +65,16 @@ where
         let stx = shutdown_tx.clone();
         js.spawn(async move {
             let ret = endpoint.await.map_err(|e| e.into());
-            stx.send(()).unwrap();
+            let _ = stx.send(());
             ret
         });
     }
     let _ = shutdown_tx.subscribe().recv().await;
-    js.abort_all();
-    while js.join_next().await.is_some() {}
+    while let Some(ret) = js.join_next().await {
+        ret.map_err(|e| Error::Internal {
+            msg: format!("Error on join: {}", e),
+        })??;
+    }
     Ok(())
 }
 
