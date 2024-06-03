@@ -4,7 +4,7 @@ use futures::io::{self, AsyncRead, AsyncWrite};
 
 use msgpack_rpc::Endpoint;
 use tokio::{
-    net::{TcpStream, UnixStream},
+    net::{TcpListener, TcpStream, UnixListener, UnixStream},
     sync::broadcast,
     task::JoinSet,
 };
@@ -27,6 +27,20 @@ async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: broadcast::Sender<()>) -
         )
         .await?;
     Ok(())
+}
+
+/// A wrapper around connect_stream that doesn't fail.
+pub async fn connect_listener<T, S>(shutdown_tx: broadcast::Sender<()>, stream: S, service: T)
+where
+    S: AsyncRead + AsyncWrite + Send + 'static,
+    T: NviService + Unpin + 'static,
+{
+    trace!("connection started");
+    let err = connect_stream(shutdown_tx, stream, service).await;
+    match err {
+        Ok(_) => trace!("Connection closed"),
+        Err(e) => warn!("Error on connection: {}", e),
+    }
 }
 
 /// Connect on a stream, and return a sender to shutdown the connection.
@@ -96,55 +110,89 @@ where
     .await
 }
 
-pub async fn listen_unix<T, F, P>(path: P, nvi_service_maker: F) -> Result<()>
+pub async fn listen_unix<T, F, P>(
+    shutdown_tx: broadcast::Sender<()>,
+    path: P,
+    nvi_service_maker: F,
+) -> Result<()>
 where
     F: Fn() -> T + Send + 'static,
     T: NviService + Unpin + 'static,
     P: AsRef<Path>,
 {
-    // let (shutdown_tx, _) = mpsc::unbounded_channel();
-    // let listener = UnixListener::bind(path)?;
-    //
-    // let _ = tokio::spawn(async move {
-    //     loop {
-    //         match listener.accept().await {
-    //             Ok((socket, _)) => {
-    //                 let endpoint = Endpoint::new(
-    //                     socket.compat(),
-    //                     ServiceWrapper::new(nvi_service_maker(), shutdown_tx.clone()),
-    //                 );
-    //
-    //                 tokio::spawn(endpoint);
-    //             }
-    //             Err(e) => error!("Error accepting connection: {}", e),
-    //         }
-    //     }
-    // })
-    // .await;
+    let listener = UnixListener::bind(path)?;
+    let mut shutdown_rx = shutdown_tx.subscribe();
+    let _ = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = shutdown_rx.recv() => {
+                    trace!("shutdown signal received, stopping listener.");
+                    break;
+                }
+                result = listener.accept() => {
+                    match result {
+                        Ok((socket, _)) => {
+                            connect_listener(shutdown_tx.clone(), socket.compat(), nvi_service_maker())
+                                .await
+                        }
+                        Err(e) => error!("Error accepting connection: {}", e),
+                    }
+                }
+            }
+        }
+    })
+    .await;
     Ok(())
 }
 
-pub async fn listen_tcp<T, F>(addr: SocketAddr, nvi_service_maker: F) -> io::Result<()>
+// pub async fn listen_unix<T, F, P>(
+//     shutdown_tx: broadcast::Sender<()>,
+//     path: P,
+//     nvi_service_maker: F,
+// ) -> Result<()>
+// where
+//     F: Fn() -> T + Send + 'static,
+//     T: NviService + Unpin + 'static,
+//     P: AsRef<Path>,
+// {
+//     let listener = UnixListener::bind(path)?;
+//     let _ = tokio::spawn(async move {
+//         loop {
+//             match listener.accept().await {
+//                 Ok((socket, _)) => {
+//                     connect_listener(shutdown_tx.clone(), socket.compat(), nvi_service_maker())
+//                         .await
+//                 }
+//                 Err(e) => error!("Error accepting connection: {}", e),
+//             }
+//         }
+//     })
+//     .await;
+//     Ok(())
+// }
+
+pub async fn listen_tcp<T, F>(
+    shutdown_tx: broadcast::Sender<()>,
+    addr: SocketAddr,
+    nvi_service_maker: F,
+) -> io::Result<()>
 where
     F: Fn() -> T + Send + 'static,
     T: NviService + Unpin + 'static,
 {
-    // let (shutdown_tx, _) = mpsc::unbounded_channel();
-    // let listener = TcpListener::bind(&addr).await?;
-    // let _ = tokio::spawn(async move {
-    //     loop {
-    //         match listener.accept().await {
-    //             Ok((socket, _)) => {
-    //                 tokio::spawn(Endpoint::new(
-    //                     socket.compat(),
-    //                     ServiceWrapper::new(nvi_service_maker(), shutdown_tx.clone()),
-    //                 ));
-    //             }
-    //             Err(e) => debug!("Error accepting connection: {}", e),
-    //         }
-    //     }
-    // })
-    // .await;
+    let listener = TcpListener::bind(&addr).await?;
+    let _ = tokio::spawn(async move {
+        loop {
+            match listener.accept().await {
+                Ok((socket, _)) => {
+                    connect_listener(shutdown_tx.clone(), socket.compat(), nvi_service_maker())
+                        .await
+                }
+                Err(e) => debug!("Error accepting connection: {}", e),
+            }
+        }
+    })
+    .await;
     Ok(())
 }
 
@@ -169,11 +217,12 @@ mod tests {
         // to kill the process group.
         let mut oscmd = std::process::Command::new("nvim");
         oscmd
+            .process_group(0)
             .arg("--headless")
             .arg("--clean")
             .arg("--listen")
-            .process_group(0)
             .arg(format!("{}", socket_path.to_string_lossy()));
+        println!("{:?}", oscmd);
         let mut child = Command::from(oscmd).spawn()?;
         let pgid = Pid::from_raw(child.id().unwrap() as i32);
 
@@ -183,6 +232,18 @@ mod tests {
         })?;
         child.wait().await?;
         Ok(())
+    }
+
+    async fn ensure_path(path: &std::path::Path) -> Result<()> {
+        for _ in 0..10 {
+            if path.exists() {
+                return Ok(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        Err(crate::error::Error::IO {
+            msg: "socket never appeared".to_string(),
+        })
     }
 
     async fn test_service<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
@@ -196,23 +257,68 @@ mod tests {
         let srx = shutdown_tx.subscribe();
         let nv = tokio::spawn(async move { start_nvim(srx, sp).await });
 
-        for _ in 0..10 {
-            if socket_path.exists() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-
-        if !socket_path.exists() {
-            return Err(crate::error::Error::IO {
-                msg: "socket never appeared".to_string(),
-            });
-        }
+        ensure_path(&socket_path).await?;
 
         let serv = connect_unix(shutdown_tx, socket_path, nvi);
         serv.await?;
         nv.await.unwrap()?;
         Ok(())
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn it_listens() {
+        let (tx, _) = broadcast::channel(16);
+
+        // Start a listener on a socket
+        let tempdir = tempfile::tempdir().unwrap();
+        let socket_path = tempdir.path().join("listen.socket");
+        let itx = tx.clone();
+        let listener = listen_unix(itx.clone(), socket_path.clone(), move || {
+            let itx = itx.clone();
+            crate::AsyncClosureService::new(move |client| {
+                let itx = itx.clone();
+                Box::pin({
+                    let tx = itx.clone();
+                    async move {
+                        tx.send(()).unwrap();
+                        client.shutdown();
+                    }
+                })
+            })
+        });
+        let ls = tokio::spawn(listener);
+
+        ensure_path(&socket_path).await.unwrap();
+
+        // Now start a nvim instance, and connect to it with a client. Using the client, we
+        // instruct nvim to connect back to the listener.
+        let ts = tokio::spawn(test_service(
+            crate::AsyncClosureService::new(move |c| {
+                let socket_path = socket_path.clone();
+                Box::pin({
+                    async move {
+                        trace!("client connected, sending sockconnect request");
+                        c.api
+                            .nvim_exec_lua(
+                                &format!(
+                                    "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
+                                    socket_path.as_os_str().to_string_lossy()
+                                ),
+                                vec![],
+                            )
+                            .await
+                            .unwrap();
+                    }
+                })
+            }),
+            tx.clone(),
+        ));
+
+        // We only get here if the listener has been connected to, and has sent the termination
+        // signal.
+        ts.await.unwrap().unwrap();
+        ls.await.unwrap().unwrap();
     }
 
     #[tokio::test]
@@ -230,7 +336,6 @@ mod tests {
                 }
             })
         });
-
         test_service(s, rtx).await.unwrap();
     }
 }
