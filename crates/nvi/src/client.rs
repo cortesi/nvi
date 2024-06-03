@@ -1,7 +1,10 @@
 use tokio::sync::broadcast;
 use tracing::trace;
 
-use crate::{error::Result, nvim_api};
+use crate::{
+    error::{Error, Result},
+    nvim_api,
+};
 
 /// A client to Neovim.
 pub struct NviClient {
@@ -29,8 +32,51 @@ impl NviClient {
         }
     }
 
+    /// Register an RPC method for use in Neovim. This sets a globally-avaialable Lua function in
+    /// the under the specified namespace. When this function is called, an RPC message is sent
+    /// back to the current addon. If the method already exists, an error is returned.
+    pub async fn register_method<T>(
+        &mut self,
+        namespace: &str,
+        method: &str,
+        params: &[T],
+    ) -> Result<()>
+    where
+        T: std::string::ToString,
+    {
+        let channel_id = self.channel_id.ok_or_else(|| Error::Internal {
+            msg: "channel_id not set".into(),
+        })?;
+
+        let arg_list = params
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        self.api
+            .nvim_exec_lua(
+                &format!(
+                    "
+                        if not _G.{namespace} then
+                            _G.{namespace} = {{}}
+                        end
+                        if _G.{namespace}.{method} then
+                            error('method already exists: {method}')
+                        end
+                        _G.{namespace}.{method} = function({arg_list})
+                            return vim.rpcrequest({channel_id}, '{method}', {arg_list})
+                        end
+                    "
+                ),
+                vec![],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub fn shutdown(&self) {
-        trace!("shutting down client");
+        trace!("shutdown request from client");
         let _ = self.shutdown_tx.send(());
     }
 
@@ -52,5 +98,65 @@ impl NviClient {
     ) -> Result<(), ()> {
         trace!("send notification: {:?} {:?}", method, params);
         self.m_client.notify(method, params).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+    use tokio::sync::broadcast;
+    use tracing_test::traced_test;
+
+    use crate::*;
+
+    #[tokio::test]
+    #[traced_test]
+    async fn it_registers_method() {
+        let (tx, _) = broadcast::channel(16);
+
+        #[derive(Clone)]
+        struct TestService {}
+
+        #[async_trait]
+        impl crate::NviService for TestService {
+            async fn connected(&mut self, client: &mut NviClient) {
+                client
+                    .register_method("test_module", "test_fn", &["foo"])
+                    .await
+                    .unwrap();
+                // Second call should fail. We don't permit re-registering methods.
+                client
+                    .register_method("test_module", "test_fn", &["foo"])
+                    .await
+                    .unwrap_err();
+
+                let v = client
+                    .api
+                    .nvim_exec_lua("return test_module.test_fn(5)", vec![])
+                    .await
+                    .unwrap();
+                assert_eq!(v, Value::from(5));
+                client.shutdown();
+            }
+
+            async fn handle_nvim_request(
+                &mut self,
+                client: &mut NviClient,
+                method: &str,
+                params: &[Value],
+            ) -> Result<Value, Value> {
+                if method == "test_fn" {
+                    assert_eq!(params.len(), 1);
+                    assert_eq!(params[0], Value::from(5));
+                    Ok(params[0].clone())
+                } else {
+                    client.shutdown();
+                    Err(Value::Nil)
+                }
+            }
+        }
+
+        let rtx = tx.clone();
+        test::test_service(TestService {}, rtx).await.unwrap();
     }
 }

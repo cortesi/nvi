@@ -3,6 +3,7 @@ mod connect;
 pub mod error;
 pub mod nvim_api;
 mod service;
+pub mod test;
 mod types;
 
 pub use client::NviClient;

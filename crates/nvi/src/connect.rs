@@ -30,7 +30,7 @@ async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: broadcast::Sender<()>) -
 }
 
 /// A wrapper around connect_stream that doesn't fail.
-pub async fn connect_listener<T, S>(shutdown_tx: broadcast::Sender<()>, stream: S, service: T)
+async fn connect_listener<T, S>(shutdown_tx: broadcast::Sender<()>, stream: S, service: T)
 where
     S: AsyncRead + AsyncWrite + Send + 'static,
     T: NviService + Unpin + 'static,
@@ -145,32 +145,6 @@ where
     Ok(())
 }
 
-// pub async fn listen_unix<T, F, P>(
-//     shutdown_tx: broadcast::Sender<()>,
-//     path: P,
-//     nvi_service_maker: F,
-// ) -> Result<()>
-// where
-//     F: Fn() -> T + Send + 'static,
-//     T: NviService + Unpin + 'static,
-//     P: AsRef<Path>,
-// {
-//     let listener = UnixListener::bind(path)?;
-//     let _ = tokio::spawn(async move {
-//         loop {
-//             match listener.accept().await {
-//                 Ok((socket, _)) => {
-//                     connect_listener(shutdown_tx.clone(), socket.compat(), nvi_service_maker())
-//                         .await
-//                 }
-//                 Err(e) => error!("Error accepting connection: {}", e),
-//             }
-//         }
-//     })
-//     .await;
-//     Ok(())
-// }
-
 pub async fn listen_tcp<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     addr: SocketAddr,
@@ -200,70 +174,10 @@ where
 mod tests {
     use super::*;
 
-    use nix::sys::signal::{killpg, Signal};
-    use nix::unistd::Pid;
-    use std::os::unix::process::CommandExt;
-    use tokio::{process::Command, sync::broadcast};
+    use tokio::sync::broadcast;
     use tracing_test::traced_test;
 
-    async fn start_nvim(
-        mut termrx: broadcast::Receiver<()>,
-        socket_path: std::path::PathBuf,
-    ) -> Result<()> {
-        // This entire little dance requires explanation. First, neovim spawns a subprocess, so
-        // in order to kill the process, we need to kill the entire process group. Second, tokio's
-        // process group functionality is not stabilized yet, so we construct a
-        // std::process::Command and convert it into a tokio::process::Command. Finally, we use nix
-        // to kill the process group.
-        let mut oscmd = std::process::Command::new("nvim");
-        oscmd
-            .process_group(0)
-            .arg("--headless")
-            .arg("--clean")
-            .arg("--listen")
-            .arg(format!("{}", socket_path.to_string_lossy()));
-        println!("{:?}", oscmd);
-        let mut child = Command::from(oscmd).spawn()?;
-        let pgid = Pid::from_raw(child.id().unwrap() as i32);
-
-        let _ = termrx.recv().await;
-        killpg(pgid, Signal::SIGTERM).map_err(|e| crate::error::Error::Internal {
-            msg: format!("could not kill process group {}", e),
-        })?;
-        child.wait().await?;
-        Ok(())
-    }
-
-    async fn ensure_path(path: &std::path::Path) -> Result<()> {
-        for _ in 0..10 {
-            if path.exists() {
-                return Ok(());
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-        Err(crate::error::Error::IO {
-            msg: "socket never appeared".to_string(),
-        })
-    }
-
-    async fn test_service<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
-    where
-        T: NviService + Unpin + 'static,
-    {
-        let tempdir = tempfile::tempdir()?;
-        let socket_path = tempdir.path().join("nvim.socket");
-
-        let sp = socket_path.clone();
-        let srx = shutdown_tx.subscribe();
-        let nv = tokio::spawn(async move { start_nvim(srx, sp).await });
-
-        ensure_path(&socket_path).await?;
-
-        let serv = connect_unix(shutdown_tx, socket_path, nvi);
-        serv.await?;
-        nv.await.unwrap()?;
-        Ok(())
-    }
+    use crate::test;
 
     #[tokio::test]
     #[traced_test]
@@ -289,11 +203,11 @@ mod tests {
         });
         let ls = tokio::spawn(listener);
 
-        ensure_path(&socket_path).await.unwrap();
+        test::ensure_path(&socket_path).await.unwrap();
 
         // Now start a nvim instance, and connect to it with a client. Using the client, we
         // instruct nvim to connect back to the listener.
-        let ts = tokio::spawn(test_service(
+        let ts = tokio::spawn(test::test_service(
             crate::AsyncClosureService::new(move |c| {
                 let socket_path = socket_path.clone();
                 Box::pin({
@@ -315,10 +229,11 @@ mod tests {
             tx.clone(),
         ));
 
-        // We only get here if the listener has been connected to, and has sent the termination
-        // signal.
         ts.await.unwrap().unwrap();
         ls.await.unwrap().unwrap();
+
+        // We only get here if the listener has been connected to, and has sent the termination
+        // signal.
     }
 
     #[tokio::test]
@@ -336,6 +251,6 @@ mod tests {
                 }
             })
         });
-        test_service(s, rtx).await.unwrap();
+        test::test_service(s, rtx).await.unwrap();
     }
 }
