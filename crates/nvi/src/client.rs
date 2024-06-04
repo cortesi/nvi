@@ -34,7 +34,21 @@ impl NviClient {
 
     /// Register an RPC method for use in Neovim. This sets a globally-avaialable Lua function in
     /// the under the specified namespace. When this function is called, an RPC message is sent
-    /// back to the current addon. If the method already exists, an error is returned.
+    /// back to the current addon.
+    ///
+    /// # Example
+    ///
+    ///     client.register_method("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    ///
+    /// After this call, the following Lua function will be available in Neovim:
+    ///
+    ///   test_module.test_fn(arg1, arg2)
+    ///
+    /// Which can be invoked from Lua like so:
+    ///
+    ///    test_module.test_fn("value", 3)
+    ///
+    /// If the method already exists, an error is returned.
     pub async fn register_method<T>(
         &mut self,
         namespace: &str,
