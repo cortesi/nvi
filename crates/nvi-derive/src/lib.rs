@@ -36,7 +36,7 @@ impl From<Error> for Diagnostic {
 }
 
 /// Arguments to the "command" derive macro.
-#[derive(Debug, Default, StructMeta)]
+#[derive(Debug, Default, StructMeta, Eq, PartialEq)]
 struct MacroArgs {}
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -57,7 +57,7 @@ enum Return {
     Type(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 struct Method {
     name: String,
     docs: String,
@@ -66,7 +66,7 @@ struct Method {
     args: Vec<Arg>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 struct Struct {
     name: String,
     methods: Vec<Method>,
@@ -180,11 +180,13 @@ fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     syn::Type::Path(p) => {
                         arg.typ = p.path.segments.last().unwrap().ident.to_string();
                     }
+                    syn::Type::Reference(p) => {
+                        arg.typ = p.to_token_stream().to_string();
+                    }
                     _ => {
                         return Err(Error::Unsupported(format!(
                             "unsupported argument type {:?} on command: {}",
-                            quote! {#x.typ},
-                            method.sig.ident
+                            x.ty, method.sig.ident
                         )))
                     }
                 }
@@ -374,12 +376,68 @@ mod tests {
             impl TestService {
                 #[rpc_request]
                 /// Some docs
-                fn test_method(&self, a: i32, b: String) -> Result<String> {
+                fn test_method(&self, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
                     Ok(format!("{}:{}", a, b))
                 }
+                #[rpc_request]
+                fn test_void(&self) {}
+                #[rpc_request]
+                fn test_usize(&self) -> usize {}
+                #[rpc_request]
+                fn test_resultvoid(&self) -> Result<()> {}
             }
         };
 
-        println!("{:?}", parse_struct(s));
+        let expected = Struct {
+            name: "TestService".into(),
+            methods: vec![
+                Method {
+                    name: "test_method".into(),
+                    docs: "Some docs".into(),
+                    ret: Return::Result("String".into()),
+                    macro_args: MacroArgs {},
+                    args: vec![
+                        Arg {
+                            name: "a".into(),
+                            typ: "i32".into(),
+                        },
+                        Arg {
+                            name: "b".into(),
+                            typ: "String".into(),
+                        },
+                        Arg {
+                            name: "c".into(),
+                            typ: "& str".into(),
+                        },
+                        Arg {
+                            name: "d".into(),
+                            typ: "Voing".into(),
+                        },
+                    ],
+                },
+                Method {
+                    name: "test_void".into(),
+                    docs: "".into(),
+                    ret: Return::Void,
+                    macro_args: MacroArgs {},
+                    args: vec![],
+                },
+                Method {
+                    name: "test_usize".into(),
+                    docs: "".into(),
+                    ret: Return::Type("usize".into()),
+                    macro_args: MacroArgs {},
+                    args: vec![],
+                },
+                Method {
+                    name: "test_resultvoid".into(),
+                    docs: "".into(),
+                    ret: Return::ResultVoid,
+                    macro_args: MacroArgs {},
+                    args: vec![],
+                },
+            ],
+        };
+        assert!(parse_struct(s).unwrap() == expected);
     }
 }
