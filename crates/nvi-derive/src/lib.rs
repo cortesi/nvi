@@ -35,9 +35,11 @@ impl From<Error> for Diagnostic {
     }
 }
 
-/// Arguments to the "command" derive macro.
-#[derive(Debug, Default, StructMeta, Eq, PartialEq)]
-struct MacroArgs {}
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MessageType {
+    Request,
+    Notification,
+}
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 struct Arg {
@@ -62,7 +64,7 @@ struct Method {
     name: String,
     docs: String,
     ret: Return,
-    macro_args: MacroArgs,
+    message_type: MessageType,
     args: Vec<Arg>,
 }
 
@@ -120,20 +122,13 @@ impl quote::ToTokens for Method {
 
 fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     let mut docs: Vec<String> = vec![];
-    let mut args = None;
+    let mut message_type = None;
 
     for a in &method.attrs {
-        if a.path().is_ident("rpc_request") {
-            let ca = MacroArgs::default();
-            // FIXME: In future, we'd parse macro args here
-            match a.meta {
-                Meta::Path(_) => {}
-                Meta::List(_) => {}
-                Meta::NameValue(_) => {
-                    Err(Error::Parse("invalid command argument".into()))?;
-                }
-            }
-            args = Some(ca);
+        if a.path().is_ident(RPC_REQUEST) {
+            message_type = Some(MessageType::Request);
+        } else if a.path().is_ident(RPC_NOTIFICATION) {
+            message_type = Some(MessageType::Notification);
         } else if a.path().is_ident("doc") {
             match &a.meta {
                 Meta::NameValue(syn::MetaNameValue {
@@ -150,7 +145,7 @@ fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
             }
         }
     }
-    let macroargs = if let Some(a) = args {
+    let message_type = if let Some(a) = message_type {
         a
     } else {
         // This is not a command method
@@ -233,7 +228,7 @@ fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     Ok(Some(Method {
         name: method.sig.ident.to_string(),
         docs: docs.join("\n"),
-        macro_args: macroargs,
+        message_type,
         ret,
         args,
     }))
@@ -319,6 +314,8 @@ pub fn rpc_service(
     out.into()
 }
 
+const RPC_REQUEST: &str = "rpc_request";
+
 /// Mark a method as a command. This macro should be used to decorate methods in
 /// an `impl` block that uses the `derive_commands` macro. A number of optional
 /// arguments can be passed:
@@ -333,6 +330,8 @@ pub fn rpc_request(
 ) -> proc_macro::TokenStream {
     input
 }
+
+const RPC_NOTIFICATION: &str = "rpc_notification";
 
 #[proc_macro_attribute]
 pub fn rpc_notification(
@@ -369,6 +368,7 @@ pub fn derive_statefulnode(input: proc_macro::TokenStream) -> proc_macro::TokenS
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn it_parses_struct() {
@@ -385,6 +385,8 @@ mod tests {
                 fn test_usize(&self) -> usize {}
                 #[rpc_request]
                 fn test_resultvoid(&self) -> Result<()> {}
+                #[rpc_notification]
+                fn test_notification(&self) -> Result<()> {}
             }
         };
 
@@ -395,7 +397,7 @@ mod tests {
                     name: "test_method".into(),
                     docs: "Some docs".into(),
                     ret: Return::Result("String".into()),
-                    macro_args: MacroArgs {},
+                    message_type: MessageType::Request,
                     args: vec![
                         Arg {
                             name: "a".into(),
@@ -419,25 +421,32 @@ mod tests {
                     name: "test_void".into(),
                     docs: "".into(),
                     ret: Return::Void,
-                    macro_args: MacroArgs {},
+                    message_type: MessageType::Request,
                     args: vec![],
                 },
                 Method {
                     name: "test_usize".into(),
                     docs: "".into(),
                     ret: Return::Type("usize".into()),
-                    macro_args: MacroArgs {},
+                    message_type: MessageType::Request,
                     args: vec![],
                 },
                 Method {
                     name: "test_resultvoid".into(),
                     docs: "".into(),
                     ret: Return::ResultVoid,
-                    macro_args: MacroArgs {},
+                    message_type: MessageType::Request,
+                    args: vec![],
+                },
+                Method {
+                    name: "test_notification".into(),
+                    docs: "".into(),
+                    ret: Return::ResultVoid,
+                    message_type: MessageType::Notification,
                     args: vec![],
                 },
             ],
         };
-        assert!(parse_struct(s).unwrap() == expected);
+        assert_eq!(parse_struct(s).unwrap(), expected);
     }
 }
