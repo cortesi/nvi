@@ -13,14 +13,27 @@ pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
 #[allow(unused_variables)]
 #[async_trait]
 pub trait NviService: Clone + Send {
-    async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+    /// Bootstrapping that happens after connecting to the remote service, but before the run
+    /// method is called. This method should execute and exit. Typically, this method will be
+    /// derived with the `nvim_service` annotation.
+    async fn bootstrap(&mut self, client: &mut NviClient) -> Result<()> {
         Ok(())
     }
 
-    async fn notification(&mut self, client: &mut NviClient, method: &str, params: &[Value]) {
+    /// Handle a generic notification from the remote service. Typcially, this method will be
+    /// derived with the `nvim_service` annotation.
+    async fn notification(
+        &mut self,
+        client: &mut NviClient,
+        method: &str,
+        params: &[Value],
+    ) -> Result<()> {
         warn!("unhandled notification: {:?}", method);
+        Ok(())
     }
 
+    /// Handle a generic notification from the remote service. Typcially, this method will be
+    /// derived with the `nvim_service` annotation.
     async fn request(
         &mut self,
         client: &mut NviClient,
@@ -29,6 +42,12 @@ pub trait NviService: Clone + Send {
     ) -> Result<Value, Value> {
         warn!("unhandled request: {:?}", method);
         Err(Value::Nil)
+    }
+
+    /// This method is run on first connecting to the remote service. A loop may be run here that
+    /// persists for the life of the connection.
+    async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -126,11 +145,19 @@ where
         let m_client = client.clone();
         if method == BOOTSTRAP_NOTIFICATION {
             let id = params[0].as_u64().unwrap();
-            trace!("bootstrapped with channel id: {:?}", id);
+            trace!("connected with channel id: {:?}", id);
             self.channel_id = Some(id);
             let channel_id = self.channel_id;
             let shutdown_tx = self.shutdown_tx.clone();
             handle.spawn(async move {
+                vimservice
+                    .bootstrap(&mut NviClient::new(
+                        &m_client,
+                        channel_id,
+                        shutdown_tx.clone(),
+                    ))
+                    .await
+                    .unwrap();
                 vimservice
                     .run(&mut NviClient::new(&m_client, channel_id, shutdown_tx))
                     .await
@@ -142,13 +169,16 @@ where
         let channel_id = self.channel_id;
         let shutdown_tx = self.shutdown_tx.clone();
         handle.spawn(async move {
-            vimservice
+            let r = vimservice
                 .notification(
                     &mut NviClient::new(&m_client, channel_id, shutdown_tx),
                     &method,
                     &params,
                 )
                 .await;
+            if let Err(e) = r {
+                warn!("error handling notification: {:?}", e);
+            }
         });
     }
 }

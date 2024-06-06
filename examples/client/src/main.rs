@@ -11,8 +11,9 @@ impl nvi::NviService for Client {
         _client: &mut nvi::NviClient,
         _method: &str,
         _params: &[nvi::Value],
-    ) {
+    ) -> nvi::error::Result<()> {
         println!("handle_nvim_notification");
+        Ok(())
     }
 
     async fn request(

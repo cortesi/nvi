@@ -32,25 +32,9 @@ impl NviClient {
         }
     }
 
-    /// Register an RPC method for use in Neovim. This sets a globally-avaialable Lua function in
-    /// the under the specified namespace. When this function is called, an RPC message is sent
-    /// back to the current addon.
-    ///
-    /// # Example
-    ///
-    ///     client.register_method("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
-    ///
-    /// After this call, the following Lua function will be available in Neovim:
-    ///
-    ///   test_module.test_fn(arg1, arg2)
-    ///
-    /// Which can be invoked from Lua like so:
-    ///
-    ///    test_module.test_fn("value", 3)
-    ///
-    /// If the method already exists, an error is returned.
-    pub async fn register_method<T>(
+    async fn register_method<T>(
         &mut self,
+        kind: &str,
         namespace: &str,
         method: &str,
         params: &[T],
@@ -79,7 +63,7 @@ impl NviClient {
                             error('method already exists: {method}')
                         end
                         _G.{namespace}.{method} = function({arg_list})
-                            return vim.rpcrequest({channel_id}, '{method}', {arg_list})
+                            return vim.{kind}({channel_id}, '{method}', {arg_list})
                         end
                     "
                 ),
@@ -87,6 +71,66 @@ impl NviClient {
             )
             .await?;
         Ok(())
+    }
+
+    /// Register an RPC request method for use in Neovim. This sets a globally-avaialable Lua
+    /// function in the under the specified namespace. When this function is called, an RPC message
+    /// is sent back to the current addon.
+    ///
+    /// # Example
+    ///
+    ///     client.register_rpcrequest("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    ///
+    /// After this call, the following Lua function will be available in Neovim:
+    ///
+    ///   test_module.test_fn(arg1, arg2)
+    ///
+    /// Which can be invoked from Lua like so:
+    ///
+    ///    test_module.test_fn("value", 3)
+    ///
+    /// If the method already exists, an error is returned.
+    pub async fn register_rpcrequest<T>(
+        &mut self,
+        namespace: &str,
+        method: &str,
+        params: &[T],
+    ) -> Result<()>
+    where
+        T: std::string::ToString,
+    {
+        self.register_method("rpcrequest", namespace, method, params)
+            .await
+    }
+
+    /// Register an RPC notification method for use in Neovim. This sets a globally-avaialable Lua
+    /// function in the under the specified namespace. When this function is called, an RPC message
+    /// is sent back to the current addon.
+    ///
+    /// # Example
+    ///
+    ///     client.register_rpcnotify("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    ///
+    /// After this call, the following Lua function will be available in Neovim:
+    ///
+    ///   test_module.test_fn(arg1, arg2)
+    ///
+    /// Which can be invoked from Lua like so:
+    ///
+    ///    test_module.test_fn("value", 3)
+    ///
+    /// If the method already exists, an error is returned.
+    pub async fn register_rpcnotify<T>(
+        &mut self,
+        namespace: &str,
+        method: &str,
+        params: &[T],
+    ) -> Result<()>
+    where
+        T: std::string::ToString,
+    {
+        self.register_method("rpcnotify", namespace, method, params)
+            .await
     }
 
     pub fn shutdown(&self) {
@@ -125,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     #[traced_test]
-    async fn it_registers_method() {
+    async fn it_registers_request() {
         let (tx, _) = broadcast::channel(16);
 
         #[derive(Clone)]
@@ -135,12 +179,12 @@ mod tests {
         impl crate::NviService for TestService {
             async fn run(&mut self, client: &mut NviClient) -> Result<()> {
                 client
-                    .register_method("test_module", "test_fn", &["foo"])
+                    .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
                     .unwrap();
                 // Second call should fail. We don't permit re-registering methods.
                 client
-                    .register_method("test_module", "test_fn", &["foo"])
+                    .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
                     .unwrap_err();
 
@@ -168,6 +212,56 @@ mod tests {
                     client.shutdown();
                     Err(Value::Nil)
                 }
+            }
+        }
+
+        let rtx = tx.clone();
+        test::test_service(TestService {}, rtx).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn it_registers_notification() {
+        let (tx, _) = broadcast::channel(16);
+
+        #[derive(Clone)]
+        struct TestService {}
+
+        #[async_trait]
+        impl crate::NviService for TestService {
+            async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+                client
+                    .register_rpcnotify("test_module", "test_fn", &["foo"])
+                    .await
+                    .unwrap();
+                // Second call should fail. We don't permit re-registering methods.
+                client
+                    .register_rpcnotify("test_module", "test_fn", &["foo"])
+                    .await
+                    .unwrap_err();
+
+                client
+                    .api
+                    .nvim_exec_lua("return test_module.test_fn(5)", vec![])
+                    .await
+                    .unwrap();
+                client.shutdown();
+                Ok(())
+            }
+
+            async fn notification(
+                &mut self,
+                client: &mut NviClient,
+                method: &str,
+                params: &[Value],
+            ) -> Result<()> {
+                if method == "test_fn" {
+                    assert_eq!(params.len(), 1);
+                    assert_eq!(params[0], Value::from(5));
+                } else {
+                    client.shutdown();
+                }
+                Ok(())
             }
         }
 

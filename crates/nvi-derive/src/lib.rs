@@ -69,15 +69,26 @@ struct Method {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct Struct {
+struct ImplBlock {
     name: String,
     methods: Vec<Method>,
 }
 
 impl Method {
+    fn bootstrap_clause(&self, namespace: &str) -> proc_macro2::TokenStream {
+        let method = self.name.clone();
+        let args = self.args.clone().into_iter().map(|a| a.name.to_string());
+        quote! {
+            client.register_method(#namespace, #method, &[#(#args),*]).await?;
+        }
+    }
+
     /// Output the invocation clause of a match macro
-    fn invocation_clause(&self) -> proc_macro2::TokenStream {
-        quote! {}
+    fn invocation_clause(&self, namespace: &str) -> proc_macro2::TokenStream {
+        let method = self.name.clone();
+        quote! {
+            client.register_method(#namespace, #method).await?;
+        }
         // let ident = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
         //
         // let mut args = vec![];
@@ -120,7 +131,7 @@ impl quote::ToTokens for Method {
     }
 }
 
-fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
+fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     let mut docs: Vec<String> = vec![];
     let mut message_type = None;
 
@@ -145,6 +156,7 @@ fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
             }
         }
     }
+
     let message_type = if let Some(a) = message_type {
         a
     } else {
@@ -234,95 +246,119 @@ fn parse_command_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     }))
 }
 
-fn parse_struct(input: proc_macro2::TokenStream) -> Result<Struct> {
+/// Parse an impl block, and extract the methods marked with the `rpc_request` or
+/// `rpc_notification`.
+fn parse_impl(input: proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlock)> {
     let v = syn::parse2::<syn::ItemImpl>(input)?;
-
     let tp = match *v.clone().self_ty {
         syn::Type::Path(p) => p,
         _ => panic!("unexpected input"),
     };
 
     let name = tp.path.segments[0].ident.to_string();
-    let (impl_generics, _, where_clause) = v.generics.split_for_impl();
 
     let mut methods = vec![];
-    for i in v.items {
+    for i in &v.items {
         if let syn::ImplItem::Fn(m) = i {
-            if let Some(command) = parse_command_method(&m)? {
+            if let Some(command) = parse_method(m)? {
                 methods.push(command);
             }
         }
     }
-    Ok(Struct { name, methods })
+    Ok((v, ImplBlock { name, methods }))
 }
 
-/// Derive an implementation of the `CommandNode` trait. This macro should be added
-/// to the impl block of a struct. All methods that are annotated with `command`
-/// are added as commands, with their doc comments as the command documentation.
+fn inner_rpc_service(
+    _attr: proc_macro2::TokenStream,
+    input: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    let (mut output, imp) = parse_impl(input).unwrap_or_abort();
+
+    let bootstraps: Vec<proc_macro2::TokenStream> = imp
+        .methods
+        .iter()
+        .map(|x| x.bootstrap_clause(&imp.name))
+        .collect();
+
+    let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
+    quote! {
+        #output
+
+        impl nvi::NviService for #name {
+            async fn bootstrap(&mut self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
+                #(#bootstraps)*
+                Ok(())
+            }
+
+        }
+    }
+    .to_token_stream()
+}
+
+/// Add this attribute to the *impl* block for the `NviService` trait to derive implementations for
+/// the `message` and `notification` methods.
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn rpc_service(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as syn::ItemImpl);
+    inner_rpc_service(_attr.into(), input.into()).into()
 
-    let tp = match *input.clone().self_ty {
-        syn::Type::Path(p) => p,
-        _ => panic!("unexpected input"),
-    };
+    // let input = parse_macro_input!(input as syn::ItemImpl);
+    //
+    // let tp = match *input.clone().self_ty {
+    //     syn::Type::Path(p) => p,
+    //     _ => panic!("unexpected input"),
+    // };
+    //
+    // // The default node name
+    // let node_name = tp.path.segments[0].ident.to_string();
+    //
+    // let orig = input.clone();
+    // let name = input.self_ty;
+    // let (impl_generics, _, where_clause) = input.generics.split_for_impl();
+    //
+    // let mut commands = vec![];
+    // for i in input.items {
+    //     if let syn::ImplItem::Fn(m) = i {
+    //         if let Some(command) = parse_method(&m).unwrap_or_abort() {
+    //             commands.push(command);
+    //         }
+    //     }
+    // }
+    //
+    // let invocations: Vec<proc_macro2::TokenStream> =
+    //     commands.iter().map(|x| x.invocation_clause()).collect();
+    //
+    // let expanded = quote! {
+    //     impl #impl_generics canopy::commands::CommandNode for #name #where_clause {
+    //         fn commands() -> Vec<canopy::commands::CommandSpec> {
+    //             vec![#(#commands),*]
+    //         }
+    //         fn dispatch(&mut self, core: &mut dyn canopy::Context, cmd: &canopy::commands::CommandInvocation) -> canopy::Result<canopy::commands::ReturnValue> {
+    //             if cmd.node != self.name() {
+    //                 return Err(canopy::Error::UnknownCommand(cmd.command.to_string()));
+    //             }
+    //             match cmd.command.as_str() {
+    //                 #(#invocations),*
+    //                 _ => Err(canopy::Error::UnknownCommand(cmd.command.to_string()))
+    //             }
+    //         }
+    //     }
+    // };
+    // let out = quote! {
+    //     #orig
+    //     #expanded
+    // };
+    //
 
-    // The default node name
-    let node_name = tp.path.segments[0].ident.to_string();
-
-    let orig = input.clone();
-    let name = input.self_ty;
-    let (impl_generics, _, where_clause) = input.generics.split_for_impl();
-
-    let mut commands = vec![];
-    for i in input.items {
-        if let syn::ImplItem::Fn(m) = i {
-            if let Some(command) = parse_command_method(&m).unwrap_or_abort() {
-                commands.push(command);
-            }
-        }
-    }
-
-    let invocations: Vec<proc_macro2::TokenStream> =
-        commands.iter().map(|x| x.invocation_clause()).collect();
-
-    let expanded = quote! {
-        impl #impl_generics canopy::commands::CommandNode for #name #where_clause {
-            fn commands() -> Vec<canopy::commands::CommandSpec> {
-                vec![#(#commands),*]
-            }
-            fn dispatch(&mut self, core: &mut dyn canopy::Context, cmd: &canopy::commands::CommandInvocation) -> canopy::Result<canopy::commands::ReturnValue> {
-                if cmd.node != self.name() {
-                    return Err(canopy::Error::UnknownCommand(cmd.command.to_string()));
-                }
-                match cmd.command.as_str() {
-                    #(#invocations),*
-                    _ => Err(canopy::Error::UnknownCommand(cmd.command.to_string()))
-                }
-            }
-        }
-    };
-    let out = quote! {
-        #orig
-        #expanded
-    };
-    out.into()
+    // output.to_token_stream().into()
 }
 
 const RPC_REQUEST: &str = "rpc_request";
 
-/// Mark a method as a command. This macro should be used to decorate methods in
-/// an `impl` block that uses the `derive_commands` macro. A number of optional
-/// arguments can be passed:
-///
-/// - `ignore_result` tells Canopy that the return value of the method should
-///   not be exposed through the command mechanism. This is useful for dual-use
-///   methods that may return values when called from Rust.
+/// Mark a method as an RPC request.
 #[proc_macro_attribute]
 pub fn rpc_request(
     _attr: proc_macro::TokenStream,
@@ -333,36 +369,14 @@ pub fn rpc_request(
 
 const RPC_NOTIFICATION: &str = "rpc_notification";
 
+/// Mark a method as an RPC notification. Notification methods do not return a value,
+/// so must return `Result<()>` or be void.
 #[proc_macro_attribute]
 pub fn rpc_notification(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     input
-}
-
-/// Derive an implementation of the StatefulNode trait for a struct. The struct
-/// should have a `self.state` attribute of type `NodeState`.
-#[proc_macro_derive(StatefulNode)]
-pub fn derive_statefulnode(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let rname = name.to_string();
-    let expanded = quote! {
-        impl #impl_generics canopy::StatefulNode for #name #ty_generics #where_clause {
-            fn state_mut(&mut self) -> &mut canopy::NodeState {
-                &mut self.state
-            }
-            fn state(&self) -> &canopy::NodeState {
-                &self.state
-            }
-            fn name(&self) -> canopy::NodeName {
-                canopy::NodeName::convert(#rname)
-            }
-        }
-    };
-    proc_macro::TokenStream::from(expanded)
 }
 
 #[cfg(test)]
@@ -373,7 +387,7 @@ mod tests {
     #[test]
     fn it_parses_struct() {
         let s = quote! {
-            impl TestService {
+            impl <T>TestService for Test<T> {
                 #[rpc_request]
                 /// Some docs
                 fn test_method(&self, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
@@ -387,11 +401,15 @@ mod tests {
                 fn test_resultvoid(&self) -> Result<()> {}
                 #[rpc_notification]
                 fn test_notification(&self) -> Result<()> {}
+
+                fn skip(&self) {
+                    println!("skipping");
+                }
             }
         };
 
-        let expected = Struct {
-            name: "TestService".into(),
+        let expected = ImplBlock {
+            name: "Test".into(),
             methods: vec![
                 Method {
                     name: "test_method".into(),
@@ -447,6 +465,40 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(parse_struct(s).unwrap(), expected);
+        let (_, ret) = parse_impl(s).unwrap();
+        assert_eq!(ret, expected);
+    }
+
+    #[test]
+    fn it_renders_service() {
+        use rust_format::{Formatter, RustFmt};
+
+        let s = quote! {
+            impl <T>TestService for Test<T> {
+                #[rpc_request]
+                /// Some docs
+                fn test_method(&self, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
+                    Ok(format!("{}:{}", a, b))
+                }
+                #[rpc_request]
+                fn test_void(&self) {}
+                #[rpc_request]
+                fn test_usize(&self) -> usize {}
+                #[rpc_request]
+                fn test_resultvoid(&self) -> Result<()> {}
+                #[rpc_notification]
+                fn test_notification(&self) -> Result<()> {}
+
+                fn skip(&self) {
+                    println!("skipping");
+                }
+            }
+        };
+        println!(
+            "{}",
+            RustFmt::default()
+                .format_tokens(inner_rpc_service(quote! {}, s))
+                .unwrap()
+        );
     }
 }
