@@ -79,15 +79,15 @@ impl NviClient {
     ///
     /// # Example
     ///
-    ///     client.register_rpcrequest("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    /// client.register_rpcrequest("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
     ///
     /// After this call, the following Lua function will be available in Neovim:
     ///
-    ///   test_module.test_fn(arg1, arg2)
+    /// test_module.test_fn(arg1, arg2)
     ///
     /// Which can be invoked from Lua like so:
     ///
-    ///    test_module.test_fn("value", 3)
+    /// test_module.test_fn("value", 3)
     ///
     /// If the method already exists, an error is returned.
     pub async fn register_rpcrequest<T>(
@@ -109,15 +109,15 @@ impl NviClient {
     ///
     /// # Example
     ///
-    ///     client.register_rpcnotify("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    /// client.register_rpcnotify("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
     ///
     /// After this call, the following Lua function will be available in Neovim:
     ///
-    ///   test_module.test_fn(arg1, arg2)
+    /// test_module.test_fn(arg1, arg2)
     ///
     /// Which can be invoked from Lua like so:
     ///
-    ///    test_module.test_fn("value", 3)
+    /// test_module.test_fn("value", 3)
     ///
     /// If the method already exists, an error is returned.
     pub async fn register_rpcnotify<T>(

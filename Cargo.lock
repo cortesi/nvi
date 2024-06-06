@@ -722,6 +722,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rust-format",
+ "serde-rmpv",
  "structmeta",
  "syn 2.0.66",
  "thiserror",

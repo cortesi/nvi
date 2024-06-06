@@ -2,9 +2,9 @@ use std::pin::Pin;
 
 use async_trait::async_trait;
 use futures::Future;
-use msgpack_rpc::Value;
+pub use msgpack_rpc::Value;
 use tokio::{runtime::Handle, sync::broadcast};
-use tracing::{trace, warn};
+pub use tracing::{info, trace, warn};
 
 use crate::{client::NviClient, error::Result};
 

@@ -77,57 +77,80 @@ struct ImplBlock {
 impl Method {
     fn bootstrap_clause(&self, namespace: &str) -> proc_macro2::TokenStream {
         let method = self.name.clone();
-        let args = self.args.clone().into_iter().map(|a| a.name.to_string());
-        quote! {
-            client.register_method(#namespace, #method, &[#(#args),*]).await?;
+        if self.args.is_empty() {
+            // If we have no arguments, we must satisfy the compiler by specifying a gneric type
+            // for the empty array.
+            if self.message_type == MessageType::Notification {
+                quote! {
+                    client.register_rpcnotify::<String>(#namespace, #method, &[]).await?;
+                }
+            } else {
+                quote! {
+                    client.register_rpcrequest::<String>(#namespace, #method, &[]).await?;
+                }
+            }
+        } else {
+            let args = self.args.clone().into_iter().map(|a| a.name.to_string());
+            if self.message_type == MessageType::Notification {
+                quote! {
+                    client.register_rpcnotify(#namespace, #method, &[#(#args),*]).await?;
+                }
+            } else {
+                quote! {
+                    client.register_rpcrequest(#namespace, #method, &[#(#args),*]).await?;
+                }
+            }
         }
     }
 
     /// Output the invocation clause of a match macro
-    fn invocation_clause(&self, namespace: &str) -> proc_macro2::TokenStream {
-        let method = self.name.clone();
-        quote! {
-            client.register_method(#namespace, #method).await?;
+    fn message_invocation_clause(&self) -> proc_macro2::TokenStream {
+        let name = self.name.clone();
+        let method = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
+        let mut args = vec![];
+        for (idx, _) in self.args.iter().enumerate() {
+            let a = quote! {
+                serde_rmpv::from_value(&params[#idx])
+                    .map_err(|e| nvi::Value::from(format!("{}", e)))?
+            };
+            args.push(a);
         }
-        // let ident = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
-        //
-        // let mut args = vec![];
-        // for (i, a) in self.args.iter().enumerate() {
-        //     args.push(quote! {core});
-        // }
-        //
-        // let mut inv = if self.ret.result {
-        //     quote! {let s = self.#ident (#(#args),*) ?;}
-        // } else {
-        //     quote! {let s = self.#ident (#(#args),*) ;}
-        // };
-        //
-        // // match self.ret.typ {
-        // //     ReturnTypes::Void => inv.extend(quote! {Ok(canopy::commands::ReturnValue::Void)}),
-        // //     ReturnTypes::String => {
-        // //         inv.extend(quote! {Ok(canopy::commands::ReturnValue::String(s))})
-        // //     }
-        // // };
-        //
-        // let command = &self.name;
-        // quote! { #command => { #inv } }
-    }
-}
 
-impl quote::ToTokens for Method {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        // let command = &self.name;
-        // let docs = &self.docs;
-        // let ret = &self.ret;
-        // let args = &self.args;
+        let inv = match self.ret {
+            Return::Void => {
+                quote! {
+                        self.#method(client, #(#args),*).await;
+                        nvi::Value::Nil
+                }
+            }
+            Return::ResultVoid => {
+                quote! {
+                        self.#method(client, #(#args),*).await.map_err(|e| nvi::Value::from(format!("{}", e)))?;
+                        nvi::Value::Nil
+                }
+            }
+            Return::Result(_) => {
+                quote! {
+                        serde_rmpv::to_value(
+                            &self.#method(client, #(#args),*).await
+                                .map_err(|e| nvi::Value::from(format!("{}", e)))?
+                        ).map_err(|e| nvi::Value::from(format!("{}", e)))?
+                }
+            }
+            Return::Type(_) => {
+                quote! {
+                        serde_rmpv::to_value(
+                            &elf.#method(client, #(#args),*).await
+                        ).map_err(|e| nvi::Value::from(format!("{}", e)))?
+                }
+            }
+        };
 
-        tokens.extend(quote! {canopy::commands::CommandSpec {
-            // node: canopy::NodeName::convert(#node_name),
-            // command: #command.to_string(),
-            // docs: #docs.to_string(),
-            // ret: #ret,
-            // args: vec![#(#args),*]
-        }})
+        quote! {
+            #name => {
+                #inv
+            }
+        }
     }
 }
 
@@ -202,6 +225,23 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
+    if args.is_empty() {
+        return Err(Error::Unsupported(format!(
+            "no arguments on command: {}",
+            method.sig.ident
+        )));
+    }
+
+    let first = args.first().unwrap();
+    if first.name != "client" {
+        return Err(Error::Unsupported(format!(
+            "first argument must be `client` on command: {}",
+            method.sig.ident
+        )));
+    }
+
+    let args = args.into_iter().skip(1).collect::<Vec<_>>();
+
     let ret = match &method.sig.output {
         syn::ReturnType::Default => Return::Void,
         syn::ReturnType::Type(_, ty) => match &**ty {
@@ -268,11 +308,12 @@ fn parse_impl(input: proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlo
     Ok((v, ImplBlock { name, methods }))
 }
 
+// Extract this to ease testing, since proc_macro::TokenStream can't cross proc-macro boundaries.
 fn inner_rpc_service(
     _attr: proc_macro2::TokenStream,
     input: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let (mut output, imp) = parse_impl(input).unwrap_or_abort();
+    let (output, imp) = parse_impl(input).unwrap_or_abort();
 
     let bootstraps: Vec<proc_macro2::TokenStream> = imp
         .methods
@@ -280,15 +321,40 @@ fn inner_rpc_service(
         .map(|x| x.bootstrap_clause(&imp.name))
         .collect();
 
+    let request_invocations: Vec<proc_macro2::TokenStream> = imp
+        .methods
+        .iter()
+        .filter(|x| x.message_type == MessageType::Request)
+        .map(|x| x.message_invocation_clause())
+        .collect();
+
     let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
     quote! {
         #output
 
+        #[async_trait::async_trait]
         impl nvi::NviService for #name {
             async fn bootstrap(&mut self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
                 #(#bootstraps)*
                 Ok(())
             }
+
+            async fn request(
+                &mut self,
+                client: &mut nvi::NviClient,
+                method: &str,
+                params: &[nvi::Value],
+            ) -> nvi::error::Result<nvi::Value, nvi::Value> {
+                Ok(
+                    match method {
+                        #(#request_invocations),*
+                        _ => {
+                            nvi::error::Result::Err(nvi::Value::from("unknown method"))?
+                        }
+                    }
+                )
+            }
+
 
         }
     }
@@ -367,12 +433,12 @@ pub fn rpc_request(
     input
 }
 
-const RPC_NOTIFICATION: &str = "rpc_notification";
+const RPC_NOTIFICATION: &str = "rpc_notify";
 
 /// Mark a method as an RPC notification. Notification methods do not return a value,
 /// so must return `Result<()>` or be void.
 #[proc_macro_attribute]
-pub fn rpc_notification(
+pub fn rpc_notify(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -390,19 +456,19 @@ mod tests {
             impl <T>TestService for Test<T> {
                 #[rpc_request]
                 /// Some docs
-                fn test_method(&self, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
+                fn test_method(&self, client: &mut nvi::NviClient, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
                     Ok(format!("{}:{}", a, b))
                 }
                 #[rpc_request]
-                fn test_void(&self) {}
+                fn test_void(&self, client: &mut nvi::NviClient) {}
                 #[rpc_request]
-                fn test_usize(&self) -> usize {}
+                fn test_usize(&self, client: &mut nvi::NviClient) -> usize {}
                 #[rpc_request]
-                fn test_resultvoid(&self) -> Result<()> {}
-                #[rpc_notification]
-                fn test_notification(&self) -> Result<()> {}
+                fn test_resultvoid(&self, client: &mut nvi::NviClient) -> Result<()> {}
+                #[rpc_notify]
+                fn test_notification(&self, client: &mut nvi::NviClient) -> Result<()> {}
 
-                fn skip(&self) {
+                fn skip(&self, client: &mut nvi::NviClient) {
                     println!("skipping");
                 }
             }
@@ -477,17 +543,56 @@ mod tests {
             impl <T>TestService for Test<T> {
                 #[rpc_request]
                 /// Some docs
-                fn test_method(&self, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
+                async fn test_method(&self, client: &mut nvi::NviClient, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
                     Ok(format!("{}:{}", a, b))
                 }
                 #[rpc_request]
-                fn test_void(&self) {}
+                async fn test_void(&self, client: &mut nvi::NviClient) {}
                 #[rpc_request]
-                fn test_usize(&self) -> usize {}
+                async fn test_usize(&self, client: &mut nvi::NviClient) -> usize {}
                 #[rpc_request]
-                fn test_resultvoid(&self) -> Result<()> {}
+                async fn test_resultvoid(&self, client: &mut nvi::NviClient) -> Result<()> {}
                 #[rpc_notification]
-                fn test_notification(&self) -> Result<()> {}
+                async fn test_notification(&self, client: &mut nvi::NviClient) -> Result<()> {}
+
+                fn skip(&self) {
+                    println!("skipping");
+                }
+            }
+        };
+        println!(
+            "{}",
+            RustFmt::default()
+                .format_tokens(inner_rpc_service(quote! {}, s))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn it_renders_simple_service() {
+        use rust_format::{Formatter, RustFmt};
+
+        let s = quote! {
+            impl Test {
+                #[rpc_request]
+                /// Some docs
+                async fn test_method(&self, client: &mut nvi::NviClient, a: i32, b: String, c: &str) -> nvi::error::Result<String> {
+                    Ok(format!("{}:{}", a, b))
+                }
+                #[rpc_request]
+                async fn test_void(&self, client: &mut nvi::NviClient) {}
+                #[rpc_request]
+                async fn test_usize(&self, client: &mut nvi::NviClient) -> usize {
+                    0
+                }
+                #[rpc_request]
+                async fn test_resultvoid(&self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+                #[rpc_notify]
+                async fn test_notification(&self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
+                    Ok(())
+                }
 
                 fn skip(&self) {
                     println!("skipping");
