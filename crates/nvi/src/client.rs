@@ -249,7 +249,7 @@ mod tests {
                 Ok(())
             }
 
-            async fn notification(
+            async fn notify(
                 &mut self,
                 client: &mut Client,
                 method: &str,

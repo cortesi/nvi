@@ -6,7 +6,7 @@ struct Client {}
 
 #[async_trait]
 impl nvi::NviService for Client {
-    async fn notification(
+    async fn notify(
         &mut self,
         _client: &mut nvi::Client,
         _method: &str,

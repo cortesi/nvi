@@ -22,17 +22,12 @@ pub trait NviService: Clone + Send {
 
     /// Handle a generic notification from the remote service. Typcially, this method will be
     /// derived with the `nvim_service` annotation.
-    async fn notification(
-        &mut self,
-        client: &mut Client,
-        method: &str,
-        params: &[Value],
-    ) -> Result<()> {
+    async fn notify(&mut self, client: &mut Client, method: &str, params: &[Value]) -> Result<()> {
         warn!("unhandled notification: {:?}", method);
         Ok(())
     }
 
-    /// Handle a generic notification from the remote service. Typcially, this method will be
+    /// Handle a generic request from the remote service. Typcially, this method will be
     /// derived with the `nvim_service` annotation.
     async fn request(
         &mut self,
@@ -166,7 +161,7 @@ where
         let shutdown_tx = self.shutdown_tx.clone();
         handle.spawn(async move {
             let r = vimservice
-                .notification(
+                .notify(
                     &mut Client::new(&m_client, channel_id, shutdown_tx),
                     &method,
                     &params,
