@@ -2,8 +2,7 @@ use std::vec;
 
 use proc_macro_error::*;
 use quote::{quote, ToTokens};
-use structmeta::StructMeta;
-use syn::{parse_macro_input, DeriveInput, Meta};
+use syn::Meta;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -309,7 +308,7 @@ fn parse_impl(input: proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlo
 }
 
 // Extract this to ease testing, since proc_macro::TokenStream can't cross proc-macro boundaries.
-fn inner_rpc_service(
+fn inner_nvi_service(
     _attr: proc_macro2::TokenStream,
     input: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
@@ -334,14 +333,14 @@ fn inner_rpc_service(
 
         #[async_trait::async_trait]
         impl nvi::NviService for #name {
-            async fn bootstrap(&mut self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
+            async fn bootstrap(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                 #(#bootstraps)*
                 Ok(())
             }
 
             async fn request(
                 &mut self,
-                client: &mut nvi::NviClient,
+                client: &mut nvi::Client,
                 method: &str,
                 params: &[nvi::Value],
             ) -> nvi::error::Result<nvi::Value, nvi::Value> {
@@ -365,61 +364,11 @@ fn inner_rpc_service(
 /// the `message` and `notification` methods.
 #[proc_macro_error]
 #[proc_macro_attribute]
-pub fn rpc_service(
+pub fn nvi_service(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    inner_rpc_service(_attr.into(), input.into()).into()
-
-    // let input = parse_macro_input!(input as syn::ItemImpl);
-    //
-    // let tp = match *input.clone().self_ty {
-    //     syn::Type::Path(p) => p,
-    //     _ => panic!("unexpected input"),
-    // };
-    //
-    // // The default node name
-    // let node_name = tp.path.segments[0].ident.to_string();
-    //
-    // let orig = input.clone();
-    // let name = input.self_ty;
-    // let (impl_generics, _, where_clause) = input.generics.split_for_impl();
-    //
-    // let mut commands = vec![];
-    // for i in input.items {
-    //     if let syn::ImplItem::Fn(m) = i {
-    //         if let Some(command) = parse_method(&m).unwrap_or_abort() {
-    //             commands.push(command);
-    //         }
-    //     }
-    // }
-    //
-    // let invocations: Vec<proc_macro2::TokenStream> =
-    //     commands.iter().map(|x| x.invocation_clause()).collect();
-    //
-    // let expanded = quote! {
-    //     impl #impl_generics canopy::commands::CommandNode for #name #where_clause {
-    //         fn commands() -> Vec<canopy::commands::CommandSpec> {
-    //             vec![#(#commands),*]
-    //         }
-    //         fn dispatch(&mut self, core: &mut dyn canopy::Context, cmd: &canopy::commands::CommandInvocation) -> canopy::Result<canopy::commands::ReturnValue> {
-    //             if cmd.node != self.name() {
-    //                 return Err(canopy::Error::UnknownCommand(cmd.command.to_string()));
-    //             }
-    //             match cmd.command.as_str() {
-    //                 #(#invocations),*
-    //                 _ => Err(canopy::Error::UnknownCommand(cmd.command.to_string()))
-    //             }
-    //         }
-    //     }
-    // };
-    // let out = quote! {
-    //     #orig
-    //     #expanded
-    // };
-    //
-
-    // output.to_token_stream().into()
+    inner_nvi_service(_attr.into(), input.into()).into()
 }
 
 const RPC_REQUEST: &str = "rpc_request";
@@ -456,19 +405,19 @@ mod tests {
             impl <T>TestService for Test<T> {
                 #[rpc_request]
                 /// Some docs
-                fn test_method(&self, client: &mut nvi::NviClient, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
+                fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
                     Ok(format!("{}:{}", a, b))
                 }
                 #[rpc_request]
-                fn test_void(&self, client: &mut nvi::NviClient) {}
+                fn test_void(&self, client: &mut nvi::Client) {}
                 #[rpc_request]
-                fn test_usize(&self, client: &mut nvi::NviClient) -> usize {}
+                fn test_usize(&self, client: &mut nvi::Client) -> usize {}
                 #[rpc_request]
-                fn test_resultvoid(&self, client: &mut nvi::NviClient) -> Result<()> {}
+                fn test_resultvoid(&self, client: &mut nvi::Client) -> Result<()> {}
                 #[rpc_notify]
-                fn test_notification(&self, client: &mut nvi::NviClient) -> Result<()> {}
+                fn test_notification(&self, client: &mut nvi::Client) -> Result<()> {}
 
-                fn skip(&self, client: &mut nvi::NviClient) {
+                fn skip(&self, client: &mut nvi::Client) {
                     println!("skipping");
                 }
             }
@@ -543,17 +492,17 @@ mod tests {
             impl <T>TestService for Test<T> {
                 #[rpc_request]
                 /// Some docs
-                async fn test_method(&self, client: &mut nvi::NviClient, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
+                async fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
                     Ok(format!("{}:{}", a, b))
                 }
                 #[rpc_request]
-                async fn test_void(&self, client: &mut nvi::NviClient) {}
+                async fn test_void(&self, client: &mut nvi::Client) {}
                 #[rpc_request]
-                async fn test_usize(&self, client: &mut nvi::NviClient) -> usize {}
+                async fn test_usize(&self, client: &mut nvi::Client) -> usize {}
                 #[rpc_request]
-                async fn test_resultvoid(&self, client: &mut nvi::NviClient) -> Result<()> {}
+                async fn test_resultvoid(&self, client: &mut nvi::Client) -> Result<()> {}
                 #[rpc_notification]
-                async fn test_notification(&self, client: &mut nvi::NviClient) -> Result<()> {}
+                async fn test_notification(&self, client: &mut nvi::Client) -> Result<()> {}
 
                 fn skip(&self) {
                     println!("skipping");
@@ -563,7 +512,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_rpc_service(quote! {}, s))
+                .format_tokens(inner_nvi_service(quote! {}, s))
                 .unwrap()
         );
     }
@@ -576,21 +525,21 @@ mod tests {
             impl Test {
                 #[rpc_request]
                 /// Some docs
-                async fn test_method(&self, client: &mut nvi::NviClient, a: i32, b: String, c: &str) -> nvi::error::Result<String> {
+                async fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str) -> nvi::error::Result<String> {
                     Ok(format!("{}:{}", a, b))
                 }
                 #[rpc_request]
-                async fn test_void(&self, client: &mut nvi::NviClient) {}
+                async fn test_void(&self, client: &mut nvi::Client) {}
                 #[rpc_request]
-                async fn test_usize(&self, client: &mut nvi::NviClient) -> usize {
+                async fn test_usize(&self, client: &mut nvi::Client) -> usize {
                     0
                 }
                 #[rpc_request]
-                async fn test_resultvoid(&self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
+                async fn test_resultvoid(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                     Ok(())
                 }
                 #[rpc_notify]
-                async fn test_notification(&self, client: &mut nvi::NviClient) -> nvi::error::Result<()> {
+                async fn test_notification(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                     Ok(())
                 }
 
@@ -602,7 +551,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_rpc_service(quote! {}, s))
+                .format_tokens(inner_nvi_service(quote! {}, s))
                 .unwrap()
         );
     }

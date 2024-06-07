@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// A client to Neovim.
-pub struct NviClient {
+pub struct Client {
     pub(crate) m_client: msgpack_rpc::Client,
     /// The compiled API for Neovim.
     pub api: nvim_api::NvimApi,
@@ -16,13 +16,13 @@ pub struct NviClient {
     pub channel_id: Option<u64>,
 }
 
-impl NviClient {
+impl Client {
     pub fn new(
         client: &msgpack_rpc::Client,
         channel_id: Option<u64>,
         shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
-        NviClient {
+        Client {
             m_client: client.clone(),
             api: nvim_api::NvimApi {
                 m_client: client.clone(),
@@ -177,7 +177,7 @@ mod tests {
 
         #[async_trait]
         impl crate::NviService for TestService {
-            async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+            async fn run(&mut self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
@@ -200,7 +200,7 @@ mod tests {
 
             async fn request(
                 &mut self,
-                client: &mut NviClient,
+                client: &mut Client,
                 method: &str,
                 params: &[Value],
             ) -> Result<Value, Value> {
@@ -229,7 +229,7 @@ mod tests {
 
         #[async_trait]
         impl crate::NviService for TestService {
-            async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+            async fn run(&mut self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcnotify("test_module", "test_fn", &["foo"])
                     .await
@@ -251,7 +251,7 @@ mod tests {
 
             async fn notification(
                 &mut self,
-                client: &mut NviClient,
+                client: &mut Client,
                 method: &str,
                 params: &[Value],
             ) -> Result<()> {

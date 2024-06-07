@@ -8,7 +8,7 @@ struct Client {}
 impl nvi::NviService for Client {
     async fn notification(
         &mut self,
-        _client: &mut nvi::NviClient,
+        _client: &mut nvi::Client,
         _method: &str,
         _params: &[nvi::Value],
     ) -> nvi::error::Result<()> {
@@ -18,7 +18,7 @@ impl nvi::NviService for Client {
 
     async fn request(
         &mut self,
-        client: &mut nvi::NviClient,
+        client: &mut nvi::Client,
         _method: &str,
         _params: &[nvi::Value],
     ) -> Result<nvi::Value, nvi::Value> {

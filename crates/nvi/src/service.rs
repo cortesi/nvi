@@ -6,7 +6,7 @@ pub use msgpack_rpc::Value;
 use tokio::{runtime::Handle, sync::broadcast};
 pub use tracing::{info, trace, warn};
 
-use crate::{client::NviClient, error::Result};
+use crate::{client::Client, error::Result};
 
 pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
 
@@ -16,7 +16,7 @@ pub trait NviService: Clone + Send {
     /// Bootstrapping that happens after connecting to the remote service, but before the run
     /// method is called. This method should execute and exit. Typically, this method will be
     /// derived with the `nvim_service` annotation.
-    async fn bootstrap(&mut self, client: &mut NviClient) -> Result<()> {
+    async fn bootstrap(&mut self, client: &mut Client) -> Result<()> {
         Ok(())
     }
 
@@ -24,7 +24,7 @@ pub trait NviService: Clone + Send {
     /// derived with the `nvim_service` annotation.
     async fn notification(
         &mut self,
-        client: &mut NviClient,
+        client: &mut Client,
         method: &str,
         params: &[Value],
     ) -> Result<()> {
@@ -36,7 +36,7 @@ pub trait NviService: Clone + Send {
     /// derived with the `nvim_service` annotation.
     async fn request(
         &mut self,
-        client: &mut NviClient,
+        client: &mut Client,
         method: &str,
         params: &[Value],
     ) -> Result<Value, Value> {
@@ -46,7 +46,7 @@ pub trait NviService: Clone + Send {
 
     /// This method is run on first connecting to the remote service. A loop may be run here that
     /// persists for the life of the connection.
-    async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+    async fn run(&mut self, client: &mut Client) -> Result<()> {
         Ok(())
     }
 }
@@ -54,7 +54,7 @@ pub trait NviService: Clone + Send {
 #[derive(Clone)]
 pub struct AsyncClosureService<F>
 where
-    F: for<'a> Fn(&'a mut NviClient) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+    F: for<'a> Fn(&'a mut Client) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
         + Clone
         + Send
         + 'static,
@@ -64,7 +64,7 @@ where
 
 impl<F> AsyncClosureService<F>
 where
-    F: for<'a> Fn(&'a mut NviClient) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+    F: for<'a> Fn(&'a mut Client) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
         + Clone
         + Send
         + 'static,
@@ -77,12 +77,12 @@ where
 #[async_trait]
 impl<F> NviService for AsyncClosureService<F>
 where
-    F: for<'a> Fn(&'a mut NviClient) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+    F: for<'a> Fn(&'a mut Client) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
         + Clone
         + Send
         + 'static,
 {
-    async fn run(&mut self, client: &mut NviClient) -> Result<()> {
+    async fn run(&mut self, client: &mut Client) -> Result<()> {
         (self.connected_closure)(client).await;
         Ok(())
     }
@@ -127,7 +127,7 @@ where
     ) -> Self::RequestFuture {
         trace!("recv request: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
-        let mut client = NviClient::new(client, self.channel_id, self.shutdown_tx.clone());
+        let mut client = Client::new(client, self.channel_id, self.shutdown_tx.clone());
         let method = method.to_string();
         let params = params.to_vec();
         Box::pin(async move { vimservice.request(&mut client, &method, &params).await })
@@ -151,15 +151,11 @@ where
             let shutdown_tx = self.shutdown_tx.clone();
             handle.spawn(async move {
                 vimservice
-                    .bootstrap(&mut NviClient::new(
-                        &m_client,
-                        channel_id,
-                        shutdown_tx.clone(),
-                    ))
+                    .bootstrap(&mut Client::new(&m_client, channel_id, shutdown_tx.clone()))
                     .await
                     .unwrap();
                 vimservice
-                    .run(&mut NviClient::new(&m_client, channel_id, shutdown_tx))
+                    .run(&mut Client::new(&m_client, channel_id, shutdown_tx))
                     .await
             });
             return;
@@ -171,7 +167,7 @@ where
         handle.spawn(async move {
             let r = vimservice
                 .notification(
-                    &mut NviClient::new(&m_client, channel_id, shutdown_tx),
+                    &mut Client::new(&m_client, channel_id, shutdown_tx),
                     &method,
                     &params,
                 )

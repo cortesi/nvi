@@ -14,11 +14,11 @@ use tracing::{debug, error, trace, warn};
 use crate::{
     error::{Error, Result},
     service::{ServiceWrapper, BOOTSTRAP_NOTIFICATION},
-    NviClient, NviService,
+    Client, NviService,
 };
 
 async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: broadcast::Sender<()>) -> Result<()> {
-    let nc = &mut NviClient::new(&c, None, shutdown_tx);
+    let nc = &mut Client::new(&c, None, shutdown_tx);
     let (id, _v) = nc.api.nvim_get_api_info().await?;
     nc.api
         .nvim_exec_lua(

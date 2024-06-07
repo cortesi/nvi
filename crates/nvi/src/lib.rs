@@ -6,7 +6,7 @@ mod service;
 pub mod test;
 mod types;
 
-pub use client::NviClient;
+pub use client::Client;
 pub use connect::*;
 pub use msgpack_rpc::Value;
 pub use service::*;
