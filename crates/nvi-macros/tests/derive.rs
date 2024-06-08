@@ -1,10 +1,13 @@
+use nvi::test;
 use nvi_macros::{notify, nvi_service, request};
+use tokio::sync::broadcast;
 
 #[cfg(test)]
-#[test]
-fn it_derives_messages() {
+#[tokio::test]
+async fn it_derives_messages() {
     #[derive(Clone)]
     struct T {}
+    let (tx, _) = broadcast::channel(16);
 
     #[nvi_service]
     impl T {
@@ -35,5 +38,7 @@ fn it_derives_messages() {
         }
     }
 
+    let rtx = tx.clone();
+    test::test_service(T {}, rtx).await.unwrap();
     let _ = T {};
 }

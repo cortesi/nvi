@@ -729,6 +729,7 @@ dependencies = [
  "structmeta",
  "syn 2.0.66",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -744,6 +745,8 @@ dependencies = [
  "serde",
  "serde_derive",
  "syn 2.0.66",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

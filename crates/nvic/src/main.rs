@@ -5,6 +5,7 @@ mod api;
 mod dump;
 mod overrides;
 mod protoc;
+mod run;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -24,14 +25,18 @@ enum Commands {
     },
     /// Generate the Rust protocol definitions
     Protoc {},
+    /// Run an addon attached to neovim
+    Run { path: String },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
         Some(Commands::Dump { raw }) => dump::dump(*raw)?,
         Some(Commands::Protoc {}) => protoc::protoc()?,
+        Some(Commands::Run { path }) => run::run(path).await?,
         None => {
             unreachable!()
         }
