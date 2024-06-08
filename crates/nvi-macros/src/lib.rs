@@ -172,7 +172,7 @@ impl Method {
             Return::Type(_) => {
                 quote! {
                         serde_rmpv::to_value(
-                            &elf.#method(client, #(#args),*).await
+                            &self.#method(client, #(#args),*).await
                         ).map_err(|e| nvi::Value::from(format!("{}", e)))?
                 }
             }

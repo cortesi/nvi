@@ -1,4 +1,4 @@
-use nvi_derive::{notify, nvi_service, request};
+use nvi_macros::{notify, nvi_service, request};
 
 #[cfg(test)]
 #[test]

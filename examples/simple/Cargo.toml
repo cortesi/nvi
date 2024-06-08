@@ -7,4 +7,6 @@ authors.workspace = true
 [dependencies]
 async-trait = "0.1.80"
 nvi = { path = "../../crates/nvi" }
+nvi-macros = { path = "../../crates/nvi-macros" }
+serde-rmpv = { path = "../../crates/serde-rmpv"}
 tokio = "1.37.0"

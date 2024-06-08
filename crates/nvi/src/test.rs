@@ -21,7 +21,6 @@ pub async fn start_nvim(
         .arg("--clean")
         .arg("--listen")
         .arg(format!("{}", socket_path.to_string_lossy()));
-    println!("{:?}", oscmd);
     let mut child = Command::from(oscmd).spawn()?;
     let pgid = Pid::from_raw(child.id().unwrap() as i32);
 
