@@ -1,13 +1,16 @@
 use nvi::test;
 use nvi_macros::{notify, nvi_service, request};
 use tokio::sync::broadcast;
+use tracing_test::traced_test;
 
 #[cfg(test)]
 #[tokio::test]
+#[traced_test]
 async fn it_derives_messages() {
     #[derive(Clone)]
-    struct T {}
-    let (tx, _) = broadcast::channel(16);
+    struct T {
+        tx: broadcast::Sender<()>,
+    }
 
     #[nvi_service]
     impl T {
@@ -36,9 +39,13 @@ async fn it_derives_messages() {
         async fn test_notify_void(&self, _: &mut nvi::Client, a: i64, b: String) {
             println!("{}:{}", a, b);
         }
+
+        async fn run(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+            self.tx.send(()).unwrap();
+            Ok(())
+        }
     }
 
-    let rtx = tx.clone();
-    test::test_service(T {}, rtx).await.unwrap();
-    let _ = T {};
+    let (tx, _) = broadcast::channel(16);
+    test::test_service(T { tx: tx.clone() }, tx).await.unwrap();
 }

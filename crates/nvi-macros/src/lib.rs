@@ -1,43 +1,19 @@
 use std::vec;
 
-use proc_macro_error::*;
 use quote::{quote, ToTokens};
-use syn::Meta;
+use syn::{spanned::Spanned, Meta};
 
-type Result<T> = std::result::Result<T, Error>;
+use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 
-#[derive(PartialEq, Eq, thiserror::Error, Debug, Clone)]
-enum Error {
-    Parse(String),
-    Unsupported(String),
-}
+const RUN: &str = "run";
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl From<syn::Error> for Error {
-    fn from(e: syn::Error) -> Error {
-        Error::Parse(e.to_string())
-    }
-}
-
-impl From<Error> for Diagnostic {
-    fn from(e: Error) -> Diagnostic {
-        Diagnostic::spanned(
-            proc_macro2::Span::call_site(),
-            Level::Error,
-            format!("{}", e),
-        )
-    }
-}
+type Result<T> = std::result::Result<T, Diagnostic>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum MessageType {
+enum MethodType {
     Request,
     Notify,
+    Run,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -63,7 +39,7 @@ struct Method {
     name: String,
     docs: String,
     ret: Return,
-    message_type: MessageType,
+    message_type: MethodType,
     args: Vec<Arg>,
 }
 
@@ -71,6 +47,7 @@ struct Method {
 struct ImplBlock {
     name: String,
     methods: Vec<Method>,
+    run: Option<Method>,
 }
 
 impl Method {
@@ -79,7 +56,7 @@ impl Method {
         if self.args.is_empty() {
             // If we have no arguments, we must satisfy the compiler by specifying a gneric type
             // for the empty array.
-            if self.message_type == MessageType::Notify {
+            if self.message_type == MethodType::Notify {
                 quote! {
                     client.register_rpcnotify::<String>(#namespace, #method, &[]).await?;
                 }
@@ -90,7 +67,7 @@ impl Method {
             }
         } else {
             let args = self.args.clone().into_iter().map(|a| a.name.to_string());
-            if self.message_type == MessageType::Notify {
+            if self.message_type == MethodType::Notify {
                 quote! {
                     client.register_rpcnotify(#namespace, #method, &[#(#args),*]).await?;
                 }
@@ -99,6 +76,24 @@ impl Method {
                     client.register_rpcrequest(#namespace, #method, &[#(#args),*]).await?;
                 }
             }
+        }
+    }
+
+    /// Output the invocation clause of a notify function
+    fn run_invocation(&self, name: syn::Ident) -> proc_macro2::TokenStream {
+        let method = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
+        match self.ret {
+            Return::Void => {
+                quote! {
+                        #name::#method(self, client).await;
+                }
+            }
+            Return::ResultVoid => {
+                quote! {
+                        #name::#method(self, client).await?;
+                }
+            }
+            _ => panic!("unreachable"),
         }
     }
 
@@ -187,14 +182,15 @@ impl Method {
 }
 
 fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
-    let mut docs: Vec<String> = vec![];
     let mut message_type = None;
+    let mut docs: Vec<String> = vec![];
+    let name = method.sig.ident.to_string();
 
     for a in &method.attrs {
         if a.path().is_ident(RPC) {
-            message_type = Some(MessageType::Request);
+            message_type = Some(MethodType::Request);
         } else if a.path().is_ident(RPC_NOTIFICATION) {
-            message_type = Some(MessageType::Notify);
+            message_type = Some(MethodType::Notify);
         } else if a.path().is_ident("doc") {
             match &a.meta {
                 Meta::NameValue(syn::MetaNameValue {
@@ -207,9 +203,13 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                 }) => {
                     docs.push(lit.value().trim().to_string());
                 }
-                _ => Err(Error::Parse("invalid doc attribute".into()))?,
+                _ => Err(method.span().error("invalid doc attribute"))?,
             }
         }
+    }
+
+    if message_type.is_none() && name == RUN {
+        message_type = Some(MethodType::Run);
     }
 
     let message_type = if let Some(a) = message_type {
@@ -233,12 +233,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     syn::Pat::Wild(_) => {
                         arg.name = "_".to_string();
                     }
-                    _ => {
-                        return Err(Error::Unsupported(format!(
-                            "unsupported argument type {:?} on command: {}",
-                            x.pat, method.sig.ident
-                        )))
-                    }
+                    _ => return Err(i.span().error("unsupported argument type")),
                 }
                 match &*x.ty {
                     syn::Type::Path(p) => {
@@ -247,31 +242,19 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     syn::Type::Reference(p) => {
                         arg.typ = p.to_token_stream().to_string();
                     }
-                    _ => {
-                        return Err(Error::Unsupported(format!(
-                            "unsupported argument type {:?} on command: {}",
-                            x.ty, method.sig.ident
-                        )))
-                    }
+                    _ => return Err(i.span().error("unsupported argument type")),
                 }
                 args.push(arg);
             }
         }
     }
 
-    if args.is_empty() {
-        return Err(Error::Unsupported(format!(
-            "no arguments on command: {}",
-            method.sig.ident
-        )));
-    }
-
-    let first = args.first().unwrap();
-    if !first.typ.ends_with("Client") {
-        return Err(Error::Unsupported(format!(
-            "first argument must be `client` on command: {}",
-            method.sig.ident
-        )));
+    if let Some(first) = args.first() {
+        if !first.typ.ends_with("Client") {
+            return Err(method.span().error("first argument must be `Client`"));
+        }
+    } else {
+        return Err(method.span().error("no arguments on command method"));
     }
 
     let args = args.into_iter().skip(1).collect::<Vec<_>>();
@@ -284,59 +267,64 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     match &p.path.segments.last().unwrap().arguments {
                         syn::PathArguments::AngleBracketed(a) => {
                             if a.args.len() != 1 {
-                                return Err(Error::Unsupported("invalid rpc method".into()));
+                                return Err(method.span().error("invalid rpc method"));
                             } else {
                                 match a.args.first().unwrap() {
                                     syn::GenericArgument::Type(syn::Type::Path(t)) => {
-                                        if message_type == MessageType::Notify {
-                                            return Err(Error::Unsupported(
-                                                "notification methods must return Result<()> or be void"
-                                                    .into(),
-                                            ));
-                                        }
                                         Return::Result(t.to_token_stream().to_string())
                                     }
                                     syn::GenericArgument::Type(syn::Type::Tuple(e)) => {
                                         if e.elems.is_empty() {
                                             Return::ResultVoid
                                         } else {
-                                            if message_type == MessageType::Notify {
-                                                return Err(Error::Unsupported(
-                                                "notification methods must return Result<()> or be void"
-                                                    .into(),
-                                            ));
-                                            }
                                             Return::Result(e.to_token_stream().to_string())
                                         }
                                     }
-                                    _ => {
-                                        return Err(Error::Unsupported("invalid rpc method".into()))
-                                    }
+                                    _ => return Err(method.span().error("invalid rpc method")),
                                 }
                             }
                         }
-                        _ => return Err(Error::Unsupported("invalid rpc method".into())),
+                        _ => return Err(method.span().error("invalid rpc method")),
                     }
                 } else {
                     Return::Type(p.to_token_stream().to_string())
                 }
             }
-            _ => return Err(Error::Unsupported("invalid rpc method".into())),
+            _ => return Err(method.span().error("invalid rpc method")),
         },
     };
 
+    if message_type == MethodType::Notify && !(ret == Return::ResultVoid || ret == Return::Void) {
+        return Err(method
+            .span()
+            .error("notification methods must return Result<()> or be void"));
+    }
+
+    if message_type == MethodType::Run {
+        if !(ret == Return::ResultVoid || ret == Return::Void) {
+            return Err(method
+                .span()
+                .error("notification methods must return Result<()> or be void"));
+        }
+        if !args.is_empty() {
+            return Err(method
+                .span()
+                .error("run methods must take only a Client argument"));
+        }
+    }
+
     Ok(Some(Method {
-        name: method.sig.ident.to_string(),
-        docs: docs.join("\n"),
+        name,
         message_type,
         ret,
         args,
+        docs: docs.join("\n"),
     }))
 }
 
 /// Parse an impl block, and extract the methods marked with `request` or `notify`.
-fn parse_impl(input: proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlock)> {
-    let v = syn::parse2::<syn::ItemImpl>(input)?;
+fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlock)> {
+    let v = syn::parse2::<syn::ItemImpl>(input.clone())?;
     let tp = match *v.clone().self_ty {
         syn::Type::Path(p) => p,
         _ => panic!("unexpected input"),
@@ -352,44 +340,72 @@ fn parse_impl(input: proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlo
             }
         }
     }
-    Ok((v, ImplBlock { name, methods }))
+    Ok((
+        v,
+        ImplBlock {
+            name,
+            methods,
+            run: None,
+        },
+    ))
 }
 
 // Extract this to ease testing, since proc_macro::TokenStream can't cross proc-macro boundaries.
 fn inner_nvi_service(
     _attr: proc_macro2::TokenStream,
     input: proc_macro2::TokenStream,
-) -> proc_macro2::TokenStream {
-    let (output, imp) = parse_impl(input).unwrap_or_abort();
+) -> Result<proc_macro2::TokenStream> {
+    let (output, imp) = parse_impl(&input)?;
 
     let bootstraps: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
+        .filter(|x| x.message_type != MethodType::Run)
         .map(|x| x.bootstrap_clause(&imp.name))
         .collect();
 
     let request_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MessageType::Request)
+        .filter(|x| x.message_type == MethodType::Request)
         .map(|x| x.request_invocation())
         .collect();
 
     let notify_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MessageType::Notify)
+        .filter(|x| x.message_type == MethodType::Notify)
         .map(|x| x.notify_invocation())
         .collect();
 
     let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
-    quote! {
+
+    let run_invocations: Vec<proc_macro2::TokenStream> = imp
+        .methods
+        .iter()
+        .filter(|x| x.message_type == MethodType::Run)
+        .map(|x| x.run_invocation(name.clone()))
+        .collect();
+
+    if run_invocations.len() > 1 {
+        return Err(input.span().error("only one run method is allowed"));
+    }
+
+    let run = run_invocations.first().unwrap_or(&quote! {}).clone();
+    //return Err(input.span().error(format!("XXX {}", run)));
+
+    Ok(quote! {
         #output
 
         #[async_trait::async_trait]
         impl nvi::NviService for #name {
             async fn bootstrap(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                 #(#bootstraps)*
+                Ok(())
+            }
+
+            async fn run(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                #run
                 Ok(())
             }
 
@@ -425,18 +441,20 @@ fn inner_nvi_service(
             }
         }
     }
-    .to_token_stream()
+    .to_token_stream())
 }
 
 /// Add this attribute to the *impl* block for the `NviService` trait to derive implementations for
 /// the `message` and `notification` methods.
-#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn nvi_service(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    inner_nvi_service(_attr.into(), input.into()).into()
+    match inner_nvi_service(_attr.into(), input.into()) {
+        Ok(x) => x.into(),
+        Err(e) => e.emit_as_expr_tokens().into(),
+    }
 }
 
 const RPC: &str = "request";
@@ -466,6 +484,7 @@ pub fn notify(
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
+    use rust_format::{Formatter, RustFmt};
 
     #[test]
     fn it_parses_struct() {
@@ -493,12 +512,13 @@ mod tests {
 
         let expected = ImplBlock {
             name: "Test".into(),
+            run: None,
             methods: vec![
                 Method {
                     name: "test_method".into(),
                     docs: "Some docs".into(),
                     ret: Return::Result("String".into()),
-                    message_type: MessageType::Request,
+                    message_type: MethodType::Request,
                     args: vec![
                         Arg {
                             name: "a".into(),
@@ -522,40 +542,54 @@ mod tests {
                     name: "test_void".into(),
                     docs: "".into(),
                     ret: Return::Void,
-                    message_type: MessageType::Request,
+                    message_type: MethodType::Request,
                     args: vec![],
                 },
                 Method {
                     name: "test_usize".into(),
                     docs: "".into(),
                     ret: Return::Type("usize".into()),
-                    message_type: MessageType::Request,
+                    message_type: MethodType::Request,
                     args: vec![],
                 },
                 Method {
                     name: "test_resultvoid".into(),
                     docs: "".into(),
                     ret: Return::ResultVoid,
-                    message_type: MessageType::Request,
+                    message_type: MethodType::Request,
                     args: vec![],
                 },
                 Method {
                     name: "test_notification".into(),
                     docs: "".into(),
                     ret: Return::ResultVoid,
-                    message_type: MessageType::Notify,
+                    message_type: MethodType::Notify,
                     args: vec![],
                 },
             ],
         };
-        let (_, ret) = parse_impl(s).unwrap();
+        let (_, ret) = parse_impl(&s).unwrap();
         assert_eq!(ret, expected);
     }
 
     #[test]
-    fn it_renders_service() {
-        use rust_format::{Formatter, RustFmt};
+    fn it_constrains_signatures() {
+        let s = quote! {
+            impl Test {
+                #[request]
+                async fn test_void(&self) {}
+            }
+        };
+        println!(
+            "{}",
+            RustFmt::default()
+                .format_tokens(inner_nvi_service(quote! {}, s).unwrap())
+                .unwrap()
+        );
+    }
 
+    #[test]
+    fn it_renders_service() {
         let s = quote! {
             impl <T>TestService for Test<T> {
                 #[request]
@@ -587,15 +621,13 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_service(quote! {}, s))
+                .format_tokens(inner_nvi_service(quote! {}, s).unwrap())
                 .unwrap()
         );
     }
 
     #[test]
     fn it_renders_simple_service() {
-        use rust_format::{Formatter, RustFmt};
-
         let s = quote! {
             impl Test {
                 #[request]
@@ -629,7 +661,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_service(quote! {}, s))
+                .format_tokens(inner_nvi_service(quote! {}, s).unwrap())
                 .unwrap()
         );
     }
