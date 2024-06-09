@@ -580,12 +580,7 @@ mod tests {
                 async fn test_void(&self) {}
             }
         };
-        println!(
-            "{}",
-            RustFmt::default()
-                .format_tokens(inner_nvi_service(quote! {}, s).unwrap())
-                .unwrap()
-        );
+        assert!(inner_nvi_service(quote! {}, s).is_err());
     }
 
     #[test]
