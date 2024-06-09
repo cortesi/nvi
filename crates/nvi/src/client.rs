@@ -133,11 +133,36 @@ impl Client {
         let _ = self.shutdown_tx.send(());
     }
 
-    /// Send an nvim_notify notification, with a slightly more ergonomic interface.
+    /// Send an nvim_notify notification, with a specified log level.
     pub async fn notify(&self, level: types::LogLevel, msg: &str) -> Result<()> {
         self.api
             .nvim_notify(msg, level.to_u64(), Value::Map(vec![]))
             .await
+    }
+
+    /// Send an nvim_notify notification with a log level of `LogLevel::Trace`.
+    pub async fn trace(&self, msg: &str) -> Result<()> {
+        self.notify(types::LogLevel::Trace, msg).await
+    }
+
+    /// Send an nvim_notify notification with a log level of `LogLevel::Debug`.
+    pub async fn debug(&self, msg: &str) -> Result<()> {
+        self.notify(types::LogLevel::Debug, msg).await
+    }
+
+    /// Send an nvim_notify notification with a log level of `LogLevel::Info`.
+    pub async fn info(&self, msg: &str) -> Result<()> {
+        self.notify(types::LogLevel::Info, msg).await
+    }
+
+    /// Send an nvim_notify notification with a log level of `LogLevel::Warn`.
+    pub async fn warn(&self, msg: &str) -> Result<()> {
+        self.notify(types::LogLevel::Warn, msg).await
+    }
+
+    /// Send an nvim_notify notification with a log level of `LogLevel::Error`.
+    pub async fn error(&self, msg: &str) -> Result<()> {
+        self.notify(types::LogLevel::Error, msg).await
     }
 }
 
