@@ -21,8 +21,12 @@ impl Simple {
     }
 
     #[request]
-    async fn get(&mut self, _client: &mut nvi::Client) -> usize {
+    async fn retrieve(&mut self, _client: &mut nvi::Client) -> usize {
         *self.n.lock().unwrap()
+    }
+
+    async fn run(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+        Ok(())
     }
 }
 

@@ -51,6 +51,7 @@ impl Client {
             .map(|p| p.to_string())
             .collect::<Vec<String>>()
             .join(", ");
+        let extra_sep = if !arg_list.is_empty() { ", " } else { "" };
 
         self.api
             .nvim_exec_lua(
@@ -63,7 +64,7 @@ impl Client {
                             error('method already exists: {method}')
                         end
                         _G.{namespace}.{method} = function({arg_list})
-                            return vim.{kind}({channel_id}, '{method}', {arg_list})
+                            return vim.{kind}({channel_id}, '{method}'{extra_sep} {arg_list})
                         end
                     "
                 ),
