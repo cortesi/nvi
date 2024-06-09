@@ -25,6 +25,10 @@ impl de::Error for Error {
 
 impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        format!("{:?}", self).fmt(formatter)
+        match self {
+            Error::TypeError(msg) => write!(formatter, "invalid type: {}", msg),
+            Error::Message(msg) => write!(formatter, "{}", msg),
+            Error::UnsupportedType => write!(formatter, "unsupported type"),
+        }
     }
 }

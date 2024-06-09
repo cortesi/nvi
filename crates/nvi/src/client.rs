@@ -1,14 +1,16 @@
 use tokio::sync::broadcast;
 use tracing::trace;
 
+use crate::Value;
+
 use crate::{
     error::{Error, Result},
-    nvim_api,
+    nvim_api, types,
 };
 
 /// A client to Neovim.
+#[derive(Clone)]
 pub struct Client {
-    pub(crate) m_client: msgpack_rpc::Client,
     /// The compiled API for Neovim.
     pub api: nvim_api::NvimApi,
 
@@ -23,7 +25,6 @@ impl Client {
         shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
         Client {
-            m_client: client.clone(),
             api: nvim_api::NvimApi {
                 m_client: client.clone(),
             },
@@ -60,9 +61,6 @@ impl Client {
                         if not _G.{namespace} then
                             _G.{namespace} = {{}}
                         end
-                        if _G.{namespace}.{method} then
-                            error('method already exists: {method}')
-                        end
                         _G.{namespace}.{method} = function({arg_list})
                             return vim.{kind}({channel_id}, '{method}'{extra_sep} {arg_list})
                         end
@@ -89,8 +87,6 @@ impl Client {
     /// Which can be invoked from Lua like so:
     ///
     /// test_module.test_fn("value", 3)
-    ///
-    /// If the method already exists, an error is returned.
     pub async fn register_rpcrequest<T>(
         &mut self,
         namespace: &str,
@@ -119,8 +115,6 @@ impl Client {
     /// Which can be invoked from Lua like so:
     ///
     /// test_module.test_fn("value", 3)
-    ///
-    /// If the method already exists, an error is returned.
     pub async fn register_rpcnotify<T>(
         &mut self,
         namespace: &str,
@@ -139,24 +133,11 @@ impl Client {
         let _ = self.shutdown_tx.send(());
     }
 
-    /// Send a raw request to Neovim.
-    pub async fn raw_request(
-        &mut self,
-        method: &str,
-        params: &[msgpack_rpc::Value],
-    ) -> Result<msgpack_rpc::Value, msgpack_rpc::Value> {
-        trace!("send request: {:?} {:?}", method, params);
-        self.m_client.request(method, params).await
-    }
-
-    /// Send a raw notification to Neovim.
-    pub async fn raw_notify(
-        &mut self,
-        method: &str,
-        params: &[msgpack_rpc::Value],
-    ) -> Result<(), ()> {
-        trace!("send notification: {:?} {:?}", method, params);
-        self.m_client.notify(method, params).await
+    /// Send an nvim_notify notification, with a slightly more ergonomic interface.
+    pub async fn notify(&self, level: types::LogLevel, msg: &str) -> Result<()> {
+        self.api
+            .nvim_notify(msg, level.to_u64(), Value::Map(vec![]))
+            .await
     }
 }
 
@@ -183,11 +164,6 @@ mod tests {
                     .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
                     .unwrap();
-                // Second call should fail. We don't permit re-registering methods.
-                client
-                    .register_rpcrequest("test_module", "test_fn", &["foo"])
-                    .await
-                    .unwrap_err();
 
                 let v = client
                     .api
@@ -235,11 +211,6 @@ mod tests {
                     .register_rpcnotify("test_module", "test_fn", &["foo"])
                     .await
                     .unwrap();
-                // Second call should fail. We don't permit re-registering methods.
-                client
-                    .register_rpcnotify("test_module", "test_fn", &["foo"])
-                    .await
-                    .unwrap_err();
 
                 client
                     .api

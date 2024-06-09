@@ -196,6 +196,7 @@ pub fn protoc() -> Result<()> {
         use crate::error::{Result, Error};
         use crate::types::*;
 
+        #[derive(Clone)]
         pub struct NvimApi {
             pub(crate) m_client: msgpack_rpc::Client,
         }

@@ -2,15 +2,15 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("request timed out: {method:?}")]
+    #[error("request timed out: {method:}")]
     Timeout { method: String },
-    #[error("decoding error: {msg:?}")]
+    #[error("decoding error: {msg:}")]
     Decode { msg: String },
-    #[error("encoding error: {msg:?}")]
+    #[error("encoding error: {msg:}")]
     Encode { msg: String },
-    #[error("io error: {msg:?}")]
+    #[error("io error: {msg:}")]
     IO { msg: String },
-    #[error("remote error: {0:?}")]
+    #[error("remote error: {0:}")]
     RemoteError(rmpv::Value),
     #[error("unimplemented")]
     Unimplemented,

@@ -26,6 +26,9 @@ impl Simple {
     }
 
     async fn run(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+        client
+            .notify(nvi::LogLevel::Info, "simple plugin connected")
+            .await?;
         Ok(())
     }
 }

@@ -5,6 +5,7 @@ use crate::types::*;
 use msgpack_rpc::Value;
 use serde_rmpv::{from_value, to_value};
 use tracing::trace;
+#[derive(Clone)]
 pub struct NvimApi {
     pub(crate) m_client: msgpack_rpc::Client,
 }
@@ -1469,7 +1470,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_notify(&self, msg: &str, log_level: i64, opts: Value) -> Result<Value> {
+    pub async fn nvim_notify(&self, msg: &str, log_level: u64, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(

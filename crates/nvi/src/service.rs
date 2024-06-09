@@ -6,7 +6,7 @@ pub use msgpack_rpc::Value;
 use tokio::{runtime::Handle, sync::broadcast};
 pub use tracing::{info, trace, warn};
 
-use crate::{client::Client, error::Result};
+use crate::{client::Client, error::Result, types};
 
 pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
 
@@ -125,7 +125,23 @@ where
         let mut client = Client::new(client, self.channel_id, self.shutdown_tx.clone());
         let method = method.to_string();
         let params = params.to_vec();
-        Box::pin(async move { vimservice.request(&mut client, &method, &params).await })
+        Box::pin(async move {
+            let c = client.clone();
+            match vimservice.request(&mut client, &method, &params).await {
+                Ok(v) => Ok(v),
+                Err(e) => {
+                    warn!("nvi request error: {:?}", e);
+                    _ = c
+                        .notify(
+                            types::LogLevel::Warn,
+                            &format!("nvi request error: {method} - {e}"),
+                        )
+                        .await
+                        .map_err(|e| warn!("error sending request error notification: {:?}", e));
+                    Err(e)
+                }
+            }
+        })
     }
 
     fn handle_notification(
@@ -163,16 +179,21 @@ where
         let channel_id = self.channel_id;
         let shutdown_tx = self.shutdown_tx.clone();
         handle.spawn(async move {
-            let r = vimservice
-                .notify(
-                    &mut Client::new(&m_client, channel_id, shutdown_tx),
-                    &method,
-                    &params,
-                )
-                .await;
-            if let Err(e) = r {
-                warn!("error handling notification: {:?}", e);
-            }
+            let c = &mut Client::new(&m_client, channel_id, shutdown_tx);
+
+            match vimservice.notify(&mut c.clone(), &method, &params).await {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("error handling request: {:?}", e);
+                    _ = c
+                        .notify(
+                            types::LogLevel::Warn,
+                            &format!("nvi notify error: {method} - {e}"),
+                        )
+                        .await
+                        .map_err(|e| warn!("error sending notify error notification: {:?}", e));
+                }
+            };
         });
     }
 }

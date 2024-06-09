@@ -143,6 +143,8 @@ impl Method {
             args.push(a);
         }
 
+        let arg_len = self.args.len();
+
         let inv = match self.ret {
             Return::Void => {
                 quote! {
@@ -175,6 +177,9 @@ impl Method {
 
         quote! {
             #name => {
+                if params.len() != #arg_len {
+                    nvi::error::Result::Err(nvi::Value::from("invalid number of arguments"))?
+                }
                 #inv
             }
         }

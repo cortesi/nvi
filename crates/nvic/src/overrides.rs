@@ -20,6 +20,13 @@ pub struct Override {
 
 pub fn get_override(name: &str) -> Option<Override> {
     Some(match name {
+        "nvim_notify" => Override {
+            args: vec![Arg {
+                name: "log_level".into(),
+                typ: quote! { u64 },
+            }],
+            ret: Some(quote! { () }),
+        },
         "nvim_create_autocmd" => Override {
             args: vec![Arg {
                 name: "opts".into(),

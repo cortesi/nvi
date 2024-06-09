@@ -73,6 +73,27 @@ pub struct CreateAutocmdOpts {
     pub nested: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub enum LogLevel {
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warn = 3,
+    Error = 4,
+}
+
+impl LogLevel {
+    pub fn to_u64(&self) -> u64 {
+        match self {
+            LogLevel::Trace => 0,
+            LogLevel::Debug => 1,
+            LogLevel::Info => 2,
+            LogLevel::Warn => 3,
+            LogLevel::Error => 4,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
