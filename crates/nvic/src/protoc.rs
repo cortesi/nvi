@@ -183,6 +183,7 @@ pub fn protoc() -> Result<()> {
         .functions
         .into_iter()
         .filter(|f| !overrides::SKIP_FUNCTIONS.contains(&f.name.as_str()))
+        .filter(|f| f.deprecated_since.is_none())
         .map(generate_function)
         .collect();
     let toks = quote!(

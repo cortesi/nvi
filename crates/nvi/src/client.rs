@@ -173,17 +173,17 @@ impl Client {
         self.notify(types::LogLevel::Error, msg).await
     }
 
-    pub async fn autocmd_buflocal(
-        &self,
-        rpc_request: &str,
-        events: &[types::Event],
-        buffer: Option<u64>,
-        group: Option<u64>,
-        once: bool,
-        nested: bool,
-    ) -> Result<()> {
-        Ok(())
-    }
+    // pub async fn autocmd_buflocal(
+    //     &self,
+    //     rpc_request: &str,
+    //     events: &[types::Event],
+    //     buffer: Option<u64>,
+    //     group: Option<u64>,
+    //     once: bool,
+    //     nested: bool,
+    // ) -> Result<()> {
+    //     Ok(())
+    // }
 
     pub async fn autocmd(
         &self,

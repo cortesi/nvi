@@ -121,7 +121,9 @@ pub struct AutocmdEvent {
 }
 
 /// Autocommand events. See here for documentation: https://neovim.io/doc/user/autocmd.html#autocmd-events
-#[derive(Debug, Clone, PartialEq, Eq, strum::Display, strum::EnumString, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, strum::Display, strum::EnumString, Deserialize, Serialize,
+)]
 pub enum Event {
     BufAdd,
     BufDelete,

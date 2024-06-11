@@ -26,7 +26,7 @@ async fn it_registers_autocmds() {
             c.autocmd("aucmd", &[Event::User], &[], None, false, false)
                 .await?;
             c.nvim
-                .nvim_exec_autocmds(&["User".to_string()], ExecAutocmdsOpts::default())
+                .nvim_exec_autocmds(&[Event::User], ExecAutocmdsOpts::default())
                 .await?;
             Ok(())
         }

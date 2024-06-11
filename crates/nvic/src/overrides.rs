@@ -35,7 +35,7 @@ pub fn get_override(name: &str) -> Option<Override> {
                 },
                 Arg {
                     name: "event".into(),
-                    typ: quote! { &[String] },
+                    typ: quote! { &[Event] },
                 },
             ],
             ret: None,
@@ -44,7 +44,7 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![
                 Arg {
                     name: "event".into(),
-                    typ: quote! { &[String] },
+                    typ: quote! { &[Event] },
                 },
                 Arg {
                     name: "opts".into(),
