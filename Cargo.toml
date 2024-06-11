@@ -6,5 +6,6 @@ authors = ["Aldo Cortesi <aldo@corte.si>"]
 
 
 [workspace]
+doctest = false
 resolver = "2"
-members = ["crates/*", "examples/*"]
+members = ["crates/*", "examples/*", "tests"]

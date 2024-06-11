@@ -172,26 +172,36 @@ where
             let channel_id = self.channel_id;
             let shutdown_tx = self.shutdown_tx.clone();
             handle.spawn(async move {
-                let ret = vimservice
-                    .bootstrap(&mut Client::new(
-                        &m_client,
-                        &vimservice.name(),
-                        channel_id,
-                        shutdown_tx.clone(),
-                    ))
-                    .await;
+                let mut c = Client::new(
+                    &m_client,
+                    &vimservice.name(),
+                    channel_id,
+                    shutdown_tx.clone(),
+                );
+                let ret = vimservice.bootstrap(&mut c).await;
                 match ret {
                     Ok(_) => trace!("bootstrap complete"),
-                    Err(e) => warn!("bootstrap failed: {:?}", e),
+                    Err(e) => {
+                        warn!("bootstrap failed: {:?}", e);
+                        c.shutdown();
+                        return;
+                    }
                 }
-                vimservice
+                let ret = vimservice
                     .run(&mut Client::new(
                         &m_client,
                         &vimservice.name(),
                         channel_id,
                         shutdown_tx,
                     ))
-                    .await
+                    .await;
+                match ret {
+                    Ok(_) => trace!("run() completed"),
+                    Err(e) => {
+                        warn!("run() failed: {:?}", e);
+                        c.shutdown();
+                    }
+                }
             });
             return;
         }

@@ -31,11 +31,24 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![
                 Arg {
                     name: "opts".into(),
-                    typ: quote! { Option<CreateAutocmdOpts> },
+                    typ: quote! { CreateAutocmdOpts },
                 },
                 Arg {
                     name: "event".into(),
                     typ: quote! { &[String] },
+                },
+            ],
+            ret: None,
+        },
+        "nvim_exec_autocmds" => Override {
+            args: vec![
+                Arg {
+                    name: "event".into(),
+                    typ: quote! { &[String] },
+                },
+                Arg {
+                    name: "opts".into(),
+                    typ: quote! { ExecAutocmdsOpts },
                 },
             ],
             ret: None,

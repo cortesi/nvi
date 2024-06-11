@@ -64,21 +64,49 @@ pub enum Group {
 #[builder(setter(strip_option), default)]
 pub struct CreateAutocmdOpts {
     /// Autocommand group name or ID to match against.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<Group>,
     /// Pattern to match literally
-    pub pattern: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<Vec<String>>,
     /// Buffer number for buffer-local autocommands
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub buffer: Option<u64>,
     /// Description for docs and troubleshooting
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub desc: Option<String>,
     /// Vimscript function name to call when the event is triggered
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub callback: Option<String>,
     /// Vim command to execute when the event is triggered. Can't be used with callback.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
     /// Run the command only once
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub once: Option<bool>,
     /// Run nested autocommands
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nested: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
+#[builder(setter(strip_option), default)]
+pub struct ExecAutocmdsOpts {
+    /// Autocommand group name or ID to match against.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<Group>,
+    /// Pattern to match literally
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<Vec<String>>,
+    /// Buffer number for buffer-local autocommands
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buffer: Option<u64>,
+    /// Process the modeline after the autocommands
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modeline: Option<bool>,
+    /// Data to send to event
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -86,10 +114,10 @@ pub struct AutocmdEvent {
     pub id: u64,
     pub event: Event,
     pub group: Option<u64>,
-    pub matches: Vec<String>,
+    pub matches: Option<Vec<String>>,
     pub buf: u64,
     pub file: String,
-    pub data: crate::Value,
+    pub data: Option<crate::Value>,
 }
 
 /// Autocommand events. See here for documentation: https://neovim.io/doc/user/autocmd.html#autocmd-events
@@ -265,8 +293,18 @@ mod tests {
             (Value::from("data"), Value::from("data")),
         ]);
 
-        let e2: AutocmdEvent = from_value(&evt).unwrap();
-        println!("{:?}", e2);
+        let expected = AutocmdEvent {
+            id: 1,
+            event: Event::User,
+            group: Some(1),
+            matches: Some(vec!["*.rs".to_string()]),
+            buf: 1,
+            file: "file".into(),
+            data: Some(rmpv::Value::from("data")),
+        };
+
+        let ret: AutocmdEvent = from_value(&evt).unwrap();
+        assert_eq!(ret, expected);
     }
 
     #[test]

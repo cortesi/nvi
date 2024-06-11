@@ -1,0 +1,15 @@
+[package]
+name = "tests"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde-rmpv = { path = "../crates/serde-rmpv" }
+nvi = { path = "../crates/nvi"}
+nvi-macros = { path = "../crates/nvi-macros"}
+tokio = {version="1.36.0", features=["full"]}
+tracing-test = { version = "0.2.4", features = ["no-env-filter"] }
+
+tracing = "0.1.40"
+async-trait = "0.1.80"

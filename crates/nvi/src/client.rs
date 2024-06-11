@@ -201,7 +201,7 @@ impl Client {
         }
         let events = events
             .iter()
-            .map(|e| e.to_string())
+            .map(|e| format!("\"{}\"", e))
             .collect::<Vec<String>>()
             .join(", ");
 

@@ -37,7 +37,7 @@ impl NvimApi {
     pub async fn nvim_create_autocmd(
         &self,
         event: &[String],
-        opts: Option<CreateAutocmdOpts>,
+        opts: CreateAutocmdOpts,
     ) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
@@ -95,7 +95,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_exec_autocmds(&self, event: Value, opts: Value) -> Result<()> {
+    pub async fn nvim_exec_autocmds(&self, event: &[String], opts: ExecAutocmdsOpts) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_exec_autocmds", &[to_value(&event)?, to_value(&opts)?])

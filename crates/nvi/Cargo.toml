@@ -3,6 +3,7 @@ name = "nvi"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
 serde-rmpv = { path = "../serde-rmpv" }
 futures = "0.3.30"

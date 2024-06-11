@@ -1200,6 +1200,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "nvi",
+ "nvi-macros",
+ "serde-rmpv",
+ "tokio",
+ "tracing",
+ "tracing-test",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
