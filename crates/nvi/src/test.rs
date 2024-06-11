@@ -5,6 +5,7 @@ use tokio::{process::Command, sync::broadcast};
 
 use crate::{connect_unix, error::Result, NviService};
 
+/// Start a neovim process, and wait for a signal on the broadcast channel to trigger termination.
 pub async fn start_nvim(
     mut termrx: broadcast::Receiver<()>,
     socket_path: std::path::PathBuf,
@@ -32,7 +33,9 @@ pub async fn start_nvim(
     Ok(())
 }
 
-pub async fn ensure_path(path: &std::path::Path) -> Result<()> {
+/// Wait a short while for a path to exist. Returns an error after 500ms if the path has not
+/// appeared.
+pub async fn wait_for_path(path: &std::path::Path) -> Result<()> {
     for _ in 0..10 {
         if path.exists() {
             return Ok(());
@@ -44,6 +47,8 @@ pub async fn ensure_path(path: &std::path::Path) -> Result<()> {
     })
 }
 
+/// Run a test service, starting a neovim headless instance and connecting to it. When a signal is
+/// received on the broadcast channel, all tasks are stopped.
 pub async fn test_service<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
 where
     T: NviService + Unpin + 'static,
@@ -55,7 +60,7 @@ where
     let srx = shutdown_tx.subscribe();
     let nv = tokio::spawn(async move { start_nvim(srx, sp).await });
 
-    ensure_path(&socket_path).await?;
+    wait_for_path(&socket_path).await?;
 
     let serv = connect_unix(shutdown_tx, socket_path, nvi);
     serv.await?;

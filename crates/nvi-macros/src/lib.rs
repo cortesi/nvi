@@ -384,6 +384,7 @@ fn inner_nvi_service(
         .collect();
 
     let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
+    let namestr = imp.name.clone();
 
     let run_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
@@ -397,13 +398,16 @@ fn inner_nvi_service(
     }
 
     let run = run_invocations.first().unwrap_or(&quote! {}).clone();
-    //return Err(input.span().error(format!("XXX {}", run)));
 
     Ok(quote! {
         #output
 
         #[async_trait::async_trait]
         impl nvi::NviService for #name {
+            fn name(&self) -> String {
+                #namestr.into()
+            }
+
             async fn bootstrap(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                 #(#bootstraps)*
                 Ok(())

@@ -17,10 +17,14 @@ use crate::{
     Client, NviService,
 };
 
-async fn bootstrap(c: msgpack_rpc::Client, shutdown_tx: broadcast::Sender<()>) -> Result<()> {
-    let nc = &mut Client::new(&c, None, shutdown_tx);
-    let (id, _v) = nc.api.nvim_get_api_info().await?;
-    nc.api
+async fn bootstrap(
+    c: msgpack_rpc::Client,
+    name: &str,
+    shutdown_tx: broadcast::Sender<()>,
+) -> Result<()> {
+    let nc = &mut Client::new(&c, name, None, shutdown_tx);
+    let (id, _v) = nc.nvim.nvim_get_api_info().await?;
+    nc.nvim
         .nvim_exec_lua(
             &format!("vim.rpcnotify(..., '{}', ...)", BOOTSTRAP_NOTIFICATION),
             vec![id.into()],
@@ -53,13 +57,14 @@ where
     S: AsyncRead + AsyncWrite + Send + 'static,
     T: NviService + Unpin + 'static,
 {
+    let name = service.name();
     let endpoint = Endpoint::new(stream, ServiceWrapper::new(service, shutdown_tx.clone()));
 
     let mut js = JoinSet::new();
     let epclient = endpoint.client();
     {
         let stx = shutdown_tx.clone();
-        js.spawn(async move { bootstrap(epclient, stx).await });
+        js.spawn(async move { bootstrap(epclient, &name, stx).await });
     }
     {
         let stx = shutdown_tx.clone();
@@ -206,7 +211,7 @@ mod tests {
         });
         let ls = tokio::spawn(listener);
 
-        test::ensure_path(&socket_path).await.unwrap();
+        test::wait_for_path(&socket_path).await.unwrap();
 
         // Now start a nvim instance, and connect to it with a client. Using the client, we
         // instruct nvim to connect back to the listener.
@@ -216,7 +221,7 @@ mod tests {
                 Box::pin({
                     async move {
                         trace!("client connected, sending sockconnect request");
-                        c.api
+                        c.nvim
                             .nvim_exec_lua(
                                 &format!(
                                     "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",

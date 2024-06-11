@@ -63,14 +63,158 @@ pub enum Group {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
 #[builder(setter(strip_option), default)]
 pub struct CreateAutocmdOpts {
+    /// Autocommand group name or ID to match against.
     pub group: Option<Group>,
+    /// Pattern to match literally
     pub pattern: Vec<String>,
+    /// Buffer number for buffer-local autocommands
     pub buffer: Option<u64>,
+    /// Description for docs and troubleshooting
     pub desc: Option<String>,
+    /// Vimscript function name to call when the event is triggered
     pub callback: Option<String>,
+    /// Vim command to execute when the event is triggered. Can't be used with callback.
     pub command: Option<String>,
+    /// Run the command only once
     pub once: Option<bool>,
+    /// Run nested autocommands
     pub nested: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct AutocmdEvent {
+    pub id: u64,
+    pub event: Event,
+    pub group: Option<u64>,
+    pub matches: Vec<String>,
+    pub buf: u64,
+    pub file: String,
+    pub data: crate::Value,
+}
+
+/// Autocommand events. See here for documentation: https://neovim.io/doc/user/autocmd.html#autocmd-events
+#[derive(Debug, Clone, PartialEq, Eq, strum::Display, strum::EnumString, Deserialize)]
+pub enum Event {
+    BufAdd,
+    BufDelete,
+    BufEnter,
+    BufFilePost,
+    BufFilePre,
+    BufHidden,
+    BufLeave,
+    BufNew,
+    BufModifiedSet,
+    BufNewFile,
+    BufRead,
+    BufReadPost,
+    BufWinLeave,
+    BufWipeout,
+    BufWrite,
+    BufWritePre,
+    BufWritePost,
+    BufWriteCmd,
+    ChanInfo,
+    ChanOpen,
+    CmdUndefined,
+    CmdlineChanged,
+    CmdlineEnter,
+    CmdlineLeave,
+    CmdwinEnter,
+    CmdwinLeave,
+    ColorScheme,
+    ColorSchemePre,
+    CompleteChanged,
+    CompleteDonePre,
+    CompleteDone,
+    CursorHold,
+    CursorHoldI,
+    CursorMoved,
+    CursorMovedI,
+    DiffUpdated,
+    DirChanged,
+    DirChangedPre,
+    ExitPre,
+    FileAppendCmd,
+    FileAppendPost,
+    FileAppendPre,
+    FileChangedRO,
+    FileChangedShell,
+    FileChangedShellPost,
+    FileReadCmd,
+    FileReadPost,
+    FileReadPre,
+    FileType,
+    FileWriteCmd,
+    FileWritePost,
+    FileWritePre,
+    FilterReadPost,
+    FilterReadPre,
+    FilterWritePost,
+    FilterWritePre,
+    FocusGained,
+    FocusLost,
+    FuncUndefined,
+    UIEnter,
+    UILeave,
+    InsertChange,
+    InsertCharPre,
+    InsertEnter,
+    InsertLeavePre,
+    InsertLeave,
+    MenuPopup,
+    ModeChanged,
+    OptionSet,
+    QuickFixCmdPre,
+    QuickFixCmdPost,
+    QuitPre,
+    RemoteReply,
+    SearchWrapped,
+    RecordingEnter,
+    RecordingLeave,
+    SafeState,
+    SessionLoadPost,
+    SessionWritePost,
+    ShellCmdPost,
+    Signal,
+    ShellFilterPost,
+    SourcePre,
+    SourcePost,
+    SourceCmd,
+    SpellFileMissing,
+    StdinReadPost,
+    StdinReadPre,
+    SwapExists,
+    Syntax,
+    TabEnter,
+    TabLeave,
+    TabNew,
+    TabNewEntered,
+    TabClosed,
+    TermOpen,
+    TermEnter,
+    TermLeave,
+    TermClose,
+    TermRequest,
+    TermResponse,
+    TextChanged,
+    TextChangedI,
+    TextChangedP,
+    TextChangedT,
+    TextYankPost,
+    User,
+    UserGettingBored,
+    VimEnter,
+    VimLeave,
+    VimLeavePre,
+    VimResized,
+    VimResume,
+    VimSuspend,
+    WinClosed,
+    WinEnter,
+    WinLeave,
+    WinNew,
+    WinScrolled,
+    WinResized,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -99,6 +243,31 @@ mod tests {
     use super::*;
     use rmpv::Value;
     use serde_rmpv::{from_value, to_value};
+
+    #[test]
+    fn test_deser_event() {
+        let v: Event = from_value(&Value::from("User")).unwrap();
+        assert_eq!(v, Event::User);
+    }
+
+    #[test]
+    fn test_deser_autocmdevent() {
+        let evt = Value::Map(vec![
+            (Value::from("id"), Value::from(1)),
+            (Value::from("event"), Value::from("User")),
+            (Value::from("group"), Value::from(1)),
+            (
+                Value::from("matches"),
+                Value::Array(vec![Value::from("*.rs")]),
+            ),
+            (Value::from("buf"), Value::from(1)),
+            (Value::from("file"), Value::from("file")),
+            (Value::from("data"), Value::from("data")),
+        ]);
+
+        let e2: AutocmdEvent = from_value(&evt).unwrap();
+        println!("{:?}", e2);
+    }
 
     #[test]
     fn test_serialize_group() {

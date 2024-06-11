@@ -8,24 +8,31 @@ use crate::{
     nvim_api, types,
 };
 
-/// A client to Neovim.
+/// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
+/// It exposes the full auto-generated API for Neovim on its `nvim` field, and provides a set of
+/// higher-level methods directly on the `Client` object.
 #[derive(Clone)]
 pub struct Client {
+    /// The name of the plugin.
+    pub name: String,
     /// The compiled API for Neovim.
-    pub api: nvim_api::NvimApi,
+    pub nvim: nvim_api::NvimApi,
+    /// The MessagePack-RPC channel ID for this client.
+    pub channel_id: Option<u64>,
 
     shutdown_tx: broadcast::Sender<()>,
-    pub channel_id: Option<u64>,
 }
 
 impl Client {
     pub fn new(
         client: &msgpack_rpc::Client,
+        name: &str,
         channel_id: Option<u64>,
         shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
         Client {
-            api: nvim_api::NvimApi {
+            name: name.into(),
+            nvim: nvim_api::NvimApi {
                 m_client: client.clone(),
             },
             shutdown_tx,
@@ -54,7 +61,7 @@ impl Client {
             .join(", ");
         let extra_sep = if !arg_list.is_empty() { ", " } else { "" };
 
-        self.api
+        self.nvim
             .nvim_exec_lua(
                 &format!(
                     "
@@ -128,6 +135,7 @@ impl Client {
             .await
     }
 
+    /// Shutdown the service, causing it to exit cleanly and disconnect from Neovim.
     pub fn shutdown(&self) {
         trace!("shutdown request from client");
         let _ = self.shutdown_tx.send(());
@@ -135,7 +143,7 @@ impl Client {
 
     /// Send an nvim_notify notification, with a specified log level.
     pub async fn notify(&self, level: types::LogLevel, msg: &str) -> Result<()> {
-        self.api
+        self.nvim
             .nvim_notify(msg, level.to_u64(), Value::Map(vec![]))
             .await
     }
@@ -164,6 +172,75 @@ impl Client {
     pub async fn error(&self, msg: &str) -> Result<()> {
         self.notify(types::LogLevel::Error, msg).await
     }
+
+    pub async fn autocmd_buflocal(
+        &self,
+        rpc_request: &str,
+        events: &[types::Event],
+        buffer: Option<u64>,
+        group: Option<u64>,
+        once: bool,
+        nested: bool,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn autocmd(
+        &self,
+        rpc_request: &str,
+        events: &[types::Event],
+        patterns: &[String],
+        group: Option<u64>,
+        once: bool,
+        nested: bool,
+    ) -> Result<()> {
+        if events.is_empty() {
+            return Err(Error::Internal {
+                msg: "events must not be empty".into(),
+            });
+        }
+        let events = events
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let patterns = patterns
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let group = if let Some(g) = group {
+            format!("group = {g},")
+        } else {
+            "".to_string()
+        };
+
+        let namespace = &self.name;
+        self.nvim
+            .nvim_exec_lua(
+                &format!(
+                    r#"
+                        vim.api.nvim_create_autocmd(
+                            {{ {events} }},
+                            {{
+                                pattern = {{ {patterns} }},
+                                once = {once},
+                                nested = {nested},
+                                {group}
+                                callback = function(ev)
+                                  {namespace}.{rpc_request}(ev)
+                                end
+                            }}
+                        )
+                    "#,
+                ),
+                vec![],
+            )
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -184,6 +261,10 @@ mod tests {
 
         #[async_trait]
         impl crate::NviService for TestService {
+            fn name(&self) -> String {
+                "TestService".into()
+            }
+
             async fn run(&mut self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcrequest("test_module", "test_fn", &["foo"])
@@ -191,7 +272,7 @@ mod tests {
                     .unwrap();
 
                 let v = client
-                    .api
+                    .nvim
                     .nvim_exec_lua("return test_module.test_fn(5)", vec![])
                     .await
                     .unwrap();
@@ -231,6 +312,10 @@ mod tests {
 
         #[async_trait]
         impl crate::NviService for TestService {
+            fn name(&self) -> String {
+                "TestService".into()
+            }
+
             async fn run(&mut self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcnotify("test_module", "test_fn", &["foo"])
@@ -238,7 +323,7 @@ mod tests {
                     .unwrap();
 
                 client
-                    .api
+                    .nvim
                     .nvim_exec_lua("return test_module.test_fn(5)", vec![])
                     .await
                     .unwrap();

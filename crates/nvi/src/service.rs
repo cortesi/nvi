@@ -1,10 +1,10 @@
 use std::pin::Pin;
 
+use crate::Value;
 use async_trait::async_trait;
 use futures::Future;
-pub use msgpack_rpc::Value;
 use tokio::{runtime::Handle, sync::broadcast};
-pub use tracing::{info, trace, warn};
+use tracing::{trace, warn};
 
 use crate::{client::Client, error::Result, types};
 
@@ -13,6 +13,8 @@ pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
 #[allow(unused_variables)]
 #[async_trait]
 pub trait NviService: Clone + Send {
+    fn name(&self) -> String;
+
     /// Bootstrapping that happens after connecting to the remote service, but before the run
     /// method is called. This method should execute and exit. Typically, this method will be
     /// derived with the `nvim_service` annotation.
@@ -77,6 +79,10 @@ where
         + Send
         + 'static,
 {
+    fn name(&self) -> String {
+        "NvimClosure".to_string()
+    }
+
     async fn run(&mut self, client: &mut Client) -> Result<()> {
         (self.connected_closure)(client).await;
         Ok(())
@@ -122,7 +128,12 @@ where
     ) -> Self::RequestFuture {
         trace!("recv request: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
-        let mut client = Client::new(client, self.channel_id, self.shutdown_tx.clone());
+        let mut client = Client::new(
+            client,
+            &vimservice.name(),
+            self.channel_id,
+            self.shutdown_tx.clone(),
+        );
         let method = method.to_string();
         let params = params.to_vec();
         Box::pin(async move {
@@ -162,14 +173,24 @@ where
             let shutdown_tx = self.shutdown_tx.clone();
             handle.spawn(async move {
                 let ret = vimservice
-                    .bootstrap(&mut Client::new(&m_client, channel_id, shutdown_tx.clone()))
+                    .bootstrap(&mut Client::new(
+                        &m_client,
+                        &vimservice.name(),
+                        channel_id,
+                        shutdown_tx.clone(),
+                    ))
                     .await;
                 match ret {
                     Ok(_) => trace!("bootstrap complete"),
                     Err(e) => warn!("bootstrap failed: {:?}", e),
                 }
                 vimservice
-                    .run(&mut Client::new(&m_client, channel_id, shutdown_tx))
+                    .run(&mut Client::new(
+                        &m_client,
+                        &vimservice.name(),
+                        channel_id,
+                        shutdown_tx,
+                    ))
                     .await
             });
             return;
@@ -179,7 +200,7 @@ where
         let channel_id = self.channel_id;
         let shutdown_tx = self.shutdown_tx.clone();
         handle.spawn(async move {
-            let c = &mut Client::new(&m_client, channel_id, shutdown_tx);
+            let c = &mut Client::new(&m_client, &vimservice.name(), channel_id, shutdown_tx);
 
             match vimservice.notify(&mut c.clone(), &method, &params).await {
                 Ok(_) => {}

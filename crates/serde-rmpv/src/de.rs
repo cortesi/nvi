@@ -1,5 +1,7 @@
-use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
-use serde::Deserialize;
+use serde::{
+    de::{self, DeserializeSeed, MapAccess, SeqAccess, Unexpected, Visitor},
+    forward_to_deserialize_any, Deserialize,
+};
 
 use crate::error::*;
 
@@ -53,25 +55,39 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     // The `parse_signed` function is generic over the integer type `T` so here
     // it is invoked with `T=i8`. The next 8 methods are similar.
-    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        visitor.visit_i8(
+            self.input
+                .as_i64()
+                .map(|v| v as i8)
+                .ok_or(Error::TypeError("expected i8".to_string()))?,
+        )
     }
 
-    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        visitor.visit_i16(
+            self.input
+                .as_i64()
+                .map(|v| v as i16)
+                .ok_or(Error::TypeError("expected i16".to_string()))?,
+        )
     }
 
-    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        visitor.visit_i32(
+            self.input
+                .as_i64()
+                .ok_or(Error::TypeError("expected i32".to_string()))? as i32,
+        )
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
@@ -85,25 +101,40 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         )
     }
 
-    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        visitor.visit_u8(
+            self.input
+                .as_u64()
+                .map(|v| v as u8)
+                .ok_or(Error::TypeError("expected u8".to_string()))?,
+        )
     }
 
-    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        visitor.visit_u16(
+            self.input
+                .as_u64()
+                .map(|v| v as u16)
+                .ok_or(Error::TypeError("expected u16".to_string()))?,
+        )
     }
 
-    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        visitor.visit_u32(
+            self.input
+                .as_u64()
+                .map(|v| v as u32)
+                .ok_or(Error::TypeError("expected u32".to_string()))?,
+        )
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
@@ -142,8 +173,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         Err(Error::UnsupportedType)
     }
 
-    // Refer to the "Understanding deserializer lifetimes" page for information
-    // about the three deserialization flavors of strings in Serde.
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -213,12 +242,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(Error::UnsupportedType)
+        // FIXME: We only support unit variants for now
+        visitor.visit_enum(UnitVariantAccess::new(self))
     }
 
     // Unit struct means a named value containing no data.
@@ -248,7 +278,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             rmpv::Value::Binary(v) => visitor.visit_bytes(v),
-            rmpv::Value::Ext(_, _) => visitor.visit_seq(ExtAccess::new(self)),
+            rmpv::Value::Ext(_, _) => serde::Deserializer::deserialize_any(
+                ExtDeserializer::new(self.input.clone()),
+                visitor,
+            ),
             rmpv::Value::Array(_) => visitor.visit_seq(ArrayAccess::new(self)),
             _ => Err(Error::TypeError("expected sequence type".to_string())),
         }
@@ -311,42 +344,158 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 }
 
-struct ExtAccess<'a, 'de: 'a> {
-    de: &'a mut Deserializer<'de>,
+struct ExtValueDeserializer {
+    value: rmpv::Value,
+}
+
+impl ExtValueDeserializer {
+    fn new(value: rmpv::Value) -> Self {
+        ExtValueDeserializer { value }
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for ExtValueDeserializer {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        let ret = visitor.visit_bytes(self.value.as_slice().unwrap())?;
+        Ok(ret)
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+struct ExtIdDeserializer {
+    id: rmpv::Value,
+}
+
+impl ExtIdDeserializer {
+    fn new(id: rmpv::Value) -> Self {
+        ExtIdDeserializer { id }
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for ExtIdDeserializer {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        let ret = visitor.visit_i8(self.id.as_i64().unwrap() as i8)?;
+        Ok(ret)
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+struct ExtDeserializer {
+    id: rmpv::Value,
+    data: rmpv::Value,
     offset: usize,
 }
 
-impl<'a, 'de> ExtAccess<'a, 'de> {
-    fn new(de: &'a mut Deserializer<'de>) -> Self {
-        ExtAccess { de, offset: 0 }
+impl ExtDeserializer {
+    fn new(value: rmpv::Value) -> Self {
+        let (id, data) = value.as_ext().expect("expected ext");
+        ExtDeserializer {
+            id: rmpv::Value::from(id),
+            data: rmpv::Value::from(data),
+            offset: 0,
+        }
     }
 }
 
-impl<'de, 'a> SeqAccess<'de> for ExtAccess<'a, 'de> {
+impl<'de> serde::Deserializer<'de> for ExtDeserializer {
     type Error = Error;
 
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        let ret = visitor.visit_seq(&mut self)?;
+        Ok(ret)
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+impl<'de> SeqAccess<'de> for ExtDeserializer {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
     where
         T: DeserializeSeed<'de>,
     {
-        let arr = self
-            .de
-            .input
-            .as_ext()
-            .ok_or(Error::TypeError("expected array".to_string()))?;
-        Ok(Some(if self.offset == 0 {
-            self.offset += 1;
-            seed.deserialize(rmpv::Value::from(arr.0))
-                .map_err(|e| Error::Message(e.to_string()))?
-        } else if self.offset == 1 {
-            self.offset += 1;
-            seed.deserialize(rmpv::Value::Binary(arr.1.to_vec()))
-                .map_err(|e| Error::Message(e.to_string()))?
-        } else {
-            return Err(Error::Message("expected only two elements".to_string()));
-        }))
+        match self.offset {
+            0 => {
+                self.offset += 1;
+                let de = ExtIdDeserializer::new(self.id.clone());
+                let v = seed.deserialize(de)?;
+                Ok(Some(v))
+            }
+            1 => {
+                self.offset += 1;
+                let de = ExtValueDeserializer::new(self.data.clone());
+                let v = seed.deserialize(de)?;
+                Ok(Some(v))
+            }
+            _ => Ok(None),
+        }
     }
 }
+
+// struct ExtAccess<'a, 'de: 'a> {
+//     de: &'a mut Deserializer<'de>,
+//     offset: usize,
+// }
+//
+// impl<'a, 'de> ExtAccess<'a, 'de> {
+//     fn new(de: &'a mut Deserializer<'de>) -> Self {
+//         ExtAccess { de, offset: 0 }
+//     }
+// }
+//
+// impl<'de, 'a> SeqAccess<'de> for ExtAccess<'a, 'de> {
+//     type Error = Error;
+//
+//     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+//     where
+//         T: DeserializeSeed<'de>,
+//     {
+//         let (id, val) = self.de.input.as_ext().expect("expected ext");
+//         match self.offset {
+//             0 => {
+//                 self.offset += 1;
+//                 let value = rmpv::Value::from(id);
+//                 let mut de = Deserializer::from_value(&value);
+//                 seed.deserialize(&mut de).map(Some)
+//             }
+//             1 => {
+//                 self.offset += 1;
+//                 let value = rmpv::Value::Binary(val.to_vec());
+//                 let mut de = Deserializer::from_value(&value);
+//                 seed.deserialize(&mut de).map(Some)
+//             }
+//             _ => Ok(None),
+//         }
+//     }
+// }
 
 struct ArrayAccess<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
@@ -372,10 +521,10 @@ impl<'de, 'a> SeqAccess<'de> for ArrayAccess<'a, 'de> {
             .as_array()
             .ok_or(Error::TypeError("expected array".to_string()))?;
         if self.offset < arr.len() {
-            let value = arr[self.offset].clone();
+            let mut d = Deserializer::from_value(&arr[self.offset]);
             self.offset += 1;
             Ok(Some(
-                seed.deserialize(value)
+                seed.deserialize(&mut d)
                     .map_err(|e| Error::Message(e.to_string()))?,
             ))
         } else {
@@ -408,10 +557,10 @@ impl<'de, 'a> MapAccess<'de> for ValueMapAccess<'a, 'de> {
             .as_map()
             .ok_or(Error::TypeError("expected map".to_string()))?;
         if self.offset < m.len() {
-            let key = m[self.offset].0.clone();
+            let mut d = Deserializer::from_value(&m[self.offset].0);
             self.offset += 1;
             Ok(Some(
-                seed.deserialize(key)
+                seed.deserialize(&mut d)
                     .map_err(|e| Error::Message(e.to_string()))?,
             ))
         } else {
@@ -428,9 +577,74 @@ impl<'de, 'a> MapAccess<'de> for ValueMapAccess<'a, 'de> {
             .input
             .as_map()
             .ok_or(Error::TypeError("expected map".to_string()))?;
-        let value = m[self.offset - 1].1.clone();
-        seed.deserialize(value)
+        let mut d = Deserializer::from_value(&m[self.offset - 1].1);
+        seed.deserialize(&mut d)
             .map_err(|e| Error::Message(e.to_string()))
+    }
+}
+
+struct UnitVariantAccess<'a, 'de: 'a> {
+    de: &'a mut Deserializer<'de>,
+}
+
+impl<'a, 'de> UnitVariantAccess<'a, 'de> {
+    fn new(de: &'a mut Deserializer<'de>) -> Self {
+        UnitVariantAccess { de }
+    }
+}
+
+impl<'de, 'a> de::EnumAccess<'de> for UnitVariantAccess<'a, 'de> {
+    type Error = Error;
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self), Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        let variant = seed.deserialize(&mut *self.de)?;
+        Ok((variant, self))
+    }
+}
+
+impl<'de, 'a> de::VariantAccess<'de> for UnitVariantAccess<'a, 'de> {
+    type Error = Error;
+
+    fn unit_variant(self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value, Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        Err(de::Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"newtype variant",
+        ))
+    }
+
+    fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(de::Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"tuple variant",
+        ))
+    }
+
+    fn struct_variant<V>(
+        self,
+        _fields: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(de::Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"struct variant",
+        ))
     }
 }
 

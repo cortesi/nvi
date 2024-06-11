@@ -197,11 +197,13 @@ pub fn protoc() -> Result<()> {
         use crate::types::*;
 
         #[derive(Clone)]
+        /// Auto-generated API for Neovim's MessagePack-RPC protocol.
         pub struct NvimApi {
             pub(crate) m_client: msgpack_rpc::Client,
         }
 
         impl NvimApi {
+            /// Make a raw request over the MessagePack-RPC protocol.
             pub async fn raw_request(
                 &self,
                 method: &str,
@@ -211,6 +213,7 @@ pub fn protoc() -> Result<()> {
                 self.m_client.request(method, params).await
             }
 
+            /// Send a raw notification over the MessagePack-RPC protocol.
             pub async fn raw_notify(
                 &self,
                 method: &str,

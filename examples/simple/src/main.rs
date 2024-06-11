@@ -1,8 +1,8 @@
 use nvi_macros::*;
 use std::sync::{Arc, Mutex};
 
-// The only requirement for an Nvi service is that it be `Clone`, so that we can share it between
-// inbound connections (in server mode) and async tasks (everywhere else).
+// An Nvi service must be `Clone`, so that we can share it between inbound connections (in server
+// mode) and async tasks (everywhere else).
 #[derive(Clone)]
 struct Simple {
     n: Arc<Mutex<usize>>,
@@ -15,8 +15,8 @@ struct Simple {
 // the editor connects, we can use it from Lua like so:
 //
 // ```lua
-// Simple.increment(5)
-// print(Simple.retrieve())
+// Simple.inc(5)
+// print(Simple.get())
 // ```
 #[nvi_service]
 impl Simple {
@@ -32,7 +32,7 @@ impl Simple {
     // serializable to a MessagePack Value. Notification methods can be void, or return a
     // `Result<()>`.
     #[notify]
-    async fn increment(&mut self, _client: &mut nvi::Client, inc: usize) {
+    async fn inc(&mut self, _client: &mut nvi::Client, inc: usize) {
         let mut n = self.n.lock().unwrap();
         *n += inc;
     }
@@ -43,7 +43,7 @@ impl Simple {
     // MessagePack Value. Requets may be void, return `T` or `Result<T>` where T is serializable to
     // a MesagePack value.
     #[request]
-    async fn retrieve(&mut self, _client: &mut nvi::Client) -> usize {
+    async fn get(&mut self, _client: &mut nvi::Client) -> usize {
         *self.n.lock().unwrap()
     }
 
@@ -57,7 +57,7 @@ impl Simple {
 
 #[tokio::main]
 async fn main() {
-    // Nvi provides a standard way to invoke plugins. This is not just convenient, but lets us
-    // standardize tooling so we can build tooling around plugins.
+    // Nvi has a built-in command-line interface to invoke plugins. This is not just convenient,
+    // but standardized invocation lets us build tooling around plugins.
     nvi::run(Simple::new()).await;
 }

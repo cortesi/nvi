@@ -6,10 +6,12 @@ use msgpack_rpc::Value;
 use serde_rmpv::{from_value, to_value};
 use tracing::trace;
 #[derive(Clone)]
+#[doc = r" Auto-generated API for Neovim's MessagePack-RPC protocol."]
 pub struct NvimApi {
     pub(crate) m_client: msgpack_rpc::Client,
 }
 impl NvimApi {
+    #[doc = r" Make a raw request over the MessagePack-RPC protocol."]
     pub async fn raw_request(
         &self,
         method: &str,
@@ -18,6 +20,7 @@ impl NvimApi {
         trace!("send request: {:?} {:?}", method, params);
         self.m_client.request(method, params).await
     }
+    #[doc = r" Send a raw notification over the MessagePack-RPC protocol."]
     pub async fn raw_notify(&self, method: &str, params: &[msgpack_rpc::Value]) -> Result<(), ()> {
         trace!("send notification: {:?} {:?}", method, params);
         self.m_client.notify(method, params).await
@@ -33,7 +36,7 @@ impl NvimApi {
     }
     pub async fn nvim_create_autocmd(
         &self,
-        event: Value,
+        event: &[String],
         opts: Option<CreateAutocmdOpts>,
     ) -> Result<i64> {
         #[allow(unused_variables)]
