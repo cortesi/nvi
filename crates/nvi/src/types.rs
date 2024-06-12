@@ -241,8 +241,10 @@ pub enum Anchor {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Text {
+    /// A plain string, with a default highlight group
     Plain(String),
-    Id(Vec<(String, String)>),
+    /// A sequence of (text, highlight) tuples
+    Highlights(Vec<(String, String)>),
 }
 
 /// A group specification, used in many command options. Groups can be specified as either a string
@@ -294,7 +296,7 @@ pub struct WindowConf {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title_pos: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub footer: Option<String>,
+    pub footer: Option<Text>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub footer_position: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

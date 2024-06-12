@@ -35,10 +35,8 @@ async fn it_registers_autocmds() {
             Ok(())
         }
     }
-
     trace!("starting test");
     let (tx, _) = broadcast::channel(16);
     test::test_service(T {}, tx).await.unwrap();
-
     assert!(logs_contain("aucmd received"));
 }

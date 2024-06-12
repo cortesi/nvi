@@ -3,7 +3,14 @@ use tokio::sync::broadcast;
 use crate::error::Result;
 use crate::NviService;
 use clap::{Parser, Subcommand};
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
+use tracing::Level;
+use tracing_log::AsTrace;
+use tracing_subscriber::filter;
+use tracing_subscriber::filter::FilterExt;
+use tracing_subscriber::prelude::*;
+
+const CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -18,9 +25,9 @@ enum Commands {
     Connect {
         /// Address to connect to
         addr: String,
-        /// Enable tracing
-        #[arg(short, long)]
-        trace: bool,
+
+        #[command(flatten)]
+        verbose: Verbosity<InfoLevel>,
     },
 }
 
@@ -33,23 +40,22 @@ where
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Commands::Connect { addr, trace } => {
-            if *trace {
-                tracing_subscriber::fmt()
-                    .with_target(false)
-                    .with_env_filter(
-                        EnvFilter::builder()
-                            .with_default_directive(LevelFilter::TRACE.into())
-                            .parse("nvi")
-                            .unwrap(),
-                    )
-                    .init();
-            }
+        Commands::Connect { addr, verbose } => {
+            println!("{}, {:?}", addr, verbose.log_level_filter().as_trace());
 
+            let filter = filter::Targets::new()
+                // Filter out overly verbose logs from msgpack_rpc
+                .with_target("msgpack_rpc", Level::TRACE)
+                .not();
+            let fmt_layer = tracing_subscriber::fmt::layer()
+                .with_target(true)
+                .with_filter(filter);
+            tracing_subscriber::registry()
+                .with(fmt_layer)
+                .with(verbose.log_level_filter().as_trace())
+                .init();
             let (tx, _rx) = broadcast::channel(16);
             crate::connect_unix(tx, addr.clone(), service).await?;
-
-            println!("run: {addr}");
         }
     }
     Ok(())
