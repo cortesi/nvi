@@ -50,6 +50,10 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![],
             ret: Some(quote! { (u64, ApiInfo) }),
         },
+        "nvim_get_chan_info" => Override {
+            args: vec![],
+            ret: Some(quote! { ChanInfo }),
+        },
         "nvim_notify" => Override {
             args: vec![Arg {
                 name: "log_level".into(),

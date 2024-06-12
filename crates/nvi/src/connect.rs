@@ -23,11 +23,11 @@ async fn bootstrap(
     shutdown_tx: broadcast::Sender<()>,
 ) -> Result<()> {
     let nc = &mut Client::new(&c, name, None, shutdown_tx);
-    let (id, _v) = nc.nvim.nvim_get_api_info().await?;
+    let chan = nc.nvim.nvim_get_chan_info(0).await?;
     nc.nvim
         .nvim_exec_lua(
             &format!("vim.rpcnotify(..., '{}', ...)", BOOTSTRAP_NOTIFICATION),
-            vec![id.into()],
+            vec![chan.id.into()],
         )
         .await?;
     Ok(())

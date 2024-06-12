@@ -57,6 +57,18 @@ pub struct ApiInfo {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct ChanInfo {
+    pub id: u64,
+    pub argv: Option<String>,
+    pub stream: String,
+    pub mode: String,
+    pub pty: Option<String>,
+    // FIXME: Docs aren't clear on what the return types of these two are.
+    //pub buffer: Option<String>,
+    //pub client: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct AutocmdEvent {
     pub id: u64,
     pub event: Event,

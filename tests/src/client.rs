@@ -40,3 +40,23 @@ async fn it_registers_autocmds() {
     test::test_service(T {}, tx).await.unwrap();
     assert!(logs_contain("aucmd received"));
 }
+
+#[tokio::test]
+#[traced_test]
+async fn api_nvim_get_chan_info() {
+    #[derive(Clone)]
+    struct T {}
+
+    #[nvi_service]
+    impl T {
+        async fn run(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
+            let chan = c.nvim.nvim_get_chan_info(0).await?;
+            assert!(chan.id > 0);
+            c.shutdown();
+            Ok(())
+        }
+    }
+    trace!("starting test");
+    let (tx, _) = broadcast::channel(16);
+    test::test_service(T {}, tx).await.unwrap();
+}

@@ -6,11 +6,10 @@ use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use tracing::Level;
 use tracing_log::AsTrace;
-use tracing_subscriber::filter;
-use tracing_subscriber::filter::FilterExt;
-use tracing_subscriber::prelude::*;
-
-const CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
+use tracing_subscriber::{
+    filter::{FilterExt, Targets},
+    prelude::*,
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -36,14 +35,11 @@ where
     T: NviService + Unpin + 'static,
 {
     let cli = Cli::parse();
-
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
     match &cli.command {
         Commands::Connect { addr, verbose } => {
             println!("{}, {:?}", addr, verbose.log_level_filter().as_trace());
 
-            let filter = filter::Targets::new()
+            let filter = Targets::new()
                 // Filter out overly verbose logs from msgpack_rpc
                 .with_target("msgpack_rpc", Level::TRACE)
                 .not();

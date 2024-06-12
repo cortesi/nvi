@@ -1525,7 +1525,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_chan_info(&self, chan: i64) -> Result<Value> {
+    pub async fn nvim_get_chan_info(&self, chan: i64) -> Result<ChanInfo> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_chan_info", &[to_value(&chan)?])
