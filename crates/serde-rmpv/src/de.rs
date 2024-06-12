@@ -180,7 +180,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_borrowed_str(
             self.input
                 .as_str()
-                .ok_or(Error::TypeError("expected string".to_string()))?,
+                .ok_or(Error::TypeError(format!("expected string: {}", self.input)))?,
         )
     }
 
@@ -191,7 +191,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_borrowed_str(
             self.input
                 .as_str()
-                .ok_or(Error::TypeError("expected string".to_string()))?,
+                .ok_or(Error::TypeError(format!("expected string: {}", self.input)))?,
         )
     }
 

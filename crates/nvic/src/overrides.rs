@@ -20,13 +20,6 @@ pub struct Override {
 
 pub fn get_override(name: &str) -> Option<Override> {
     Some(match name {
-        "nvim_notify" => Override {
-            args: vec![Arg {
-                name: "log_level".into(),
-                typ: quote! { u64 },
-            }],
-            ret: Some(quote! { () }),
-        },
         "nvim_create_autocmd" => Override {
             args: vec![
                 Arg {
@@ -56,6 +49,24 @@ pub fn get_override(name: &str) -> Option<Override> {
         "nvim_get_api_info" => Override {
             args: vec![],
             ret: Some(quote! { (u64, ApiInfo) }),
+        },
+        "nvim_notify" => Override {
+            args: vec![Arg {
+                name: "log_level".into(),
+                typ: quote! { u64 },
+            }],
+            ret: Some(quote! { () }),
+        },
+        "nvim_win_get_config" => Override {
+            args: vec![],
+            ret: Some(quote! { WindowConf }),
+        },
+        "nvim_win_set_config" => Override {
+            args: vec![Arg {
+                name: "config".into(),
+                typ: quote! { WindowConf },
+            }],
+            ret: None,
         },
         _ => return None,
     })

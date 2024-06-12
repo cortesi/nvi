@@ -1,7 +1,7 @@
 /* A compendium of types for working with the Neovim msgrpc API */
 use derive_builder::Builder;
 use serde_derive::{Deserialize, Serialize};
-use serde_with::{serde_as, Bytes};
+use serde_with::{serde_as, Bytes, NoneAsEmptyString};
 
 pub const BUFFER_EXT_TYPE: i8 = 0;
 pub const WINDOW_EXT_TYPE: i8 = 1;
@@ -9,6 +9,7 @@ pub const TABPAGE_EXT_TYPE: i8 = 2;
 
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename = "_ExtStruct")]
 pub struct Buffer(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl Buffer {
@@ -19,6 +20,7 @@ impl Buffer {
 
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename = "_ExtStruct")]
 pub struct Window(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl Window {
@@ -29,6 +31,7 @@ impl Window {
 
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename = "_ExtStruct")]
 pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl TabPage {
@@ -51,62 +54,6 @@ pub struct APIVersion {
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct ApiInfo {
     pub version: APIVersion,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum Group {
-    Name(String),
-    Id(u64),
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
-#[builder(setter(strip_option), default)]
-pub struct CreateAutocmdOpts {
-    /// Autocommand group name or ID to match against.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub group: Option<Group>,
-    /// Pattern to match literally
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pattern: Option<Vec<String>>,
-    /// Buffer number for buffer-local autocommands
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub buffer: Option<u64>,
-    /// Description for docs and troubleshooting
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub desc: Option<String>,
-    /// Vimscript function name to call when the event is triggered
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub callback: Option<String>,
-    /// Vim command to execute when the event is triggered. Can't be used with callback.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub command: Option<String>,
-    /// Run the command only once
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub once: Option<bool>,
-    /// Run nested autocommands
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nested: Option<bool>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
-#[builder(setter(strip_option), default)]
-pub struct ExecAutocmdsOpts {
-    /// Autocommand group name or ID to match against.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub group: Option<Group>,
-    /// Pattern to match literally
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pattern: Option<Vec<String>>,
-    /// Buffer number for buffer-local autocommands
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub buffer: Option<u64>,
-    /// Process the modeline after the autocommands
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub modeline: Option<bool>,
-    /// Data to send to event
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -247,7 +194,7 @@ pub enum Event {
     WinResized,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LogLevel {
     Trace = 0,
     Debug = 1,
@@ -267,12 +214,106 @@ impl LogLevel {
         }
     }
 }
+#[derive(
+    Debug, Clone, Deserialize, Serialize, PartialEq, Eq, strum::EnumString, strum::Display,
+)]
+#[serde(untagged)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum Relative {
+    Editor,
+    Win,
+    Cursor,
+    Mouse,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Anchor {
+    NW,
+    NE,
+    SW,
+    SE,
+}
+
+/// A group specification, used in many command options. Groups can be specified as either a string
+/// name, or as a numeric ID.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Text {
+    Plain(String),
+    Id(Vec<(String, String)>),
+}
+
+/// A group specification, used in many command options. Groups can be specified as either a string
+/// name, or as a numeric ID.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[serde(untagged)]
+pub enum Border {
+    None,
+    Single,
+    Double,
+    Rounded,
+    Solid,
+    Shadow,
+    Array(Vec<String>),
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Builder, Default)]
+#[builder(setter(strip_option), default)]
+pub struct WindowConf {
+    #[serde_as(as = "NoneAsEmptyString")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relative: Option<Relative>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub win: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bufpos: Option<(u64, u64)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub row: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub col: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focusable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zinc: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub border: Option<Border>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<Text>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_pos: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub footer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub footer_position: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub noautocmd: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fixed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hide: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vertical: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub split: Option<String>,
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use rmpv::Value;
-    use serde_rmpv::{from_value, to_value};
+    use serde_rmpv::from_value;
 
     #[test]
     fn test_deser_event() {
@@ -307,20 +348,5 @@ mod tests {
 
         let ret: AutocmdEvent = from_value(&evt).unwrap();
         assert_eq!(ret, expected);
-    }
-
-    #[test]
-    fn test_serialize_group() {
-        let group = Group::Name("test".to_string());
-        let serialized = to_value(&group).unwrap();
-        assert_eq!(serialized, Value::String("test".to_string().into()));
-        let g2: Group = from_value(&serialized).unwrap();
-        assert_eq!(group, g2);
-
-        let group = Group::Id(5);
-        let serialized = to_value(&group).unwrap();
-        assert_eq!(serialized, Value::Integer(5.into()));
-        let g2: Group = from_value(&serialized).unwrap();
-        assert_eq!(group, g2);
     }
 }

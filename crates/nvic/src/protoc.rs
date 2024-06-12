@@ -196,6 +196,7 @@ pub fn protoc() -> Result<()> {
 
         use crate::error::{Result, Error};
         use crate::types::*;
+        use crate::opts::*;
 
         #[derive(Clone)]
         /// Auto-generated API for Neovim's MessagePack-RPC protocol.
@@ -211,7 +212,9 @@ pub fn protoc() -> Result<()> {
                 params: &[msgpack_rpc::Value],
             ) -> Result<msgpack_rpc::Value, msgpack_rpc::Value> {
                 trace!("send request: {:?} {:?}", method, params);
-                self.m_client.request(method, params).await
+                let ret = self.m_client.request(method, params).await;
+                trace!("got response for {:?}: {:?}", method, ret);
+                ret
             }
 
             /// Send a raw notification over the MessagePack-RPC protocol.

@@ -5,6 +5,7 @@ mod service;
 
 pub mod error;
 pub mod nvim_api;
+pub mod opts;
 pub mod test;
 pub mod types;
 

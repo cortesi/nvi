@@ -1,6 +1,7 @@
 #![allow(clippy::needless_question_mark)]
 #![allow(clippy::needless_borrow)]
 use crate::error::{Error, Result};
+use crate::opts::*;
 use crate::types::*;
 use msgpack_rpc::Value;
 use serde_rmpv::{from_value, to_value};
@@ -18,7 +19,9 @@ impl NvimApi {
         params: &[msgpack_rpc::Value],
     ) -> Result<msgpack_rpc::Value, msgpack_rpc::Value> {
         trace!("send request: {:?} {:?}", method, params);
-        self.m_client.request(method, params).await
+        let ret = self.m_client.request(method, params).await;
+        trace!("got response for {:?}: {:?}", method, ret);
+        ret
     }
     #[doc = r" Send a raw notification over the MessagePack-RPC protocol."]
     pub async fn raw_notify(&self, method: &str, params: &[msgpack_rpc::Value]) -> Result<(), ()> {
@@ -1704,7 +1707,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_config(&self, window: &Window, config: Value) -> Result<()> {
+    pub async fn nvim_win_set_config(&self, window: &Window, config: WindowConf) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1716,7 +1719,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_config(&self, window: &Window) -> Result<Value> {
+    pub async fn nvim_win_get_config(&self, window: &Window) -> Result<WindowConf> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_config", &[to_value(&window)?])

@@ -1,5 +1,7 @@
-use nvi::test;
-use nvi::types::{AutocmdEvent, Event, ExecAutocmdsOpts};
+use nvi::{
+    opts, test,
+    types::{AutocmdEvent, Event},
+};
 
 use nvi_macros::{nvi_service, request};
 use tokio::sync::broadcast;
@@ -28,7 +30,7 @@ async fn it_registers_autocmds() {
                 .await?;
             trace!("autocmd id: {:?}", id);
             c.nvim
-                .nvim_exec_autocmds(&[Event::User], ExecAutocmdsOpts::default())
+                .nvim_exec_autocmds(&[Event::User], opts::ExecAutocmdsOpts::default())
                 .await?;
             Ok(())
         }
