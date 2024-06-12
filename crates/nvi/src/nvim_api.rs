@@ -5,7 +5,7 @@ use crate::opts::*;
 use crate::types::*;
 use msgpack_rpc::Value;
 use serde_rmpv::{from_value, to_value};
-use tracing::trace;
+use tracing::{debug, trace};
 #[derive(Clone)]
 #[doc = r" Auto-generated API for Neovim's MessagePack-RPC protocol."]
 pub struct NvimApi {
@@ -21,11 +21,13 @@ impl NvimApi {
         trace!("send request: {:?} {:?}", method, params);
         let ret = self.m_client.request(method, params).await;
         trace!("got response for {:?}: {:?}", method, ret);
+        debug!("request: {:?}, ok", method);
         ret
     }
     #[doc = r" Send a raw notification over the MessagePack-RPC protocol."]
     pub async fn raw_notify(&self, method: &str, params: &[msgpack_rpc::Value]) -> Result<(), ()> {
         trace!("send notification: {:?} {:?}", method, params);
+        debug!("notification: {:?}", method);
         self.m_client.notify(method, params).await
     }
     pub async fn nvim_get_autocmds(&self, opts: Value) -> Result<Vec<Value>> {

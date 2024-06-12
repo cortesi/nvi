@@ -191,7 +191,7 @@ pub fn protoc() -> Result<()> {
         #![allow(clippy::needless_borrow)]
 
         use msgpack_rpc::Value;
-        use tracing::trace;
+        use tracing::{trace, debug};
         use serde_rmpv::{from_value, to_value};
 
         use crate::error::{Result, Error};
@@ -214,6 +214,7 @@ pub fn protoc() -> Result<()> {
                 trace!("send request: {:?} {:?}", method, params);
                 let ret = self.m_client.request(method, params).await;
                 trace!("got response for {:?}: {:?}", method, ret);
+                debug!("request: {:?}, ok", method);
                 ret
             }
 
@@ -224,6 +225,7 @@ pub fn protoc() -> Result<()> {
                 params: &[msgpack_rpc::Value],
             ) -> Result<(), ()> {
                 trace!("send notification: {:?} {:?}", method, params);
+                debug!("notification: {:?}", method);
                 self.m_client.notify(method, params).await
             }
 

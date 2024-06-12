@@ -4,7 +4,7 @@ use crate::Value;
 use async_trait::async_trait;
 use futures::Future;
 use tokio::{runtime::Handle, sync::broadcast};
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 use crate::{client::Client, error::Result, types};
 
@@ -126,7 +126,8 @@ where
         method: &str,
         params: &[Value],
     ) -> Self::RequestFuture {
-        trace!("recv request: {:?} {:?}", method, params);
+        debug!("recv request: {:?}", method);
+        trace!("recv request data: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
         let mut client = Client::new(
             client,
@@ -161,13 +162,14 @@ where
         method: &str,
         params: &[Value],
     ) {
-        trace!("recv notifcation: {:?} {:?}", method, params);
+        debug!("recv notification: {:?}", method);
+        trace!("recv notification data: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
         let handle = Handle::current();
         let m_client = client.clone();
         if method == BOOTSTRAP_NOTIFICATION {
             let id = params[0].as_u64().unwrap();
-            trace!("connected with channel id: {:?}", id);
+            debug!("connected to nvim with channel id: {:?}", id);
             self.channel_id = Some(id);
             let channel_id = self.channel_id;
             let shutdown_tx = self.shutdown_tx.clone();
