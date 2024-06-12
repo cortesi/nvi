@@ -23,8 +23,10 @@ async fn it_registers_autocmds() {
         }
 
         async fn run(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
-            c.autocmd("aucmd", &[Event::User], &[], None, false, false)
+            let id = c
+                .autocmd("aucmd", &[Event::User], &[], None, false, false)
                 .await?;
+            trace!("autocmd id: {:?}", id);
             c.nvim
                 .nvim_exec_autocmds(&[Event::User], ExecAutocmdsOpts::default())
                 .await?;

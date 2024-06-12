@@ -193,7 +193,7 @@ impl Client {
         group: Option<u64>,
         once: bool,
         nested: bool,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         if events.is_empty() {
             return Err(Error::Internal {
                 msg: "events must not be empty".into(),
@@ -218,11 +218,12 @@ impl Client {
         };
 
         let namespace = &self.name;
-        self.nvim
+        let ret = self
+            .nvim
             .nvim_exec_lua(
                 &format!(
                     r#"
-                        vim.api.nvim_create_autocmd(
+                        return vim.api.nvim_create_autocmd(
                             {{ {events} }},
                             {{
                                 pattern = {{ {patterns} }},
@@ -239,7 +240,7 @@ impl Client {
                 vec![],
             )
             .await?;
-        Ok(())
+        Ok(ret.as_u64().unwrap())
     }
 }
 
