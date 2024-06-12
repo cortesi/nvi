@@ -44,6 +44,7 @@ where
                 .with_target("msgpack_rpc", Level::TRACE)
                 .not();
             let fmt_layer = tracing_subscriber::fmt::layer()
+                .without_time()
                 .with_target(true)
                 .with_filter(filter);
             tracing_subscriber::registry()
