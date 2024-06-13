@@ -1,23 +1,15 @@
 //! This module contains the options structures for methods in the generated API.
-use derive_builder::Builder;
+use crate::types;
+use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 
-/// A group specification, used in many command options. Groups can be specified as either a string
-/// name, or as a numeric ID.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum Group {
-    Name(String),
-    Id(u64),
-}
-
 /// Options for `nvim_create_autocmd` method
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
-#[builder(setter(strip_option), default)]
-pub struct CreateAutocmdOpts {
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
+#[setters(strip_option)]
+pub struct CreateAutocmd {
     /// Autocommand group name or ID to match against.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub group: Option<Group>,
+    pub group: Option<types::Group>,
     /// Pattern to match literally
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pattern: Option<Vec<String>>,
@@ -42,12 +34,12 @@ pub struct CreateAutocmdOpts {
 }
 
 /// Options for `nvim_exec_autocmds` function
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Builder, Default)]
-#[builder(setter(strip_option), default)]
-pub struct ExecAutocmdsOpts {
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
+#[setters(strip_option)]
+pub struct ExecAutocmds {
     /// Autocommand group name or ID to match against.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub group: Option<Group>,
+    pub group: Option<types::Group>,
     /// Pattern to match literally
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pattern: Option<Vec<String>>,
@@ -62,24 +54,17 @@ pub struct ExecAutocmdsOpts {
     pub data: Option<Vec<u8>>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rmpv::Value;
-    use serde_rmpv::{from_value, to_value};
-
-    #[test]
-    fn test_serialize_group() {
-        let group = Group::Name("test".to_string());
-        let serialized = to_value(&group).unwrap();
-        assert_eq!(serialized, Value::String("test".to_string().into()));
-        let g2: Group = from_value(&serialized).unwrap();
-        assert_eq!(group, g2);
-
-        let group = Group::Id(5);
-        let serialized = to_value(&group).unwrap();
-        assert_eq!(serialized, Value::Integer(5.into()));
-        let g2: Group = from_value(&serialized).unwrap();
-        assert_eq!(group, g2);
-    }
+/// Options for `nvim_exec_autocmds` function
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
+#[setters(strip_option)]
+pub struct SetOptionValue {
+    /// "global" or "local", analogous to ":setglobal" an ":setlocal"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    /// Window ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub win: Option<types::Window>,
+    /// Buffer ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buf: Option<types::Buffer>,
 }

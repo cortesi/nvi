@@ -260,7 +260,7 @@ pub fn protoc() -> Result<()> {
 
         use crate::error::{Result, Error};
         use crate::types::*;
-        use crate::opts::*;
+        use crate::opts;
 
         #[derive(Clone)]
         /// Auto-generated API for Neovim's MessagePack-RPC protocol.

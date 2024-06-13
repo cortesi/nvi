@@ -30,7 +30,7 @@ async fn it_registers_autocmds() {
                 .await?;
             trace!("autocmd id: {:?}", id);
             c.nvim
-                .exec_autocmds(&[Event::User], opts::ExecAutocmdsOpts::default())
+                .exec_autocmds(&[Event::User], opts::ExecAutocmds::default())
                 .await?;
             Ok(())
         }

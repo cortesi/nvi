@@ -1,7 +1,7 @@
 #![allow(clippy::needless_question_mark)]
 #![allow(clippy::needless_borrow)]
 use crate::error::{Error, Result};
-use crate::opts::*;
+use crate::opts;
 use crate::types::*;
 use msgpack_rpc::Value;
 use serde::Serialize;
@@ -43,7 +43,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn create_autocmd(&self, event: &[Event], opts: CreateAutocmdOpts) -> Result<i64> {
+    pub async fn create_autocmd(&self, event: &[Event], opts: opts::CreateAutocmd) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -106,7 +106,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn exec_autocmds(&self, event: &[Event], opts: ExecAutocmdsOpts) -> Result<()> {
+    pub async fn exec_autocmds(&self, event: &[Event], opts: opts::ExecAutocmds) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_exec_autocmds", &[to_value(&event)?, to_value(&opts)?])
@@ -767,10 +767,14 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn set_option_value<T, U>(&self, name: &str, value: T, opts: U) -> Result<()>
+    pub async fn set_option_value<T>(
+        &self,
+        name: &str,
+        value: T,
+        opts: opts::SetOptionValue,
+    ) -> Result<()>
     where
         T: Serialize,
-        U: Serialize,
     {
         #[allow(unused_variables)]
         let ret = self

@@ -24,7 +24,7 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![
                 Arg {
                     name: "opts".into(),
-                    typ: quote! { CreateAutocmdOpts },
+                    typ: quote! { opts::CreateAutocmd },
                 },
                 Arg {
                     name: "event".into(),
@@ -41,7 +41,7 @@ pub fn get_override(name: &str) -> Option<Override> {
                 },
                 Arg {
                     name: "opts".into(),
-                    typ: quote! { ExecAutocmdsOpts },
+                    typ: quote! { opts::ExecAutocmds },
                 },
             ],
             ret: None,
@@ -65,6 +65,13 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![Arg {
                 name: "config".into(),
                 typ: quote! { WindowConf },
+            }],
+            ret: None,
+        },
+        "nvim_set_option_value" => Override {
+            args: vec![Arg {
+                name: "opts".into(),
+                typ: quote! { opts::SetOptionValue },
             }],
             ret: None,
         },

@@ -1,5 +1,5 @@
 /* A compendium of types for working with the Neovim msgrpc API */
-use derive_builder::Builder;
+use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{serde_as, Bytes, NoneAsEmptyString};
 
@@ -206,6 +206,15 @@ pub enum Event {
     WinResized,
 }
 
+/// A group specification, used in many command options. Groups can be specified as either a string
+/// name, or as a numeric ID.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Group {
+    Name(String),
+    Id(u64),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LogLevel {
     Trace = 0,
@@ -289,8 +298,8 @@ pub enum Border {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Builder, Default)]
-#[builder(setter(strip_option), default)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Setters, Default)]
+#[setters(strip_option)]
 pub struct WindowConf {
     #[serde_as(as = "NoneAsEmptyString")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -377,5 +386,20 @@ mod tests {
 
         let ret: AutocmdEvent = from_value(&evt).unwrap();
         assert_eq!(ret, expected);
+    }
+
+    #[test]
+    fn test_serialize_group() {
+        let group = Group::Name("test".to_string());
+        let serialized = serde_rmpv::to_value(&group).unwrap();
+        assert_eq!(serialized, Value::String("test".to_string().into()));
+        let g2: Group = from_value(&serialized).unwrap();
+        assert_eq!(group, g2);
+
+        let group = Group::Id(5);
+        let serialized = serde_rmpv::to_value(&group).unwrap();
+        assert_eq!(serialized, Value::Integer(5.into()));
+        let g2: Group = from_value(&serialized).unwrap();
+        assert_eq!(group, g2);
     }
 }
