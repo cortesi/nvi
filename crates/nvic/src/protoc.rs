@@ -39,62 +39,101 @@ fn clean_name(name: &str) -> String {
     name
 }
 
-fn generate_argument(func: &str, p: &api::Parameter) -> TokenStream {
+/// Takes the function name, a parameter, and the current meta variable count. Returns the argument
+/// and a boolean indicating whether the argument is a meta variable.
+fn generate_argument(func: &str, p: &api::Parameter, meta_count: i32) -> (TokenStream, bool) {
     let argname = clean_name(&p.1);
     let name = Ident::new(&argname, Span::call_site());
-    if let Some(t) = overrides::get_arg_type(func, &argname) {
-        quote! {
-            #name: #t
-        }
-    } else {
-        let typ = mk_arg_type(&p.0);
-        quote! {
-            #name: #typ
-        }
-    }
-}
 
-fn mk_arg_type(t: &api::Type) -> TokenStream {
-    match t {
-        api::Type::Array => quote! {
-            Vec<Value>
-        },
-        api::Type::ArrayOf { typ, .. } => {
-            let typ = mk_return_type(typ);
+    let metavar = Ident::new(vec!["T", "U", "V"][meta_count as usize], Span::call_site());
+    if let Some(t) = overrides::get_arg_type(func, &argname) {
+        (
             quote! {
-                Vec<#typ>
+                #name: #t
+            },
+            false,
+        )
+    } else {
+        let (typ, meta) = match &p.0 {
+            api::Type::Array => (
+                quote! {
+                    Vec<Value>
+                },
+                false,
+            ),
+            api::Type::ArrayOf { typ, .. } => {
+                let typ = mk_return_type(typ);
+                (
+                    quote! {
+                        Vec<#typ>
+                    },
+                    false,
+                )
             }
-        }
-        api::Type::Boolean => quote! {
-            bool
-        },
-        api::Type::Buffer => quote! {
-            &Buffer
-        },
-        api::Type::Dictionary => quote! {
-            Value
-        },
-        api::Type::Float => quote! {
-            f64
-        },
-        api::Type::Function => unreachable!("function type in arg position"),
-        api::Type::Integer => quote! {
-            i64
-        },
-        api::Type::LuaRef => unreachable!("luaref type in arg"),
-        api::Type::Object => quote! {
-            Value
-        },
-        api::Type::String => quote! {
-            &str
-        },
-        api::Type::Tabpage => quote! {
-            &TabPage
-        },
-        api::Type::Void => unreachable!("void type in arg position"),
-        api::Type::Window => quote! {
-            &Window
-        },
+            api::Type::Boolean => (
+                quote! {
+                    bool
+                },
+                false,
+            ),
+            api::Type::Buffer => (
+                quote! {
+                    &Buffer
+                },
+                false,
+            ),
+            api::Type::Dictionary => (
+                quote! {
+                    #metavar
+                },
+                true,
+            ),
+            api::Type::Float => (
+                quote! {
+                    f64
+                },
+                false,
+            ),
+            api::Type::Function => unreachable!("function type in arg position"),
+            api::Type::Integer => (
+                quote! {
+                    i64
+                },
+                false,
+            ),
+            api::Type::LuaRef => unreachable!("luaref type in arg"),
+            api::Type::Object => (
+                quote! {
+                    #metavar
+                },
+                true,
+            ),
+            api::Type::String => (
+                quote! {
+                    &str
+                },
+                false,
+            ),
+            api::Type::Tabpage => (
+                quote! {
+                    &TabPage
+                },
+                false,
+            ),
+            api::Type::Void => unreachable!("void type in arg position"),
+            api::Type::Window => (
+                quote! {
+                    &Window
+                },
+                false,
+            ),
+        };
+        (
+            quote! {
+                #name: #typ
+            },
+            meta,
+        )
     }
 }
 
@@ -156,18 +195,41 @@ fn generate_function(f: api::Function) -> TokenStream {
     let id = Ident::new(&f.name[5..], Span::call_site());
     let name = &f.name;
 
-    let args: Vec<TokenStream> = f
-        .parameters
-        .iter()
-        .map(|a| generate_argument(name, a))
-        .collect();
+    let mut args = vec![];
+    let mut meta_count = 0;
+    for a in &f.parameters {
+        let (arg, meta) = generate_argument(name, a, meta_count);
+        if meta {
+            meta_count += 1;
+        }
+        args.push(arg);
+    }
+
+    let generics = match meta_count {
+        0 => quote! {},
+        1 => quote! { <T> },
+        2 => quote! { <T, U> },
+        3 => quote! { <T, U, V> },
+        _ => panic!("unreachable"),
+    };
+
+    let where_clause = match meta_count {
+        0 => quote! {},
+        1 => quote! { where T: Serialize },
+        2 => quote! { where T: Serialize, U: Serialize },
+        3 => quote! { where T: Serialize, U: Serialize, V: Serialize },
+        _ => panic!("unreachable"),
+    };
+
     let arg_vals: Vec<TokenStream> = f.parameters.iter().map(mk_arg_value).collect();
 
     let ret_type =
         overrides::get_return_override(name).unwrap_or_else(|| mk_return_type(&f.return_type));
 
     quote! {
-        pub async fn #id(&self, #(#args),*) -> Result<#ret_type> {
+        pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
+            #where_clause
+        {
             #[allow(unused_variables)]
             let ret = self.raw_request(#name, &[#(#arg_vals),*]).await
             .map_err(Error::RemoteError)?;
@@ -194,6 +256,7 @@ pub fn protoc() -> Result<()> {
         use msgpack_rpc::Value;
         use tracing::{trace, debug};
         use serde_rmpv::{from_value, to_value};
+        use serde::Serialize;
 
         use crate::error::{Result, Error};
         use crate::types::*;
