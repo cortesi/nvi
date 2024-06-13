@@ -152,7 +152,8 @@ fn mk_arg_value(p: &api::Parameter) -> TokenStream {
 }
 
 fn generate_function(f: api::Function) -> TokenStream {
-    let id = Ident::new(&f.name, Span::call_site());
+    // All functions have the nvim_ prefix, so we strip it.
+    let id = Ident::new(&f.name[5..], Span::call_site());
     let name = &f.name;
 
     let args: Vec<TokenStream> = f

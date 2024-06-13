@@ -30,7 +30,7 @@ impl NvimApi {
         debug!("notification: {:?}", method);
         self.m_client.notify(method, params).await
     }
-    pub async fn nvim_get_autocmds(&self, opts: Value) -> Result<Vec<Value>> {
+    pub async fn get_autocmds(&self, opts: Value) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_autocmds", &[to_value(&opts)?])
@@ -39,11 +39,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_create_autocmd(
-        &self,
-        event: &[Event],
-        opts: CreateAutocmdOpts,
-    ) -> Result<i64> {
+    pub async fn create_autocmd(&self, event: &[Event], opts: CreateAutocmdOpts) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -55,7 +51,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_autocmd(&self, id: i64) -> Result<()> {
+    pub async fn del_autocmd(&self, id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_autocmd", &[to_value(&id)?])
@@ -64,7 +60,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_clear_autocmds(&self, opts: Value) -> Result<()> {
+    pub async fn clear_autocmds(&self, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_clear_autocmds", &[to_value(&opts)?])
@@ -73,7 +69,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_create_augroup(&self, name: &str, opts: Value) -> Result<i64> {
+    pub async fn create_augroup(&self, name: &str, opts: Value) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_create_augroup", &[to_value(&name)?, to_value(&opts)?])
@@ -82,7 +78,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_augroup_by_id(&self, id: i64) -> Result<()> {
+    pub async fn del_augroup_by_id(&self, id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_augroup_by_id", &[to_value(&id)?])
@@ -91,7 +87,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_augroup_by_name(&self, name: &str) -> Result<()> {
+    pub async fn del_augroup_by_name(&self, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_augroup_by_name", &[to_value(&name)?])
@@ -100,7 +96,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_exec_autocmds(&self, event: &[Event], opts: ExecAutocmdsOpts) -> Result<()> {
+    pub async fn exec_autocmds(&self, event: &[Event], opts: ExecAutocmdsOpts) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_exec_autocmds", &[to_value(&event)?, to_value(&opts)?])
@@ -109,7 +105,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_line_count(&self, buffer: &Buffer) -> Result<i64> {
+    pub async fn buf_line_count(&self, buffer: &Buffer) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_line_count", &[to_value(&buffer)?])
@@ -118,7 +114,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_attach(
+    pub async fn buf_attach(
         &self,
         buffer: &Buffer,
         send_buffer: bool,
@@ -139,7 +135,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_detach(&self, buffer: &Buffer) -> Result<bool> {
+    pub async fn buf_detach(&self, buffer: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_detach", &[to_value(&buffer)?])
@@ -148,7 +144,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_lines(
+    pub async fn buf_get_lines(
         &self,
         buffer: &Buffer,
         start: i64,
@@ -171,7 +167,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_lines(
+    pub async fn buf_set_lines(
         &self,
         buffer: &Buffer,
         start: i64,
@@ -196,7 +192,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_text(
+    pub async fn buf_set_text(
         &self,
         buffer: &Buffer,
         start_row: i64,
@@ -223,7 +219,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_text(
+    pub async fn buf_get_text(
         &self,
         buffer: &Buffer,
         start_row: i64,
@@ -250,7 +246,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_offset(&self, buffer: &Buffer, index: i64) -> Result<i64> {
+    pub async fn buf_get_offset(&self, buffer: &Buffer, index: i64) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -262,7 +258,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_var(&self, buffer: &Buffer, name: &str) -> Result<Value> {
+    pub async fn buf_get_var(&self, buffer: &Buffer, name: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_get_var", &[to_value(&buffer)?, to_value(&name)?])
@@ -271,7 +267,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_changedtick(&self, buffer: &Buffer) -> Result<i64> {
+    pub async fn buf_get_changedtick(&self, buffer: &Buffer) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_get_changedtick", &[to_value(&buffer)?])
@@ -280,7 +276,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_keymap(&self, buffer: &Buffer, mode: &str) -> Result<Vec<Value>> {
+    pub async fn buf_get_keymap(&self, buffer: &Buffer, mode: &str) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -292,7 +288,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_keymap(
+    pub async fn buf_set_keymap(
         &self,
         buffer: &Buffer,
         mode: &str,
@@ -317,7 +313,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_del_keymap(&self, buffer: &Buffer, mode: &str, lhs: &str) -> Result<()> {
+    pub async fn buf_del_keymap(&self, buffer: &Buffer, mode: &str, lhs: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -329,7 +325,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_var(&self, buffer: &Buffer, name: &str, value: Value) -> Result<()> {
+    pub async fn buf_set_var(&self, buffer: &Buffer, name: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -341,7 +337,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_del_var(&self, buffer: &Buffer, name: &str) -> Result<()> {
+    pub async fn buf_del_var(&self, buffer: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_del_var", &[to_value(&buffer)?, to_value(&name)?])
@@ -350,7 +346,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_name(&self, buffer: &Buffer) -> Result<String> {
+    pub async fn buf_get_name(&self, buffer: &Buffer) -> Result<String> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_get_name", &[to_value(&buffer)?])
@@ -359,7 +355,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_name(&self, buffer: &Buffer, name: &str) -> Result<()> {
+    pub async fn buf_set_name(&self, buffer: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_set_name", &[to_value(&buffer)?, to_value(&name)?])
@@ -368,7 +364,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_is_loaded(&self, buffer: &Buffer) -> Result<bool> {
+    pub async fn buf_is_loaded(&self, buffer: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_is_loaded", &[to_value(&buffer)?])
@@ -377,7 +373,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_delete(&self, buffer: &Buffer, opts: Value) -> Result<()> {
+    pub async fn buf_delete(&self, buffer: &Buffer, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_delete", &[to_value(&buffer)?, to_value(&opts)?])
@@ -386,7 +382,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_is_valid(&self, buffer: &Buffer) -> Result<bool> {
+    pub async fn buf_is_valid(&self, buffer: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_is_valid", &[to_value(&buffer)?])
@@ -395,7 +391,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_del_mark(&self, buffer: &Buffer, name: &str) -> Result<bool> {
+    pub async fn buf_del_mark(&self, buffer: &Buffer, name: &str) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_del_mark", &[to_value(&buffer)?, to_value(&name)?])
@@ -404,7 +400,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_mark(
+    pub async fn buf_set_mark(
         &self,
         buffer: &Buffer,
         name: &str,
@@ -429,7 +425,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_mark(&self, buffer: &Buffer, name: &str) -> Result<Vec<i64>> {
+    pub async fn buf_get_mark(&self, buffer: &Buffer, name: &str) -> Result<Vec<i64>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_get_mark", &[to_value(&buffer)?, to_value(&name)?])
@@ -438,7 +434,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_parse_cmd(&self, str: &str, opts: Value) -> Result<Value> {
+    pub async fn parse_cmd(&self, str: &str, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_parse_cmd", &[to_value(&str)?, to_value(&opts)?])
@@ -447,7 +443,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_cmd(&self, cmd: Value, opts: Value) -> Result<String> {
+    pub async fn cmd(&self, cmd: Value, opts: Value) -> Result<String> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_cmd", &[to_value(&cmd)?, to_value(&opts)?])
@@ -456,12 +452,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_create_user_command(
-        &self,
-        name: &str,
-        command: Value,
-        opts: Value,
-    ) -> Result<()> {
+    pub async fn create_user_command(&self, name: &str, command: Value, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -473,7 +464,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_user_command(&self, name: &str) -> Result<()> {
+    pub async fn del_user_command(&self, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_user_command", &[to_value(&name)?])
@@ -482,7 +473,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_create_user_command(
+    pub async fn buf_create_user_command(
         &self,
         buffer: &Buffer,
         name: &str,
@@ -505,7 +496,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_del_user_command(&self, buffer: &Buffer, name: &str) -> Result<()> {
+    pub async fn buf_del_user_command(&self, buffer: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -517,7 +508,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_commands(&self, opts: Value) -> Result<Value> {
+    pub async fn get_commands(&self, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_commands", &[to_value(&opts)?])
@@ -526,7 +517,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_commands(&self, buffer: &Buffer, opts: Value) -> Result<Value> {
+    pub async fn buf_get_commands(&self, buffer: &Buffer, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -538,7 +529,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_create_namespace(&self, name: &str) -> Result<i64> {
+    pub async fn create_namespace(&self, name: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_create_namespace", &[to_value(&name)?])
@@ -547,7 +538,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_namespaces(&self) -> Result<Value> {
+    pub async fn get_namespaces(&self) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_namespaces", &[])
@@ -556,7 +547,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_extmark_by_id(
+    pub async fn buf_get_extmark_by_id(
         &self,
         buffer: &Buffer,
         ns_id: i64,
@@ -579,7 +570,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_get_extmarks(
+    pub async fn buf_get_extmarks(
         &self,
         buffer: &Buffer,
         ns_id: i64,
@@ -604,7 +595,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_set_extmark(
+    pub async fn buf_set_extmark(
         &self,
         buffer: &Buffer,
         ns_id: i64,
@@ -629,7 +620,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_del_extmark(&self, buffer: &Buffer, ns_id: i64, id: i64) -> Result<bool> {
+    pub async fn buf_del_extmark(&self, buffer: &Buffer, ns_id: i64, id: i64) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -641,7 +632,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_add_highlight(
+    pub async fn buf_add_highlight(
         &self,
         buffer: &Buffer,
         ns_id: i64,
@@ -668,7 +659,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_buf_clear_namespace(
+    pub async fn buf_clear_namespace(
         &self,
         buffer: &Buffer,
         ns_id: i64,
@@ -691,7 +682,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_decoration_provider(&self, ns_id: i64, opts: Value) -> Result<()> {
+    pub async fn set_decoration_provider(&self, ns_id: i64, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -703,7 +694,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_option_value(&self, name: &str, opts: Value) -> Result<Value> {
+    pub async fn get_option_value(&self, name: &str, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -715,7 +706,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_option_value(&self, name: &str, value: Value, opts: Value) -> Result<()> {
+    pub async fn set_option_value(&self, name: &str, value: Value, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -727,7 +718,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_all_options_info(&self) -> Result<Value> {
+    pub async fn get_all_options_info(&self) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_all_options_info", &[])
@@ -736,7 +727,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_option_info2(&self, name: &str, opts: Value) -> Result<Value> {
+    pub async fn get_option_info2(&self, name: &str, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -748,7 +739,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_list_wins(&self, tabpage: &TabPage) -> Result<Vec<Window>> {
+    pub async fn tabpage_list_wins(&self, tabpage: &TabPage) -> Result<Vec<Window>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_tabpage_list_wins", &[to_value(&tabpage)?])
@@ -757,7 +748,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_get_var(&self, tabpage: &TabPage, name: &str) -> Result<Value> {
+    pub async fn tabpage_get_var(&self, tabpage: &TabPage, name: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -769,12 +760,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_set_var(
-        &self,
-        tabpage: &TabPage,
-        name: &str,
-        value: Value,
-    ) -> Result<()> {
+    pub async fn tabpage_set_var(&self, tabpage: &TabPage, name: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -786,7 +772,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_del_var(&self, tabpage: &TabPage, name: &str) -> Result<()> {
+    pub async fn tabpage_del_var(&self, tabpage: &TabPage, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -798,7 +784,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_get_win(&self, tabpage: &TabPage) -> Result<Window> {
+    pub async fn tabpage_get_win(&self, tabpage: &TabPage) -> Result<Window> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_tabpage_get_win", &[to_value(&tabpage)?])
@@ -807,7 +793,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_set_win(&self, tabpage: &TabPage, win: &Window) -> Result<()> {
+    pub async fn tabpage_set_win(&self, tabpage: &TabPage, win: &Window) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -819,7 +805,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_get_number(&self, tabpage: &TabPage) -> Result<i64> {
+    pub async fn tabpage_get_number(&self, tabpage: &TabPage) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_tabpage_get_number", &[to_value(&tabpage)?])
@@ -828,7 +814,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_tabpage_is_valid(&self, tabpage: &TabPage) -> Result<bool> {
+    pub async fn tabpage_is_valid(&self, tabpage: &TabPage) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_tabpage_is_valid", &[to_value(&tabpage)?])
@@ -837,7 +823,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_attach(&self, width: i64, height: i64, options: Value) -> Result<()> {
+    pub async fn ui_attach(&self, width: i64, height: i64, options: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -849,7 +835,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_set_focus(&self, gained: bool) -> Result<()> {
+    pub async fn ui_set_focus(&self, gained: bool) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_ui_set_focus", &[to_value(&gained)?])
@@ -858,7 +844,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_detach(&self) -> Result<()> {
+    pub async fn ui_detach(&self) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_ui_detach", &[])
@@ -867,7 +853,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_try_resize(&self, width: i64, height: i64) -> Result<()> {
+    pub async fn ui_try_resize(&self, width: i64, height: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -879,7 +865,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_set_option(&self, name: &str, value: Value) -> Result<()> {
+    pub async fn ui_set_option(&self, name: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_ui_set_option", &[to_value(&name)?, to_value(&value)?])
@@ -888,7 +874,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_try_resize_grid(&self, grid: i64, width: i64, height: i64) -> Result<()> {
+    pub async fn ui_try_resize_grid(&self, grid: i64, width: i64, height: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -900,7 +886,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_pum_set_height(&self, height: i64) -> Result<()> {
+    pub async fn ui_pum_set_height(&self, height: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_ui_pum_set_height", &[to_value(&height)?])
@@ -909,7 +895,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_pum_set_bounds(
+    pub async fn ui_pum_set_bounds(
         &self,
         width: f64,
         height: f64,
@@ -932,7 +918,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_ui_term_event(&self, event: &str, value: Value) -> Result<()> {
+    pub async fn ui_term_event(&self, event: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -944,7 +930,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_hl_id_by_name(&self, name: &str) -> Result<i64> {
+    pub async fn get_hl_id_by_name(&self, name: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_hl_id_by_name", &[to_value(&name)?])
@@ -953,7 +939,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_hl(&self, ns_id: i64, opts: Value) -> Result<Value> {
+    pub async fn get_hl(&self, ns_id: i64, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_hl", &[to_value(&ns_id)?, to_value(&opts)?])
@@ -962,7 +948,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_hl(&self, ns_id: i64, name: &str, val: Value) -> Result<()> {
+    pub async fn set_hl(&self, ns_id: i64, name: &str, val: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -974,7 +960,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_hl_ns(&self, opts: Value) -> Result<i64> {
+    pub async fn get_hl_ns(&self, opts: Value) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_hl_ns", &[to_value(&opts)?])
@@ -983,7 +969,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_hl_ns(&self, ns_id: i64) -> Result<()> {
+    pub async fn set_hl_ns(&self, ns_id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_hl_ns", &[to_value(&ns_id)?])
@@ -992,7 +978,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_hl_ns_fast(&self, ns_id: i64) -> Result<()> {
+    pub async fn set_hl_ns_fast(&self, ns_id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_hl_ns_fast", &[to_value(&ns_id)?])
@@ -1001,7 +987,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_feedkeys(&self, keys: &str, mode: &str, escape_ks: bool) -> Result<()> {
+    pub async fn feedkeys(&self, keys: &str, mode: &str, escape_ks: bool) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1013,7 +999,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_input(&self, keys: &str) -> Result<i64> {
+    pub async fn input(&self, keys: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_input", &[to_value(&keys)?])
@@ -1022,7 +1008,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_input_mouse(
+    pub async fn input_mouse(
         &self,
         button: &str,
         action: &str,
@@ -1049,7 +1035,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_replace_termcodes(
+    pub async fn replace_termcodes(
         &self,
         str: &str,
         from_part: bool,
@@ -1072,7 +1058,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_exec_lua(&self, code: &str, args: Vec<Value>) -> Result<Value> {
+    pub async fn exec_lua(&self, code: &str, args: Vec<Value>) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_exec_lua", &[to_value(&code)?, to_value(&args)?])
@@ -1081,7 +1067,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_notify(&self, msg: &str, log_level: u64, opts: Value) -> Result<()> {
+    pub async fn notify(&self, msg: &str, log_level: u64, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1093,7 +1079,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_strwidth(&self, text: &str) -> Result<i64> {
+    pub async fn strwidth(&self, text: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_strwidth", &[to_value(&text)?])
@@ -1102,7 +1088,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_list_runtime_paths(&self) -> Result<Vec<String>> {
+    pub async fn list_runtime_paths(&self) -> Result<Vec<String>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_list_runtime_paths", &[])
@@ -1111,7 +1097,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_runtime_file(&self, name: &str, all: bool) -> Result<Vec<String>> {
+    pub async fn get_runtime_file(&self, name: &str, all: bool) -> Result<Vec<String>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1123,7 +1109,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_current_dir(&self, dir: &str) -> Result<()> {
+    pub async fn set_current_dir(&self, dir: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_current_dir", &[to_value(&dir)?])
@@ -1132,7 +1118,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_current_line(&self) -> Result<String> {
+    pub async fn get_current_line(&self) -> Result<String> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_current_line", &[])
@@ -1141,7 +1127,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_current_line(&self, line: &str) -> Result<()> {
+    pub async fn set_current_line(&self, line: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_current_line", &[to_value(&line)?])
@@ -1150,7 +1136,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_current_line(&self) -> Result<()> {
+    pub async fn del_current_line(&self) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_current_line", &[])
@@ -1159,7 +1145,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_var(&self, name: &str) -> Result<Value> {
+    pub async fn get_var(&self, name: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_var", &[to_value(&name)?])
@@ -1168,7 +1154,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_var(&self, name: &str, value: Value) -> Result<()> {
+    pub async fn set_var(&self, name: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_var", &[to_value(&name)?, to_value(&value)?])
@@ -1177,7 +1163,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_var(&self, name: &str) -> Result<()> {
+    pub async fn del_var(&self, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_var", &[to_value(&name)?])
@@ -1186,7 +1172,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_vvar(&self, name: &str) -> Result<Value> {
+    pub async fn get_vvar(&self, name: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_vvar", &[to_value(&name)?])
@@ -1195,7 +1181,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_vvar(&self, name: &str, value: Value) -> Result<()> {
+    pub async fn set_vvar(&self, name: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_vvar", &[to_value(&name)?, to_value(&value)?])
@@ -1204,7 +1190,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_echo(&self, chunks: Vec<Value>, history: bool, opts: Value) -> Result<()> {
+    pub async fn echo(&self, chunks: Vec<Value>, history: bool, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1216,7 +1202,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_out_write(&self, str: &str) -> Result<()> {
+    pub async fn out_write(&self, str: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_out_write", &[to_value(&str)?])
@@ -1225,7 +1211,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_err_write(&self, str: &str) -> Result<()> {
+    pub async fn err_write(&self, str: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_err_write", &[to_value(&str)?])
@@ -1234,7 +1220,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_err_writeln(&self, str: &str) -> Result<()> {
+    pub async fn err_writeln(&self, str: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_err_writeln", &[to_value(&str)?])
@@ -1243,7 +1229,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_list_bufs(&self) -> Result<Vec<Buffer>> {
+    pub async fn list_bufs(&self) -> Result<Vec<Buffer>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_list_bufs", &[])
@@ -1252,7 +1238,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_current_buf(&self) -> Result<Buffer> {
+    pub async fn get_current_buf(&self) -> Result<Buffer> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_current_buf", &[])
@@ -1261,7 +1247,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_current_buf(&self, buffer: &Buffer) -> Result<()> {
+    pub async fn set_current_buf(&self, buffer: &Buffer) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_current_buf", &[to_value(&buffer)?])
@@ -1270,7 +1256,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_list_wins(&self) -> Result<Vec<Window>> {
+    pub async fn list_wins(&self) -> Result<Vec<Window>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_list_wins", &[])
@@ -1279,7 +1265,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_current_win(&self) -> Result<Window> {
+    pub async fn get_current_win(&self) -> Result<Window> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_current_win", &[])
@@ -1288,7 +1274,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_current_win(&self, window: &Window) -> Result<()> {
+    pub async fn set_current_win(&self, window: &Window) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_current_win", &[to_value(&window)?])
@@ -1297,7 +1283,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_create_buf(&self, listed: bool, scratch: bool) -> Result<Buffer> {
+    pub async fn create_buf(&self, listed: bool, scratch: bool) -> Result<Buffer> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1309,7 +1295,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_open_term(&self, buffer: &Buffer, opts: Value) -> Result<i64> {
+    pub async fn open_term(&self, buffer: &Buffer, opts: Value) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_open_term", &[to_value(&buffer)?, to_value(&opts)?])
@@ -1318,7 +1304,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_chan_send(&self, chan: i64, data: &str) -> Result<()> {
+    pub async fn chan_send(&self, chan: i64, data: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_chan_send", &[to_value(&chan)?, to_value(&data)?])
@@ -1327,7 +1313,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_list_tabpages(&self) -> Result<Vec<TabPage>> {
+    pub async fn list_tabpages(&self) -> Result<Vec<TabPage>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_list_tabpages", &[])
@@ -1336,7 +1322,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_current_tabpage(&self) -> Result<TabPage> {
+    pub async fn get_current_tabpage(&self) -> Result<TabPage> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_current_tabpage", &[])
@@ -1345,7 +1331,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_current_tabpage(&self, tabpage: &TabPage) -> Result<()> {
+    pub async fn set_current_tabpage(&self, tabpage: &TabPage) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_set_current_tabpage", &[to_value(&tabpage)?])
@@ -1354,7 +1340,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_paste(&self, data: &str, crlf: bool, phase: i64) -> Result<bool> {
+    pub async fn paste(&self, data: &str, crlf: bool, phase: i64) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1366,7 +1352,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_put(
+    pub async fn put(
         &self,
         lines: Vec<String>,
         typ: &str,
@@ -1389,7 +1375,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_subscribe(&self, event: &str) -> Result<()> {
+    pub async fn subscribe(&self, event: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_subscribe", &[to_value(&event)?])
@@ -1398,7 +1384,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_unsubscribe(&self, event: &str) -> Result<()> {
+    pub async fn unsubscribe(&self, event: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_unsubscribe", &[to_value(&event)?])
@@ -1407,7 +1393,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_color_by_name(&self, name: &str) -> Result<i64> {
+    pub async fn get_color_by_name(&self, name: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_color_by_name", &[to_value(&name)?])
@@ -1416,7 +1402,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_color_map(&self) -> Result<Value> {
+    pub async fn get_color_map(&self) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_color_map", &[])
@@ -1425,7 +1411,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_context(&self, opts: Value) -> Result<Value> {
+    pub async fn get_context(&self, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_context", &[to_value(&opts)?])
@@ -1434,7 +1420,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_load_context(&self, dict: Value) -> Result<Value> {
+    pub async fn load_context(&self, dict: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_load_context", &[to_value(&dict)?])
@@ -1443,7 +1429,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_mode(&self) -> Result<Value> {
+    pub async fn get_mode(&self) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_mode", &[])
@@ -1452,7 +1438,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_keymap(&self, mode: &str) -> Result<Vec<Value>> {
+    pub async fn get_keymap(&self, mode: &str) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_keymap", &[to_value(&mode)?])
@@ -1461,13 +1447,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_keymap(
-        &self,
-        mode: &str,
-        lhs: &str,
-        rhs: &str,
-        opts: Value,
-    ) -> Result<()> {
+    pub async fn set_keymap(&self, mode: &str, lhs: &str, rhs: &str, opts: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1484,7 +1464,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_keymap(&self, mode: &str, lhs: &str) -> Result<()> {
+    pub async fn del_keymap(&self, mode: &str, lhs: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_keymap", &[to_value(&mode)?, to_value(&lhs)?])
@@ -1493,7 +1473,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_api_info(&self) -> Result<(u64, ApiInfo)> {
+    pub async fn get_api_info(&self) -> Result<(u64, ApiInfo)> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_api_info", &[])
@@ -1502,7 +1482,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_set_client_info(
+    pub async fn set_client_info(
         &self,
         name: &str,
         version: Value,
@@ -1527,7 +1507,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_chan_info(&self, chan: i64) -> Result<ChanInfo> {
+    pub async fn get_chan_info(&self, chan: i64) -> Result<ChanInfo> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_chan_info", &[to_value(&chan)?])
@@ -1536,7 +1516,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_list_chans(&self) -> Result<Vec<Value>> {
+    pub async fn list_chans(&self) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_list_chans", &[])
@@ -1545,7 +1525,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_list_uis(&self) -> Result<Vec<Value>> {
+    pub async fn list_uis(&self) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_list_uis", &[])
@@ -1554,7 +1534,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_proc_children(&self, pid: i64) -> Result<Vec<Value>> {
+    pub async fn get_proc_children(&self, pid: i64) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_proc_children", &[to_value(&pid)?])
@@ -1563,7 +1543,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_proc(&self, pid: i64) -> Result<Value> {
+    pub async fn get_proc(&self, pid: i64) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_proc", &[to_value(&pid)?])
@@ -1572,7 +1552,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_select_popupmenu_item(
+    pub async fn select_popupmenu_item(
         &self,
         item: i64,
         insert: bool,
@@ -1595,7 +1575,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_del_mark(&self, name: &str) -> Result<bool> {
+    pub async fn del_mark(&self, name: &str) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_del_mark", &[to_value(&name)?])
@@ -1604,7 +1584,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_get_mark(&self, name: &str, opts: Value) -> Result<Vec<Value>> {
+    pub async fn get_mark(&self, name: &str, opts: Value) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_mark", &[to_value(&name)?, to_value(&opts)?])
@@ -1613,7 +1593,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_eval_statusline(&self, str: &str, opts: Value) -> Result<Value> {
+    pub async fn eval_statusline(&self, str: &str, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_eval_statusline", &[to_value(&str)?, to_value(&opts)?])
@@ -1622,7 +1602,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_exec2(&self, src: &str, opts: Value) -> Result<Value> {
+    pub async fn exec2(&self, src: &str, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_exec2", &[to_value(&src)?, to_value(&opts)?])
@@ -1631,7 +1611,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_command(&self, command: &str) -> Result<()> {
+    pub async fn command(&self, command: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_command", &[to_value(&command)?])
@@ -1640,7 +1620,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_eval(&self, expr: &str) -> Result<Value> {
+    pub async fn eval(&self, expr: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_eval", &[to_value(&expr)?])
@@ -1649,7 +1629,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_call_function(&self, func: &str, args: Vec<Value>) -> Result<Value> {
+    pub async fn call_function(&self, func: &str, args: Vec<Value>) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_call_function", &[to_value(&func)?, to_value(&args)?])
@@ -1658,7 +1638,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_call_dict_function(
+    pub async fn call_dict_function(
         &self,
         dict: Value,
         func: &str,
@@ -1675,7 +1655,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_parse_expression(
+    pub async fn parse_expression(
         &self,
         expr: &str,
         flags: &str,
@@ -1692,11 +1672,11 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_open_win(
+    pub async fn open_win(
         &self,
         buffer: &Buffer,
         enter: bool,
-        config: Value,
+        config: WindowConf,
     ) -> Result<Window> {
         #[allow(unused_variables)]
         let ret = self
@@ -1709,7 +1689,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_config(&self, window: &Window, config: WindowConf) -> Result<()> {
+    pub async fn win_set_config(&self, window: &Window, config: WindowConf) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1721,7 +1701,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_config(&self, window: &Window) -> Result<WindowConf> {
+    pub async fn win_get_config(&self, window: &Window) -> Result<WindowConf> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_config", &[to_value(&window)?])
@@ -1730,7 +1710,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_buf(&self, window: &Window) -> Result<Buffer> {
+    pub async fn win_get_buf(&self, window: &Window) -> Result<Buffer> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_buf", &[to_value(&window)?])
@@ -1739,7 +1719,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_buf(&self, window: &Window, buffer: &Buffer) -> Result<()> {
+    pub async fn win_set_buf(&self, window: &Window, buffer: &Buffer) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1751,7 +1731,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_cursor(&self, window: &Window) -> Result<Vec<i64>> {
+    pub async fn win_get_cursor(&self, window: &Window) -> Result<Vec<i64>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_cursor", &[to_value(&window)?])
@@ -1760,7 +1740,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_cursor(&self, window: &Window, pos: Vec<i64>) -> Result<()> {
+    pub async fn win_set_cursor(&self, window: &Window, pos: Vec<i64>) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1772,7 +1752,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_height(&self, window: &Window) -> Result<i64> {
+    pub async fn win_get_height(&self, window: &Window) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_height", &[to_value(&window)?])
@@ -1781,7 +1761,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_height(&self, window: &Window, height: i64) -> Result<()> {
+    pub async fn win_set_height(&self, window: &Window, height: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1793,7 +1773,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_width(&self, window: &Window) -> Result<i64> {
+    pub async fn win_get_width(&self, window: &Window) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_width", &[to_value(&window)?])
@@ -1802,7 +1782,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_width(&self, window: &Window, width: i64) -> Result<()> {
+    pub async fn win_set_width(&self, window: &Window, width: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1814,7 +1794,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_var(&self, window: &Window, name: &str) -> Result<Value> {
+    pub async fn win_get_var(&self, window: &Window, name: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_var", &[to_value(&window)?, to_value(&name)?])
@@ -1823,7 +1803,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_var(&self, window: &Window, name: &str, value: Value) -> Result<()> {
+    pub async fn win_set_var(&self, window: &Window, name: &str, value: Value) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1835,7 +1815,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_del_var(&self, window: &Window, name: &str) -> Result<()> {
+    pub async fn win_del_var(&self, window: &Window, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_del_var", &[to_value(&window)?, to_value(&name)?])
@@ -1844,7 +1824,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_position(&self, window: &Window) -> Result<Vec<i64>> {
+    pub async fn win_get_position(&self, window: &Window) -> Result<Vec<i64>> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_position", &[to_value(&window)?])
@@ -1853,7 +1833,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_tabpage(&self, window: &Window) -> Result<TabPage> {
+    pub async fn win_get_tabpage(&self, window: &Window) -> Result<TabPage> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_tabpage", &[to_value(&window)?])
@@ -1862,7 +1842,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_get_number(&self, window: &Window) -> Result<i64> {
+    pub async fn win_get_number(&self, window: &Window) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_number", &[to_value(&window)?])
@@ -1871,7 +1851,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_is_valid(&self, window: &Window) -> Result<bool> {
+    pub async fn win_is_valid(&self, window: &Window) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_is_valid", &[to_value(&window)?])
@@ -1880,7 +1860,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_hide(&self, window: &Window) -> Result<()> {
+    pub async fn win_hide(&self, window: &Window) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_hide", &[to_value(&window)?])
@@ -1889,7 +1869,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_close(&self, window: &Window, force: bool) -> Result<()> {
+    pub async fn win_close(&self, window: &Window, force: bool) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_close", &[to_value(&window)?, to_value(&force)?])
@@ -1898,7 +1878,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_set_hl_ns(&self, window: &Window, ns_id: i64) -> Result<()> {
+    pub async fn win_set_hl_ns(&self, window: &Window, ns_id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1910,7 +1890,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn nvim_win_text_height(&self, window: &Window, opts: Value) -> Result<Value> {
+    pub async fn win_text_height(&self, window: &Window, opts: Value) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(

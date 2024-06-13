@@ -61,6 +61,13 @@ pub fn get_override(name: &str) -> Option<Override> {
             }],
             ret: Some(quote! { () }),
         },
+        "nvim_open_win" => Override {
+            args: vec![Arg {
+                name: "config".into(),
+                typ: quote! { WindowConf },
+            }],
+            ret: None,
+        },
         "nvim_win_get_config" => Override {
             args: vec![],
             ret: Some(quote! { WindowConf }),

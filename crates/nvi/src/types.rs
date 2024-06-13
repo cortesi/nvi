@@ -226,6 +226,7 @@ impl LogLevel {
         }
     }
 }
+
 #[derive(
     Debug, Clone, Deserialize, Serialize, PartialEq, Eq, strum::EnumString, strum::Display,
 )]
@@ -237,6 +238,19 @@ pub enum Relative {
     Win,
     Cursor,
     Mouse,
+}
+
+#[derive(
+    Debug, Clone, Deserialize, Serialize, PartialEq, Eq, strum::EnumString, strum::Display,
+)]
+#[serde(untagged)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum Split {
+    Left,
+    Right,
+    Above,
+    Below,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -319,8 +333,9 @@ pub struct WindowConf {
     pub hide: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vertical: Option<bool>,
+    #[serde_as(as = "NoneAsEmptyString")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub split: Option<String>,
+    pub split: Option<Split>,
 }
 
 #[cfg(test)]

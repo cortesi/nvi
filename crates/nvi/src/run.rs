@@ -37,8 +37,6 @@ where
     let cli = Cli::parse();
     match &cli.command {
         Commands::Connect { addr, verbose } => {
-            println!("{}, {:?}", addr, verbose.log_level_filter().as_trace());
-
             let filter = Targets::new()
                 // Filter out overly verbose logs from msgpack_rpc
                 .with_target("msgpack_rpc", Level::TRACE)

@@ -23,9 +23,9 @@ async fn bootstrap(
     shutdown_tx: broadcast::Sender<()>,
 ) -> Result<()> {
     let nc = &mut Client::new(&c, name, None, shutdown_tx);
-    let chan = nc.nvim.nvim_get_chan_info(0).await?;
+    let chan = nc.nvim.get_chan_info(0).await?;
     nc.nvim
-        .nvim_exec_lua(
+        .exec_lua(
             &format!("vim.rpcnotify(..., '{}', ...)", BOOTSTRAP_NOTIFICATION),
             vec![chan.id.into()],
         )
@@ -222,7 +222,7 @@ mod tests {
                     async move {
                         trace!("client connected, sending sockconnect request");
                         c.nvim
-                            .nvim_exec_lua(
+                            .exec_lua(
                                 &format!(
                                     "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
                                     socket_path.as_os_str().to_string_lossy()

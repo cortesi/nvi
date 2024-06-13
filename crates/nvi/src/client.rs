@@ -62,7 +62,7 @@ impl Client {
         let extra_sep = if !arg_list.is_empty() { ", " } else { "" };
 
         self.nvim
-            .nvim_exec_lua(
+            .exec_lua(
                 &format!(
                     "
                         if not _G.{namespace} then
@@ -144,7 +144,7 @@ impl Client {
     /// Send an nvim_notify notification, with a specified log level.
     pub async fn notify(&self, level: types::LogLevel, msg: &str) -> Result<()> {
         self.nvim
-            .nvim_notify(msg, level.to_u64(), Value::Map(vec![]))
+            .notify(msg, level.to_u64(), Value::Map(vec![]))
             .await
     }
 
@@ -220,7 +220,7 @@ impl Client {
         let namespace = &self.name;
         let ret = self
             .nvim
-            .nvim_exec_lua(
+            .exec_lua(
                 &format!(
                     r#"
                         return vim.api.nvim_create_autocmd(
@@ -274,7 +274,7 @@ mod tests {
 
                 let v = client
                     .nvim
-                    .nvim_exec_lua("return test_module.test_fn(5)", vec![])
+                    .exec_lua("return test_module.test_fn(5)", vec![])
                     .await
                     .unwrap();
                 assert_eq!(v, Value::from(5));
@@ -325,7 +325,7 @@ mod tests {
 
                 client
                     .nvim
-                    .nvim_exec_lua("return test_module.test_fn(5)", vec![])
+                    .exec_lua("return test_module.test_fn(5)", vec![])
                     .await
                     .unwrap();
                 client.shutdown();
