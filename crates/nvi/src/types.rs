@@ -70,12 +70,19 @@ pub struct ChanInfo {
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct AutocmdEvent {
+    /// The AutoCommand ID, as returned by `nvim_create_autocmd`
     pub id: u64,
+    /// The triggered event
     pub event: Event,
+    /// AutoCommand group, if any
     pub group: Option<u64>,
+    /// The pattern that triggered the event, expanded from <amatch>
     pub matches: Option<Vec<String>>,
+    /// The buffer, from <abuf>
     pub buf: u64,
+    /// The file, from <afile>
     pub file: String,
+    /// Data passed by nvim_exec_autocmds
     pub data: Option<crate::Value>,
 }
 
@@ -301,8 +308,8 @@ pub enum Border {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Setters, Default)]
 #[setters(strip_option)]
 pub struct WindowConf {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "NoneAsEmptyString")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub relative: Option<Relative>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub win: Option<u64>,
@@ -342,8 +349,8 @@ pub struct WindowConf {
     pub hide: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vertical: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "NoneAsEmptyString")]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub split: Option<Split>,
 }
 
@@ -352,6 +359,39 @@ mod tests {
     use super::*;
     use rmpv::Value;
     use serde_rmpv::from_value;
+
+    #[test]
+    fn test_deser_windowconf() {
+        // Verify that we can deserialize with all missing fields
+        let ret: WindowConf = serde_rmpv::from_value(&Value::Map(vec![])).unwrap();
+        assert!(ret.split.is_none());
+
+        // Test that untagged enums deserialize correctly
+        let v = Value::Map(vec![
+            (Value::from("split"), Value::from("left")),
+            (Value::from("title"), Value::from("text")),
+            (
+                Value::from("footer"),
+                Value::Array(vec![Value::Array(vec![
+                    Value::from("one"),
+                    Value::from("two"),
+                ])]),
+            ),
+        ]);
+        let ret: WindowConf = serde_rmpv::from_value(&v).unwrap();
+        assert_eq!(ret.split, Some(Split::Left));
+        assert_eq!(ret.title, Some(Text::Plain("text".to_string())));
+        assert_eq!(
+            ret.footer,
+            Some(Text::Highlights(vec![(
+                "one".to_string(),
+                "two".to_string()
+            )]))
+        );
+
+        let v2 = serde_rmpv::to_value(&ret).unwrap();
+        assert_eq!(v, v2);
+    }
 
     #[test]
     fn test_deser_event() {
