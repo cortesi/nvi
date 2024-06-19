@@ -2,7 +2,7 @@ use std::{net::SocketAddr, path::Path};
 
 use futures::io::{self, AsyncRead, AsyncWrite};
 
-use msgpack_rpc::Endpoint;
+use nvi_rpc::Endpoint;
 use tokio::{
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
     sync::broadcast,
@@ -18,7 +18,7 @@ use crate::{
 };
 
 async fn bootstrap(
-    c: msgpack_rpc::Client,
+    c: nvi_rpc::Client,
     name: &str,
     shutdown_tx: broadcast::Sender<()>,
 ) -> Result<()> {

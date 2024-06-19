@@ -113,8 +113,8 @@ where
     }
 }
 
-/// A wrapper service that translates from msgpack_rpc to NviService.
-impl<T> msgpack_rpc::ServiceWithClient for ServiceWrapper<T>
+/// A wrapper service that translates from nvi_rpc to NviService.
+impl<T> nvi_rpc::ServiceWithClient for ServiceWrapper<T>
 where
     T: NviService + Send + 'static,
 {
@@ -122,7 +122,7 @@ where
 
     fn handle_request(
         &mut self,
-        client: &mut msgpack_rpc::Client,
+        client: &mut nvi_rpc::Client,
         method: &str,
         params: &[Value],
     ) -> Self::RequestFuture {
@@ -158,7 +158,7 @@ where
 
     fn handle_notification(
         &mut self,
-        client: &mut msgpack_rpc::Client,
+        client: &mut nvi_rpc::Client,
         method: &str,
         params: &[Value],
     ) {

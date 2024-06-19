@@ -3,22 +3,22 @@
 use crate::error::{Error, Result};
 use crate::opts;
 use crate::types::*;
-use msgpack_rpc::Value;
+use nvi_rpc::Value;
 use serde::Serialize;
 use serde_rmpv::{from_value, to_value};
 use tracing::{debug, trace};
 #[derive(Clone)]
 #[doc = r" Auto-generated API for Neovim's MessagePack-RPC protocol."]
 pub struct NvimApi {
-    pub(crate) m_client: msgpack_rpc::Client,
+    pub(crate) m_client: nvi_rpc::Client,
 }
 impl NvimApi {
     #[doc = r" Make a raw request over the MessagePack-RPC protocol."]
     pub async fn raw_request(
         &self,
         method: &str,
-        params: &[msgpack_rpc::Value],
-    ) -> Result<msgpack_rpc::Value, msgpack_rpc::Value> {
+        params: &[nvi_rpc::Value],
+    ) -> Result<nvi_rpc::Value, nvi_rpc::Value> {
         trace!("send request: {:?} {:?}", method, params);
         let ret = self.m_client.request(method, params).await;
         trace!("got response for {:?}: {:?}", method, ret);
@@ -26,7 +26,7 @@ impl NvimApi {
         ret
     }
     #[doc = r" Send a raw notification over the MessagePack-RPC protocol."]
-    pub async fn raw_notify(&self, method: &str, params: &[msgpack_rpc::Value]) -> Result<(), ()> {
+    pub async fn raw_notify(&self, method: &str, params: &[nvi_rpc::Value]) -> Result<(), ()> {
         trace!("send notification: {:?} {:?}", method, params);
         debug!("notification: {:?}", method);
         self.m_client.notify(method, params).await
@@ -390,7 +390,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn buf_delete<T>(&self, buffer: &Buffer, opts: T) -> Result<()>
+    pub async fn buf_delete<T>(&self, buffer: &Buffer, opts: T) -> Result<opts::BufDelete>
     where
         T: Serialize,
     {

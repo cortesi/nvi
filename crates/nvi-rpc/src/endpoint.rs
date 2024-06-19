@@ -612,90 +612,6 @@ impl<S: Service + Unpin, T: AsyncRead + AsyncWrite> Future for ServerEndpoint<S,
 /// The returned future needs to be spawned onto a task in order to actually run the server (and
 /// the client). It will run until the stream is closed; if the stream encounters an error, the
 /// future will propagate it and terminate.
-///
-/// ```
-/// use std::io;
-/// use rmp_rpc::ServiceWithClient;
-/// # use rmp_rpc::{Client, Endpoint, Value};
-/// use std::net::SocketAddr;
-/// use tokio::net::TcpListener;
-/// use tokio_util::compat::TokioAsyncReadCompatExt;
-///
-/// struct MyService;
-/// impl ServiceWithClient for MyService {
-/// // ...
-/// # type RequestFuture = futures::future::Ready<Result<Value, Value>>;
-/// # fn handle_request(&mut self, _: &mut Client, _: &str, _: &[Value]) -> Self::RequestFuture {
-/// #     unimplemented!();
-/// # }
-/// # fn handle_notification(&mut self, _: &mut Client, _: &str, _: &[Value]) {
-/// #     unimplemented!();
-/// # }
-/// }
-///
-/// #[tokio::main]
-/// async fn main() -> io::Result<()> {
-///     let addr: SocketAddr = "127.0.0.1:54321".parse().unwrap();
-///
-///     // Here's the simplest version: we listen for incoming TCP connections and run an
-///     // endpoint on each one.
-///     let server = async {
-/// #        if false {
-/// #            return Ok::<(), io::Error>(())
-/// #        }
-///         let mut listener = TcpListener::bind(&addr).await?;
-///         loop {
-///             // Each time the listener finds a new connection, start up an endpoint to handle
-///             // it.
-///             let (socket, _) = listener.accept().await?;
-///             if let Err(e) = Endpoint::new(socket.compat(), MyService).await {
-///                 println!("error on endpoint {}", e);
-///             }
-///         }
-///     };
-///
-///     // Uncomment this to run the server on the tokio event loop. This is blocking.
-///     // Press ^C to stop
-///     // tokio::run(server);
-///
-///     // Here's an alternative, where we take a handle to the client and spawn the endpoint
-///     // on its own task.
-///     let addr: SocketAddr = "127.0.0.1:65432".parse().unwrap();
-///     let server = async {
-/// #        if false {
-/// #            return Ok::<(), io::Error>(())
-/// #        }
-///         let mut listener = TcpListener::bind(&addr).await?;
-///         loop {
-///             let (socket, _) = listener.accept().await?;
-///             let end = Endpoint::new(socket.compat(), MyService);
-///             let client = end.client();
-///
-///             // Spawn the endpoint. It will do its own thing, while we can use the client
-///             // to send requests.
-///             tokio::spawn(end);
-///
-///             // Send a request with method name "hello" and argument "world!".
-///             match client.request("hello", &["world!".into()]).await {
-///                 Ok(response) => println!("{:?}", response),
-///                 Err(e) => println!("got an error: {:?}", e),
-///             };
-///             // We're returning the future that came from `client.request`. This means that
-///             // `server` (and therefore our entire program) will terminate once the
-///             // response is received and the messages are printed. If you wanted to keep
-///             // the endpoint running even after the response is received, you could
-///             // (instead of spawning `end` on its own task) `join` the two futures (i.e.
-///             // `end` and the one returned by `client.request`).
-///         }
-///     };
-///
-///     // Uncomment this to run the server on the tokio event loop. This is blocking.
-///     // Press ^C to stop
-///     // tokio::run(server);
-///
-///     Ok(())
-/// }
-/// ```
 pub struct Endpoint<S, T> {
     inner: InnerEndpoint<ClientAndServer<S>, T>,
 }
@@ -744,40 +660,6 @@ impl Client {
     /// Creates a new `Client` that can be used to send requests and notifications on the given
     /// stream.
     ///
-    /// ```
-    /// use std::io;
-    /// use std::net::SocketAddr;
-    ///
-    /// use rmp_rpc::Client;
-    /// use tokio::net::TcpStream;
-    /// use tokio_util::compat::TokioAsyncReadCompatExt;
-    ///
-    /// let addr: SocketAddr = "127.0.0.1:54321".parse().unwrap();
-    ///
-    /// let f = async {
-    ///     // Create a future that connects to the server, and send a notification and a request.
-    ///     let socket = TcpStream::connect(&addr).await?;
-    ///     let client = Client::new(socket.compat());
-    ///
-    ///     // Use the client to send a notification.
-    ///     // The future returned by client.notify() finishes when the notification
-    ///     // has been sent, in case we care about that. We can also just drop it.
-    ///     client.notify("hello", &[]);
-    ///
-    ///     // Use the client to send a request with the method "dostuff", and two parameters:
-    ///     // the string "foo" and the integer "42".
-    ///     // The future returned by client.request() finishes when the response
-    ///     // is received.
-    ///     if let Ok(resp) = client.request("dostuff", &["foo".into(), 42.into()]).await {
-    ///         println!("Response: {:?}", resp);
-    ///     }
-    ///     Ok::<_, io::Error>(())
-    /// };
-    ///
-    /// // Uncomment this to run the client, blocking until the response was received and the
-    /// // message was printed.
-    /// // tokio::run(f);
-    /// ```
     /// # Panics
     ///
     /// This function will panic if the default executor is not set or if spawning

@@ -11,6 +11,6 @@ pub mod types;
 
 pub use client::Client;
 pub use connect::*;
-pub use msgpack_rpc::Value;
+pub use nvi_rpc::Value;
 pub use run::*;
 pub use service::*;

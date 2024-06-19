@@ -4,12 +4,8 @@ use crate::error::Result;
 use crate::NviService;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use tracing::Level;
 use tracing_log::AsTrace;
-use tracing_subscriber::{
-    filter::{FilterExt, Targets},
-    prelude::*,
-};
+use tracing_subscriber::prelude::*;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -37,14 +33,9 @@ where
     let cli = Cli::parse();
     match &cli.command {
         Commands::Connect { addr, verbose } => {
-            let filter = Targets::new()
-                // Filter out overly verbose logs from msgpack_rpc
-                .with_target("msgpack_rpc", Level::TRACE)
-                .not();
             let fmt_layer = tracing_subscriber::fmt::layer()
                 .without_time()
-                .with_target(true)
-                .with_filter(filter);
+                .with_target(true);
             tracing_subscriber::registry()
                 .with(fmt_layer)
                 .with(verbose.log_level_filter().as_trace())

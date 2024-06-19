@@ -651,20 +651,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "msgpack-rpc"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fae2461ef987e5ef1506806d5a7ba80d874a42efdce03f9dcaf3857a1147340"
-dependencies = [
- "bytes",
- "futures",
- "log",
- "rmpv",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -720,8 +706,8 @@ dependencies = [
  "clap-verbosity-flag",
  "derive_setters",
  "futures",
- "msgpack-rpc",
  "nix",
+ "nvi-rpc",
  "pretty_assertions",
  "rmp",
  "rmp-serde",

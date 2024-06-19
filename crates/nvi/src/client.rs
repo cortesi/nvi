@@ -25,7 +25,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(
-        client: &msgpack_rpc::Client,
+        client: &nvi_rpc::Client,
         name: &str,
         channel_id: Option<u64>,
         shutdown_tx: broadcast::Sender<()>,
