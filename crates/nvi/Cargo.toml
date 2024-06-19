@@ -29,4 +29,5 @@ tracing-log = "0.2.0"
 derive_setters = "0.1.6"
 
 [dev-dependencies]
+pretty_assertions = "1.4.0"
 tracing-test = "0.2.4"

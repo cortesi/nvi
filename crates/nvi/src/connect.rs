@@ -34,22 +34,36 @@ async fn bootstrap(
 }
 
 /// A wrapper around connect_stream that doesn't fail.
-async fn connect_listener<T, S>(shutdown_tx: broadcast::Sender<()>, stream: S, service: T)
+async fn connect_listener<T, S>(shutdown_server: broadcast::Sender<()>, stream: S, service: T)
 where
     S: AsyncRead + AsyncWrite + Send + 'static,
     T: NviService + Unpin + 'static,
 {
     trace!("connection started");
-    let err = connect_stream(shutdown_tx, stream, service).await;
+    let (tx, _) = broadcast::channel(16);
+
+    // Here, we need to handle the shutdown signal specially. If we receive a signal on
+    // shutdown_tx, we need to shut down all the connections. However, each service will get a
+    // separate shutdown signal to handle termination of the connection.
+    let mut servrx = shutdown_server.subscribe();
+    let atx = tx.clone();
+    tokio::spawn(async move {
+        servrx.recv().await.unwrap();
+        let _ = atx.send(());
+    });
+
+    let err = connect_stream(tx, stream, service).await;
     match err {
         Ok(_) => trace!("Connection closed"),
         Err(e) => warn!("Error on connection: {}", e),
     }
 }
 
-/// Connect on a stream, and return a sender to shutdown the connection.
+/// Connect on a stream.
+///
+/// 'shutdown_tx' is a broadcast channel that can be used to signal the connection to shut down.
 pub async fn connect_stream<T, S>(
-    shutdown_tx: broadcast::Sender<()>,
+    shutdown_conn: broadcast::Sender<()>,
     stream: S,
     service: T,
 ) -> Result<()>
@@ -58,28 +72,30 @@ where
     T: NviService + Unpin + 'static,
 {
     let name = service.name();
-    let endpoint = Endpoint::new(stream, ServiceWrapper::new(service, shutdown_tx.clone()));
+    let endpoint = Endpoint::new(stream, ServiceWrapper::new(service, shutdown_conn.clone()));
 
     let mut js = JoinSet::new();
     let epclient = endpoint.client();
     {
-        let stx = shutdown_tx.clone();
+        let stx = shutdown_conn.clone();
         js.spawn(async move { bootstrap(epclient, &name, stx).await });
     }
     {
-        let stx = shutdown_tx.clone();
+        let stx = shutdown_conn.clone();
         js.spawn(async move {
             let ret = endpoint.await.map_err(|e| e.into());
             let _ = stx.send(());
             ret
         });
     }
-    let _ = shutdown_tx.subscribe().recv().await;
+    let _ = shutdown_conn.subscribe().recv().await;
+    js.shutdown().await;
     while let Some(ret) = js.join_next().await {
         ret.map_err(|e| Error::Internal {
             msg: format!("Error on join: {}", e),
         })??;
     }
+    println!("END");
     Ok(())
 }
 
@@ -133,6 +149,7 @@ where
     let path = path.as_ref();
     let listener = UnixListener::bind(path)?;
     let mut shutdown_rx = shutdown_tx.subscribe();
+
     let _ = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -153,6 +170,7 @@ where
         }
     })
     .await;
+
     // If we've been shut down gracefully, remove the socket.
     let _ = std::fs::remove_file(path);
     Ok(())
@@ -187,6 +205,8 @@ where
 mod tests {
     use super::*;
 
+    use std::path::PathBuf;
+
     use tokio::sync::broadcast;
     use tracing_test::traced_test;
 
@@ -218,31 +238,36 @@ mod tests {
 
         test::wait_for_path(&socket_path).await.unwrap();
 
+        async fn tserv(socket_path: PathBuf, tx: broadcast::Sender<()>) -> Result<()> {
+            test::test_service(
+                crate::AsyncClosureService::new(move |c| {
+                    let socket_path = socket_path.clone();
+                    Box::pin({
+                        async move {
+                            trace!("client connected, sending sockconnect request");
+                            c.nvim
+                                .exec_lua(
+                                    &format!(
+                                        "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
+                                        socket_path.as_os_str().to_string_lossy()
+                                    ),
+                                    vec![],
+                                )
+                                .await
+                                .unwrap();
+                        }
+                    })
+                }),
+                tx.clone(),
+            )
+            .await
+        }
+
         // Now start a nvim instance, and connect to it with a client. Using the client, we
         // instruct nvim to connect back to the listener.
-        let ts = tokio::spawn(test::test_service(
-            crate::AsyncClosureService::new(move |c| {
-                let socket_path = socket_path.clone();
-                Box::pin({
-                    async move {
-                        trace!("client connected, sending sockconnect request");
-                        c.nvim
-                            .exec_lua(
-                                &format!(
-                                    "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
-                                    socket_path.as_os_str().to_string_lossy()
-                                ),
-                                vec![],
-                            )
-                            .await
-                            .unwrap();
-                    }
-                })
-            }),
-            tx.clone(),
-        ));
-
+        let ts = tokio::spawn(tserv(socket_path.clone(), tx.clone()));
         ts.await.unwrap().unwrap();
+
         ls.await.unwrap().unwrap();
 
         // We only get here if the listener has been connected to, and has sent the termination
