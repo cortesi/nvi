@@ -47,7 +47,7 @@ pub trait Service: Send {
 /// This is a beefed-up version of [`Service`](Service), in which the various handler
 /// methods also get access to a [`Client`](Client), which allows them to send requests and
 /// notifications to the same msgpack-rpc client that made the original request.
-pub trait ServiceWithClient {
+pub trait ServiceWithClient: Send {
     /// The type of future returned by [`handle_request`](ServiceWithClient::handle_request).
     type RequestFuture: Future<Output = Result<Value, Value>> + 'static + Send;
 
@@ -95,10 +95,6 @@ struct Server<S> {
     pending_responses: mpsc::UnboundedReceiver<(u32, Result<Value, Value>)>,
     // We hand out a clone of this whenever we call `service.handle_request`.
     response_sender: mpsc::UnboundedSender<(u32, Result<Value, Value>)>,
-    // TODO: We partially add backpressure by ensuring that the pending responses get sent out
-    // before we accept new requests. However, it could be that there are lots of response
-    // computations out there that haven't sent pending responses yet; we don't yet have a way to
-    // apply backpressure there.
 }
 
 impl<S: ServiceWithClient> Server<S> {
@@ -140,38 +136,6 @@ impl<S: ServiceWithClient> Server<S> {
         id: u32,
         f: F,
     ) {
-        trace!("spawning a new task");
-
-        // XXX Is this even a worthwhile optimization to reintroduce? Does it work correctly with
-        //     the no-op waker?
-        /*
-        // The simplest implementation of this function would just spawn a future immediately, but
-        // as an optimization let's check if the future is immediately ready and avoid spawning in
-        // that case.
-        match f.poll(&mut Context::from_waker(futures::task::noop_waker_ref())) {
-            Ok(Async::Ready(result)) => {
-                trace!("the task is already done, no need to spawn it on the event loop");
-                // An error in unbounded_send means that the receiver has been dropped, which
-                // means that the Server has stopped running. There is no meaningful way to
-                // signal an error from here (but the client should see an error anyway,
-                // because its stream will end before it gets a response).
-                let _ = self.response_sender.unbounded_send((id, Ok(result)));
-            }
-            Err(e) => {
-                trace!("the task failed, no need to spawn it on the event loop");
-                let _ = self.response_sender.unbounded_send((id, Err(e)));
-            }
-            Ok(Async::NotReady) => {
-                trace!("spawning the task on the event loop");
-                // Ok, we can't avoid it: spawn a future on the event loop.
-                let send = self.response_sender.clone();
-                tokio::spawn(
-                    f.map(move |result| send.unbounded_send((id, result))),
-                );
-            }
-        }
-        */
-
         trace!("spawning the task on the event loop");
         let send = self.response_sender.clone();
         tokio::spawn(f.map(move |result| send.unbounded_send((id, result))));
@@ -536,7 +500,7 @@ impl<MH: MessageHandler + Unpin, T: AsyncRead + AsyncWrite> Future for InnerEndp
             let this = self.get_unchecked_mut();
             (&mut this.handler, Pin::new_unchecked(&mut this.stream))
         };
-        if let Poll::Pending = handler.send_outgoing(cx, stream.as_mut())? {
+        if (handler.send_outgoing(cx, stream.as_mut())?).is_pending() {
             trace!("Sink not yet flushed, waiting...");
             return Poll::Pending;
         }
