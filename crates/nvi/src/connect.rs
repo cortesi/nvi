@@ -118,6 +118,8 @@ where
     .await
 }
 
+/// Listen on a unix socket, and spawn a new connection for each incoming connection. After
+/// shutdown, the socket is removed.
 pub async fn listen_unix<T, F, P>(
     shutdown_tx: broadcast::Sender<()>,
     path: P,
@@ -128,6 +130,7 @@ where
     T: NviService + Unpin + 'static,
     P: AsRef<Path>,
 {
+    let path = path.as_ref();
     let listener = UnixListener::bind(path)?;
     let mut shutdown_rx = shutdown_tx.subscribe();
     let _ = tokio::spawn(async move {
@@ -150,6 +153,8 @@ where
         }
     })
     .await;
+    // If we've been shut down gracefully, remove the socket.
+    let _ = std::fs::remove_file(path);
     Ok(())
 }
 
