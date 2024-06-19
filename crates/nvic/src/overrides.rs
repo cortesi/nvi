@@ -20,6 +20,10 @@ pub struct Override {
 
 pub fn get_override(name: &str) -> Option<Override> {
     Some(match name {
+        "nvim_buf_delete" => Override {
+            args: vec![],
+            ret: Some(quote! { BufDelete }),
+        },
         "nvim_create_autocmd" => Override {
             args: vec![
                 Arg {

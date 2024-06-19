@@ -3,6 +3,21 @@ use crate::types;
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 
+
+
+/// Options for `nvim_buf_delete` method
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
+#[setters(strip_option)]
+pub struct BufDelete {
+    /// Force deletion and ignore unsaved changes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force: Option<bool>,
+    /// Unloaded only, do not delete the buffer
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unload: Option<bool>,
+}
+
+
 /// Options for `nvim_create_autocmd` method
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
@@ -68,3 +83,4 @@ pub struct SetOptionValue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buf: Option<types::Buffer>,
 }
+

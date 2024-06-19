@@ -3,12 +3,14 @@ use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{serde_as, Bytes, NoneAsEmptyString};
 
+use crate::{client, error::Result, opts};
+
 pub const BUFFER_EXT_TYPE: i8 = 0;
 pub const WINDOW_EXT_TYPE: i8 = 1;
 pub const TABPAGE_EXT_TYPE: i8 = 2;
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
 pub struct Buffer(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
@@ -16,10 +18,26 @@ impl Buffer {
     pub fn current() -> Self {
         Buffer((BUFFER_EXT_TYPE, vec![0, 0, 0, 0]))
     }
+
+    /// Set an option on this buffer
+    pub async fn set<T: serde::Serialize>(
+        &self,
+        c: &mut client::Client,
+        name: &str,
+        value: T,
+    ) -> Result<()> {
+        c.nvim
+            .set_option_value(
+                name,
+                value,
+                opts::SetOptionValue::default().buf(self.clone()),
+            )
+            .await
+    }
 }
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
 pub struct Window(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
@@ -27,10 +45,26 @@ impl Window {
     pub fn current() -> Self {
         Window((WINDOW_EXT_TYPE, vec![0, 0, 0, 0]))
     }
+
+    /// Set an option on this window
+    pub async fn set<T: serde::Serialize>(
+        &self,
+        c: &mut client::Client,
+        name: &str,
+        value: T,
+    ) -> Result<()> {
+        c.nvim
+            .set_option_value(
+                name,
+                value,
+                opts::SetOptionValue::default().win(self.clone()),
+            )
+            .await
+    }
 }
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
 pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
@@ -312,7 +346,7 @@ pub struct WindowConf {
     #[serde_as(as = "NoneAsEmptyString")]
     pub relative: Option<Relative>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub win: Option<u64>,
+    pub win: Option<Window>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
