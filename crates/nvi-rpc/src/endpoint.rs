@@ -15,6 +15,7 @@ use tokio_util::compat::{Compat, FuturesAsyncWriteCompatExt};
 use crate::codec::Codec;
 use crate::message::Response as MsgPackResponse;
 use crate::message::{Message, Notification, Request};
+use tracing::{trace, warn};
 
 /// The `Service` trait defines how a `MessagePack-RPC` server handles requests and notifications.
 pub trait Service: Send {

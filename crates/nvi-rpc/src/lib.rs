@@ -1,9 +1,6 @@
 //! This crate provides facilities to use the `MessagePack` remote procedure call system
 //! (`MessagePack-RPC`) in Rust.
 
-#[macro_use]
-extern crate log;
-
 mod codec;
 mod endpoint;
 mod errors;

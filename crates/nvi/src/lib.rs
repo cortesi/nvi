@@ -14,3 +14,4 @@ pub use connect::*;
 pub use nvi_rpc::Value;
 pub use run::*;
 pub use service::*;
+pub use types::AutocmdEvent;

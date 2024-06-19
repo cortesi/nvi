@@ -207,7 +207,7 @@ impl Client {
 
         let patterns = patterns
             .iter()
-            .map(|p| p.to_string())
+            .map(|p| format!("\"{}\"", p))
             .collect::<Vec<String>>()
             .join(", ");
 

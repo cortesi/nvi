@@ -722,10 +722,10 @@ version = "0.0.1"
 dependencies = [
  "bytes",
  "futures",
- "log",
  "rmpv",
  "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
