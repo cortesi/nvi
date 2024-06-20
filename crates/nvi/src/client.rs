@@ -40,6 +40,11 @@ impl Client {
         }
     }
 
+    pub async fn getcwd(&self) -> Result<String> {
+        let r = self.nvim.exec_lua("return vim.fn.getcwd()", vec![]).await?;
+        Ok(r.as_str().unwrap().to_string())
+    }
+
     async fn register_method<T>(
         &mut self,
         kind: &str,
@@ -80,8 +85,8 @@ impl Client {
     }
 
     /// Register an RPC request method for use in Neovim. This sets a globally-avaialable Lua
-    /// function in the under the specified namespace. When this function is called, an RPC message
-    /// is sent back to the current addon.
+    /// function under the specified namespace. When this function is called, an RPC message is
+    /// sent back to the current addon.
     ///
     /// # Example
     ///
@@ -108,8 +113,8 @@ impl Client {
     }
 
     /// Register an RPC notification method for use in Neovim. This sets a globally-avaialable Lua
-    /// function in the under the specified namespace. When this function is called, an RPC message
-    /// is sent back to the current addon.
+    /// function under the specified namespace. When this function is called, an RPC message is
+    /// sent back to the current addon.
     ///
     /// # Example
     ///
@@ -248,9 +253,56 @@ impl Client {
 mod tests {
     use async_trait::async_trait;
     use tokio::sync::broadcast;
+    use tracing::warn;
     use tracing_test::traced_test;
 
     use crate::{error::Result, *};
+
+    macro_rules! qtest {
+        (@inner $s:stmt) => { $s };
+        ( $($s:stmt)+ ) => {
+                {
+                   let (tx, _) = broadcast::channel(16);
+
+                   #[derive(Clone)]
+                   struct TestService {}
+
+                   #[async_trait]
+                   impl crate::NviService for TestService {
+                       fn name(&self) -> String {
+                           "TestService".into()
+                       }
+
+                       async fn run(&mut self, client: &mut Client) -> Result<()> {
+                           $(qtest!{@inner $s})+
+                           match ret(client).await {
+                               Ok(_) => (),
+                               Err(e) => {
+                                   warn!("error: {:?}", e);
+                                }
+                            };
+                           client.shutdown();
+                           Ok(())
+                       }
+                   }
+                   let rtx = tx.clone();
+                   test::test_service(TestService {}, rtx)
+               }
+        }
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn it_gets_cwd() {
+        qtest! {
+            async fn ret(c: &mut Client) -> Result<()> {
+                c.getcwd().await?;
+                Ok(())
+            }
+        }
+        .await
+        .unwrap();
+    }
 
     #[tokio::test]
     #[traced_test]
