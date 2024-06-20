@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tokio::sync::broadcast;
 use tracing::trace;
 
@@ -40,9 +42,9 @@ impl Client {
         }
     }
 
-    pub async fn getcwd(&self) -> Result<String> {
+    pub async fn getcwd(&self) -> Result<PathBuf> {
         let r = self.nvim.exec_lua("return vim.fn.getcwd()", vec![]).await?;
-        Ok(r.as_str().unwrap().to_string())
+        Ok(r.as_str().unwrap().into())
     }
 
     async fn register_method<T>(
