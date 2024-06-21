@@ -16,6 +16,8 @@ pub enum Error {
     Unimplemented,
     #[error("internal")]
     Internal { msg: String },
+    #[error("user")]
+    User { msg: String },
 }
 
 impl From<serde_rmpv::Error> for Error {
