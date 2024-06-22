@@ -8,7 +8,113 @@ use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{error::Result, types::Text, Client};
+use super::{
+    error::{Error, Result},
+    types::Text,
+    Client,
+};
+use crate::Value;
+
+/// Options for getting diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetOpts {
+    /// Limit diagnostics to one or more namespaces.
+    pub namespace: Option<Vec<i64>>,
+    /// Limit diagnostics to those spanning the specified line number.
+    pub lnum: Option<u64>,
+    /// Filter diagnostics by severity.
+    pub severity: Option<SeverityFilter>,
+}
+
+/// Options for jumping to diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JumpOpts {
+    /// Limit diagnostics to one or more namespaces.
+    pub namespace: Option<Vec<i64>>,
+    /// Filter diagnostics by severity.
+    pub severity: Option<SeverityFilter>,
+    /// The specific diagnostic to jump to.
+    pub diagnostic: Option<Diagnostic>,
+    /// The number of diagnostics to move by.
+    pub count: Option<i64>,
+    /// Cursor position as a (row, col) tuple.
+    pub pos: Option<(u64, u64)>,
+    /// Whether to loop around file or not.
+    pub wrap: Option<bool>,
+    /// Whether to open a float after moving.
+    pub float: Option<JumpFloat>,
+    /// Window ID.
+    pub win_id: Option<u64>,
+}
+
+/// Position for a floating window.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FloatPos {
+    /// Line number.
+    Line(u64),
+    /// (Row, Column) position.
+    Pos(u64, u64),
+}
+
+/// Options for floating windows displaying diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FloatOpts {
+    /// Buffer number to show diagnostics from.
+    pub bufnr: Option<u64>,
+    /// Limit diagnostics to the given namespace.
+    pub namespace: Option<i64>,
+    /// Show diagnostics from the whole buffer, current line, or cursor position.
+    pub scope: Option<FloatScope>,
+    /// Position to use rather than the cursor position.
+    pub pos: Option<FloatPos>,
+    /// Sort diagnostics by severity.
+    pub severity_sort: Option<SeveritySort>,
+    /// Filter diagnostics by severity.
+    pub severity: Option<SeverityFilter>,
+    /// String to use as the header for the floating window.
+    pub header: Option<Text>,
+    /// Include the diagnostic source in the message.
+    pub source: Option<bool>,
+    /// Function to format the diagnostic message.
+    pub format: Option<String>,
+    /// Prefix each diagnostic in the floating window.
+    pub prefix: Option<Text>,
+    /// Suffix each diagnostic in the floating window.
+    pub suffix: Option<Text>,
+    /// Unique identifier for the window.
+    pub focus_id: Option<String>,
+    /// Border style for the floating window.
+    pub border: Option<String>,
+}
+
+/// Options for adding diagnostics to the location list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetLoclistOpts {
+    /// Only add diagnostics from the given namespace.
+    pub namespace: Option<i64>,
+    /// Window number to set location list for.
+    pub winnr: Option<i64>,
+    /// Open the location list after setting.
+    pub open: Option<bool>,
+    /// Title of the location list.
+    pub title: Option<String>,
+    /// Filter diagnostics by severity.
+    pub severity: Option<SeverityFilter>,
+}
+
+/// Options for adding diagnostics to the quickfix list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetQfListOpts {
+    /// Only add diagnostics from the given namespace.
+    pub namespace: Option<i64>,
+    /// Open quickfix list after setting.
+    pub open: Option<bool>,
+    /// Title of quickfix list.
+    pub title: Option<String>,
+    /// Filter diagnostics by severity.
+    pub severity: Option<SeverityFilter>,
+}
 
 /// Represents the position of virtual text in the editor.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -287,7 +393,242 @@ pub struct Diagnostic {
     pub namespace: u64,
 }
 
+/// Configure diagnostic options globally or for a specific namespace.
+///
+/// * `opts` - The diagnostic options to set.
+/// * `namespace` - Optional namespace. If None, configures global options.
+pub async fn diagnostic_config<T>(
+    c: &mut Client,
+    opts: DiagnosticOpts,
+    namespace: Option<i64>,
+) -> Result<()> {
+    let namespace = namespace.unwrap_or(-1);
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.config(...)",
+            vec![
+                serde_rmpv::to_value(&opts)?,
+                serde_rmpv::to_value(&namespace)?,
+            ],
+        )
+        .await?;
+    Ok(())
+}
+
+/// Get current diagnostics for a buffer.
+///
+/// * `bufnr` - Optional buffer number. If None, gets diagnostics for all buffers.
+/// * `opts` - Optional settings to filter the diagnostics.
+///
+/// Returns a vector of Diagnostic structs.
+pub async fn diagnostic_get<T>(
+    c: &mut Client,
+    bufnr: Option<T>,
+    opts: Option<GetOpts>,
+) -> Result<Vec<Diagnostic>>
+where
+    T: Into<u64>,
+{
+    let bufnr: Option<u64> = bufnr.map(Into::into);
+    let result: Vec<Diagnostic> = c
+        .nvim
+        .exec_lua(
+            "return vim.diagnostic.get(...)",
+            vec![serde_rmpv::to_value(&bufnr)?, serde_rmpv::to_value(&opts)?],
+        )
+        .await?
+        .as_array()
+        .ok_or_else(|| Error::User("Expected array".into()))?
+        .iter()
+        .map(|v| serde_rmpv::from_value::<Diagnostic>(v).unwrap())
+        .collect::<Vec<_>>();
+    Ok(result)
+}
+
+/// Hide currently displayed diagnostics.
+///
+/// * `namespace` - Optional namespace to hide diagnostics for.
+/// * `bufnr` - Optional buffer number to hide diagnostics in.
+pub async fn diagnostic_hide(
+    c: &mut Client,
+    namespace: Option<i64>,
+    bufnr: Option<u64>,
+) -> Result<()> {
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.hide(...)",
+            vec![
+                serde_rmpv::to_value(&namespace)?,
+                serde_rmpv::to_value(&bufnr)?,
+            ],
+        )
+        .await?;
+    Ok(())
+}
+
+/// Display diagnostics for the given namespace and buffer.
+///
+/// * `namespace` - Optional namespace to show diagnostics for.
+/// * `bufnr` - Optional buffer number to show diagnostics in.
+/// * `diagnostics` - Optional vector of Diagnostic structs to display.
+/// * `opts` - Optional display options.
+pub async fn diagnostic_show<T>(
+    c: &mut Client,
+    namespace: Option<i64>,
+    bufnr: Option<T>,
+    diagnostics: Option<Vec<Diagnostic>>,
+    opts: Option<DiagnosticOpts>,
+) -> Result<()>
+where
+    T: Into<u64>,
+{
+    let bufnr: Option<u64> = bufnr.map(Into::into);
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.show(...)",
+            vec![
+                serde_rmpv::to_value(&namespace)?,
+                serde_rmpv::to_value(&bufnr)?,
+                serde_rmpv::to_value(&diagnostics)?,
+                serde_rmpv::to_value(&opts)?,
+            ],
+        )
+        .await?;
+    Ok(())
+}
+
+/// Get the next diagnostic closest to the cursor position.
+///
+/// * `opts` - Optional jump options.
+///
+/// Returns an Option<Diagnostic>. None if no next diagnostic is found.
+pub async fn diagnostic_get_next(
+    c: &mut Client,
+    opts: Option<JumpOpts>,
+) -> Result<Option<Diagnostic>> {
+    let result: Value = c
+        .nvim
+        .exec_lua(
+            "return vim.diagnostic.get_next(...)",
+            vec![serde_rmpv::to_value(&opts)?],
+        )
+        .await?;
+
+    match &result {
+        Value::Nil => Ok(None),
+        Value::Map(_) => {
+            let diagnostic: Diagnostic = serde_rmpv::from_value(&result)?;
+            Ok(Some(diagnostic))
+        }
+        _ => Err(Error::User(
+            "Unexpected return type from diagnostic_get_next".to_string(),
+        )),
+    }
+}
+
+/// Get the previous diagnostic closest to the cursor position.
+///
+/// * `opts` - Optional jump options.
+///
+/// Returns an Option<Diagnostic>. None if no previous diagnostic is found.
+pub async fn diagnostic_get_prev(
+    c: &mut Client,
+    opts: Option<JumpOpts>,
+) -> Result<Option<Diagnostic>> {
+    let result: Value = c
+        .nvim
+        .exec_lua(
+            "return vim.diagnostic.get_prev(...)",
+            vec![serde_rmpv::to_value(&opts)?],
+        )
+        .await?;
+
+    match &result {
+        Value::Nil => Ok(None),
+        Value::Map(_) => {
+            let diagnostic: Diagnostic = serde_rmpv::from_value(&result)?;
+            Ok(Some(diagnostic))
+        }
+        _ => Err(Error::User(
+            "Unexpected return type from diagnostic_get_prev".to_string(),
+        )),
+    }
+}
+
+/// Show diagnostics in a floating window.
+///
+/// * `opts` - Optional float options.
+///
+/// Returns a tuple of two Option<u64>: (float_bufnr, winid).
+pub async fn diagnostic_open_float(
+    c: &mut Client,
+    opts: Option<FloatOpts>,
+) -> Result<(Option<u64>, Option<u64>)> {
+    let result: Value = c
+        .nvim
+        .exec_lua(
+            "return vim.diagnostic.open_float(...)",
+            vec![serde_rmpv::to_value(&opts)?],
+        )
+        .await?;
+
+    match &result {
+        Value::Array(arr) if arr.len() == 2 => {
+            let float_bufnr: Option<u64> = match &arr[0] {
+                Value::Integer(n) => Some(
+                    n.as_u64()
+                        .ok_or(Error::User("Invalid float_bufnr".to_string()))?,
+                ),
+                Value::Nil => None,
+                _ => return Err(Error::User("Unexpected type for float_bufnr".to_string())),
+            };
+            let winid: Option<u64> = match &arr[1] {
+                Value::Integer(n) => {
+                    Some(n.as_u64().ok_or(Error::User("Invalid winid".to_string()))?)
+                }
+                Value::Nil => None,
+                _ => return Err(Error::User("Unexpected type for winid".to_string())),
+            };
+            Ok((float_bufnr, winid))
+        }
+        _ => Err(Error::User(
+            "Unexpected return type from diagnostic_open_float".to_string(),
+        )),
+    }
+}
+
+/// Add buffer diagnostics to the location list.
+///
+/// * `opts` - Options for setting the location list.
+pub async fn diagnostic_setloclist(c: &mut Client, opts: SetLoclistOpts) -> Result<()> {
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.setloclist(...)",
+            vec![serde_rmpv::to_value(&opts)?],
+        )
+        .await?;
+    Ok(())
+}
+
+/// Add all diagnostics to the quickfix list.
+///
+/// * `opts` - Options for setting the quickfix list.
+pub async fn diagnostic_setqflist(c: &mut Client, opts: SetQfListOpts) -> Result<()> {
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.setqflist(...)",
+            vec![serde_rmpv::to_value(&opts)?],
+        )
+        .await?;
+    Ok(())
+}
+
 /// Sets diagnostics for a specific buffer and namespace.
+///
+/// * `namespace` - The diagnostic namespace.
+/// * `bufnr` - Buffer number to set diagnostics for.
+/// * `diagnostics` - Vector of Diagnostic structs to set.
+/// * `opts` - Display options for the diagnostics.
 pub async fn diagnostic_set<T>(
     c: &mut Client,
     namespace: i64,
@@ -314,6 +655,9 @@ where
 }
 
 /// Resets diagnostics for a specific buffer and namespace.
+///
+/// * `namespace` - The diagnostic namespace to reset.
+/// * `bufnr` - Buffer number to reset diagnostics for.
 pub async fn diagnostic_reset(c: &mut Client, namespace: i64, bufnr: u64) -> Result<()> {
     c.nvim
         .exec_lua(
