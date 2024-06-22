@@ -1,9 +1,16 @@
+//! Diagnostics
+//!
+//! This module provides structures and functions for working with diagnostics in Neovim.
+//! It includes types for configuring how diagnostics are displayed (e.g., virtual text,
+//! signs, floating windows) and functions for setting and resetting diagnostics.
+
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::{error::Result, types::Text, Client};
 
+/// Represents the position of virtual text in the editor.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum VirtTextPos {
@@ -13,6 +20,7 @@ pub enum VirtTextPos {
     Inline,
 }
 
+/// Represents a filter for diagnostic severity.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum SeverityFilter {
@@ -24,6 +32,7 @@ pub enum SeverityFilter {
     List(Vec<Severity>),
 }
 
+/// Represents the severity levels of diagnostics.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 pub enum Severity {
     Error,
@@ -33,6 +42,7 @@ pub enum Severity {
     Hint,
 }
 
+/// Represents the source of virtual text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VirtualTextSource {
     True,
@@ -76,6 +86,7 @@ impl<'de> serde::Deserialize<'de> for VirtualTextSource {
     }
 }
 
+/// Represents the scope of a floating window.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum FloatScope {
@@ -84,6 +95,7 @@ pub enum FloatScope {
     Cursor,
 }
 
+/// Configuration options for virtual text in diagnostics.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
 pub struct VirtualText {
@@ -111,6 +123,7 @@ pub struct VirtualText {
     pub virt_text_hide: Option<bool>,
 }
 
+/// Configuration options for diagnostic signs.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
 pub struct Signs {
@@ -126,6 +139,7 @@ pub struct Signs {
     pub linehl: Option<HashMap<Severity, String>>,
 }
 
+/// Configuration options for floating windows.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
 pub struct Float {
@@ -157,6 +171,7 @@ pub struct Float {
     pub border: Option<String>,
 }
 
+/// Represents options for jumping to diagnostics with optional floating window.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(variant_size_differences)]
 #[allow(clippy::large_enum_variant)]
@@ -201,6 +216,7 @@ impl<'de> serde::Deserialize<'de> for JumpFloat {
     }
 }
 
+/// Configuration options for jumping to diagnostics.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
 pub struct Jump {
@@ -212,6 +228,7 @@ pub struct Jump {
     pub severity: Option<SeverityFilter>,
 }
 
+/// Configuration options for sorting diagnostics by severity.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
 pub struct SeveritySort {
@@ -219,6 +236,7 @@ pub struct SeveritySort {
     pub reverse: Option<bool>,
 }
 
+/// Main configuration options for diagnostics.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]
 pub struct DiagnosticOpts {
@@ -241,6 +259,7 @@ pub struct DiagnosticOpts {
     pub jump: Option<Jump>,
 }
 
+/// Represents a single diagnostic.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, Setters)]
 #[setters(strip_option)]
 pub struct Diagnostic {
@@ -268,6 +287,7 @@ pub struct Diagnostic {
     pub namespace: u64,
 }
 
+/// Sets diagnostics for a specific buffer and namespace.
 pub async fn diagnostic_set<T>(
     c: &mut Client,
     namespace: i64,
@@ -293,6 +313,7 @@ where
     Ok(())
 }
 
+/// Resets diagnostics for a specific buffer and namespace.
 pub async fn diagnostic_reset(c: &mut Client, namespace: i64, bufnr: u64) -> Result<()> {
     c.nvim
         .exec_lua(
