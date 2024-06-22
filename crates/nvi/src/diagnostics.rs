@@ -2,7 +2,7 @@ use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::types::Text;
+use super::{error::Result, types::Text, Client};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -24,9 +24,10 @@ pub enum SeverityFilter {
     List(Vec<Severity>),
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 pub enum Severity {
     Error,
+    #[default]
     Warn,
     Info,
     Hint,
@@ -240,7 +241,8 @@ pub struct DiagnosticOpts {
     pub jump: Option<Jump>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, Setters)]
+#[setters(strip_option)]
 pub struct Diagnostic {
     /// Buffer number
     pub bufnr: u64,
@@ -264,6 +266,41 @@ pub struct Diagnostic {
     pub user_data: Option<crate::Value>,
     /// The namespace of the diagnostic
     pub namespace: u64,
+}
+
+pub async fn diagnostic_set<T>(
+    c: &mut Client,
+    namespace: i64,
+    bufnr: T,
+    diagnostics: Vec<Diagnostic>,
+    opts: DiagnosticOpts,
+) -> Result<()>
+where
+    T: Into<u64>,
+{
+    let bufnr: u64 = bufnr.into();
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.set(...)",
+            vec![
+                serde_rmpv::to_value(&namespace)?,
+                serde_rmpv::to_value(&bufnr)?,
+                serde_rmpv::to_value(&diagnostics)?,
+                serde_rmpv::to_value(&opts)?,
+            ],
+        )
+        .await?;
+    Ok(())
+}
+
+pub async fn diagnostic_reset(c: &mut Client, namespace: i64, bufnr: u64) -> Result<()> {
+    c.nvim
+        .exec_lua(
+            "vim.diagnostic.reset(...)",
+            vec![namespace.into(), bufnr.into()],
+        )
+        .await?;
+    Ok(())
 }
 
 #[cfg(test)]

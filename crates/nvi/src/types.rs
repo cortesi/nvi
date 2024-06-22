@@ -9,6 +9,13 @@ pub const BUFFER_EXT_TYPE: i8 = 0;
 pub const WINDOW_EXT_TYPE: i8 = 1;
 pub const TABPAGE_EXT_TYPE: i8 = 2;
 
+fn u8_array_to_u64(bytes: &[u8]) -> u64 {
+    bytes
+        .iter()
+        .rev()
+        .fold(0u64, |acc, &b| (acc << 8) | b as u64)
+}
+
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
@@ -33,6 +40,20 @@ impl Buffer {
                 opts::SetOptionValue::default().buf(self.clone()),
             )
             .await
+    }
+}
+
+impl From<Buffer> for u64 {
+    fn from(val: Buffer) -> Self {
+        let (_, bytes) = val.0;
+        u8_array_to_u64(&bytes)
+    }
+}
+
+impl From<u64> for Buffer {
+    fn from(value: u64) -> Self {
+        let bytes = value.to_le_bytes().to_vec();
+        Buffer((BUFFER_EXT_TYPE, bytes))
     }
 }
 
@@ -63,6 +84,20 @@ impl Window {
     }
 }
 
+impl From<Window> for u64 {
+    fn from(val: Window) -> Self {
+        let (_, bytes) = val.0;
+        u8_array_to_u64(&bytes)
+    }
+}
+
+impl From<u64> for Window {
+    fn from(value: u64) -> Self {
+        let bytes = value.to_le_bytes().to_vec();
+        Window((WINDOW_EXT_TYPE, bytes))
+    }
+}
+
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
@@ -71,6 +106,20 @@ pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 impl TabPage {
     pub fn current() -> Self {
         TabPage((TABPAGE_EXT_TYPE, vec![0, 0, 0, 0]))
+    }
+}
+
+impl From<TabPage> for u64 {
+    fn from(val: TabPage) -> Self {
+        let (_, bytes) = val.0;
+        u8_array_to_u64(&bytes)
+    }
+}
+
+impl From<u64> for TabPage {
+    fn from(value: u64) -> Self {
+        let bytes = value.to_le_bytes().to_vec();
+        TabPage((TABPAGE_EXT_TYPE, bytes))
     }
 }
 
