@@ -1,9 +1,10 @@
-//! This module contains the options structures for methods in the generated API.
+//! This module contains the optional argument structures for methods in the generated API. These
+//! are the final arguments in API functions named `opts`. They are not included in the rendered
+//! protocol description, so we have to write them by hand.
+
 use crate::types;
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
-
-
 
 /// Options for `nvim_buf_delete` method
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
@@ -16,7 +17,6 @@ pub struct BufDelete {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unload: Option<bool>,
 }
-
 
 /// Options for `nvim_create_autocmd` method
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
@@ -83,4 +83,3 @@ pub struct SetOptionValue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buf: Option<types::Buffer>,
 }
-

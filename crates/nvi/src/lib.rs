@@ -3,6 +3,7 @@ mod connect;
 mod run;
 mod service;
 
+pub mod diagnostics;
 pub mod error;
 pub mod nvim_api;
 pub mod opts;

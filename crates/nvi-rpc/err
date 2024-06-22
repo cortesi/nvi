@@ -1,0 +1,114 @@
+   Compiling nvi-rpc v0.0.1 (/Users/cortesi/git/private/nvi/crates/nvi-rpc)
+error[E0728]: `await` is only allowed inside `async` functions and blocks
+   --> crates/nvi-rpc/src/endpoint.rs:310:14
+    |
+310 |             .await
+    |              ^^^^^ only allowed inside `async` functions and blocks
+
+error[E0596]: cannot borrow `sink` as mutable, as it is not declared as mutable
+   --> crates/nvi-rpc/src/endpoint.rs:170:13
+    |
+170 |             sink.send(Message::Notification(notification).pack()?.into())
+    |             ^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+160 |         mut sink: Framed<T, LengthDelimitedCodec>,
+    |         +++
+
+error[E0599]: no method named `clone` found for struct `Framed` in the current scope
+   --> crates/nvi-rpc/src/endpoint.rs:181:36
+    |
+181 |         self.process_requests(sink.clone()).await?;
+    |                                    ^^^^^
+    |
+help: there is a method `close` with a similar name
+    |
+181 |         self.process_requests(sink.close()).await?;
+    |                                    ~~~~~
+
+error[E0596]: cannot borrow `sink` as mutable, as it is not declared as mutable
+   --> crates/nvi-rpc/src/endpoint.rs:203:13
+    |
+203 |             sink.send(Message::Request(request).pack()?.into()).await?;
+    |             ^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+191 |         mut sink: Framed<T, LengthDelimitedCodec>,
+    |         +++
+
+error[E0599]: no method named `clone` found for struct `Framed` in the current scope
+   --> crates/nvi-rpc/src/endpoint.rs:286:41
+    |
+286 |         self.server.send_responses(sink.clone()).await?;
+    |                                         ^^^^^
+    |
+help: there is a method `close` with a similar name
+    |
+286 |         self.server.send_responses(sink.close()).await?;
+    |                                         ~~~~~
+
+error[E0308]: mismatched types
+   --> crates/nvi-rpc/src/endpoint.rs:309:28
+    |
+309 |             .send_outgoing(stream.as_mut())
+    |              ------------- ^^^^^^^^^^^^^^^ expected `Framed<_, LengthDelimitedCodec>`, found `Pin<&mut Framed<T, ...>>`
+    |              |
+    |              arguments to this method are incorrect
+    |
+    = note: expected struct `Framed<_, LengthDelimitedCodec>`
+               found struct `Pin<&mut Framed<T, LengthDelimitedCodec>>`
+note: method defined here
+   --> crates/nvi-rpc/src/endpoint.rs:96:14
+    |
+96  |     async fn send_outgoing<T: AsyncRead + AsyncWrite + Unpin>(
+    |              ^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> crates/nvi-rpc/src/endpoint.rs:320:41
+    |
+320 |                 handler.handle_incoming(msg);
+    |                         --------------- ^^^ expected `Message`, found `BytesMut`
+    |                         |
+    |                         arguments to this method are incorrect
+    |
+note: method defined here
+   --> crates/nvi-rpc/src/endpoint.rs:95:8
+    |
+95  |     fn handle_incoming(&mut self, msg: Message);
+    |        ^^^^^^^^^^^^^^^
+
+error[E0599]: the method `poll` exists for struct `Pin<&mut InnerEndpoint<Server<S>, T>>`, but its trait bounds were not satisfied
+   --> crates/nvi-rpc/src/endpoint.rs:364:67
+    |
+54  | struct Server<S> {
+    | ---------------- doesn't satisfy `Server<S>: MessageHandler`
+...
+291 | struct InnerEndpoint<MH, T> {
+    | --------------------------- doesn't satisfy `InnerEndpoint<Server<S>, T>: futures::Future`
+...
+364 |         unsafe { self.map_unchecked_mut(|this| &mut this.inner) }.poll(cx)
+    |                                                                   ^^^^ method cannot be called on `Pin<&mut InnerEndpoint<Server<S>, T>>` due to unsatisfied trait bounds
+    |
+note: trait bound `Server<S>: MessageHandler` was not satisfied
+   --> crates/nvi-rpc/src/endpoint.rs:296:10
+    |
+296 | impl<MH: MessageHandler + Unpin, T: AsyncRead + AsyncWrite + Unpin> Future
+    |          ^^^^^^^^^^^^^^ unsatisfied trait bound introduced here     ------
+297 |     for InnerEndpoint<MH, T>
+    |         --------------------
+note: the trait `MessageHandler` must be implemented
+   --> crates/nvi-rpc/src/endpoint.rs:94:1
+    |
+94  | trait MessageHandler {
+    | ^^^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following trait defines an item `poll`, perhaps you need to implement it:
+            candidate #1: `futures::Future`
+
+Some errors have detailed explanations: E0308, E0596, E0599, E0728.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `nvi-rpc` (lib) due to 8 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `nvi-rpc` (lib test) due to 8 previous errors
