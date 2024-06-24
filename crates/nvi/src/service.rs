@@ -8,7 +8,8 @@ use tracing::{debug, trace, warn};
 
 use crate::{client::Client, error::Result, types};
 
-pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "nvi_bootstrap";
+pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "__nvi_bootstrap";
+pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
 #[allow(unused_variables)]
 #[async_trait]
@@ -137,6 +138,12 @@ where
         );
         let method = method.to_string();
         let params = params.to_vec();
+
+        if method == PING_MESSAGE {
+            trace!("ping received");
+            return Box::pin(async move { Ok(Value::Boolean(true)) });
+        }
+
         Box::pin(async move {
             let c = client.clone();
             match vimservice.request(&mut client, &method, &params).await {
