@@ -9,6 +9,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::error::{Result, RpcError, ServiceError};
 use crate::message::*;
 
+#[derive(Debug)]
 enum ClientMessage {
     Request {
         method: String,
@@ -21,16 +22,9 @@ enum ClientMessage {
     },
 }
 
+#[derive(Debug, Clone)]
 pub struct Client {
     sender: mpsc::Sender<ClientMessage>,
-}
-
-impl Clone for Client {
-    fn clone(&self) -> Self {
-        Self {
-            sender: self.sender.clone(),
-        }
-    }
 }
 
 impl Client {
@@ -180,6 +174,7 @@ pub trait RpcService: Send + Sync + Clone + 'static {
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static;
 }
 
+#[derive(Debug)]
 pub struct RpcConnection<S> {
     stream: S,
     next_request_id: u32,
