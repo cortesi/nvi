@@ -1,7 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc2::{
-    connect_unix, Client, ConnectionHandler, RpcError, RpcServer, RpcService, UnixListener,
-};
+use nvi_rpc2::{connect_unix, Client, ConnectionHandler, RpcError, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -64,10 +62,10 @@ async fn test_rpc_service() -> Result<(), Box<dyn std::error::Error>> {
     let service = TestService {
         notification_count: Arc::new(Mutex::new(0)),
     };
-    let server = RpcServer::new(service.clone());
-    let listener = UnixListener::bind(&socket_path).await?;
+    let server = Server::new(service.clone()).unix(&socket_path).await?;
     let server_task = tokio::spawn(async move {
-        if let Err(e) = server.run_unix(listener).await {
+        let e = server.run().await;
+        if let Err(e) = e {
             eprintln!("Server error: {}", e);
         }
     });

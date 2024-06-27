@@ -1,7 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc2::{
-    connect_unix, Client, ConnectionHandler, RpcError, RpcServer, RpcService, UnixListener,
-};
+use nvi_rpc2::{connect_unix, Client, ConnectionHandler, RpcError, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -85,11 +83,11 @@ async fn test_pingpong() -> Result<(), Box<dyn std::error::Error>> {
     let socket_path = temp_dir.path().join("pong.sock");
 
     // Set up the Pong server
-    let pong_server = RpcServer::new(PongService);
-    let pong_listener = UnixListener::bind(&socket_path).await?;
+    let server = Server::new(PongService).unix(&socket_path).await?;
     let pong_server_task = tokio::spawn(async move {
-        if let Err(e) = pong_server.run_unix(pong_listener).await {
-            eprintln!("Pong server error: {}", e);
+        let e = server.run().await;
+        if let Err(e) = e {
+            eprintln!("Server error: {}", e);
         }
     });
 
