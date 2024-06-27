@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc2::{connect_unix, Client, ConnectionHandler, RpcError, RpcService, Server};
+use nvi_rpc2::{Client, RpcError, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -16,7 +16,7 @@ struct PingService {
 impl RpcService for PingService {
     async fn handle_request<S>(
         &self,
-        _client: Client,
+        _sender: RpcSender,
         method: &str,
         _params: Vec<Value>,
     ) -> Result<Value, RpcError>
@@ -29,7 +29,7 @@ impl RpcService for PingService {
         )))
     }
 
-    async fn handle_notification<S>(&self, _client: Client, method: &str, _params: Vec<Value>)
+    async fn handle_notification<S>(&self, _sender: RpcSender, method: &str, _params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -47,7 +47,7 @@ struct PongService;
 impl RpcService for PongService {
     async fn handle_request<S>(
         &self,
-        client: Client,
+        sender: RpcSender,
         method: &str,
         _params: Vec<Value>,
     ) -> Result<Value, RpcError>
@@ -56,7 +56,7 @@ impl RpcService for PongService {
     {
         match method {
             "ping" => {
-                client
+                sender
                     .send_notification("pong".to_string(), vec![Value::String("pong".into())])
                     .await?;
                 Ok(Value::Boolean(true))
@@ -68,7 +68,7 @@ impl RpcService for PongService {
         }
     }
 
-    async fn handle_notification<S>(&self, _client: Client, _method: &str, _params: Vec<Value>)
+    async fn handle_notification<S>(&self, _sender: RpcSender, _method: &str, _params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -93,18 +93,10 @@ async fn test_pingpong() -> Result<(), Box<dyn std::error::Error>> {
 
     // Set up the Ping client
     let pong_count = Arc::new(Mutex::new(0));
-    let mut handler = ConnectionHandler::new(
-        connect_unix(&socket_path).await?,
-        Arc::new(PingService {
-            pong_count: pong_count.clone(),
-        }),
-    );
-    let client = handler.client();
-    let handler_task = tokio::spawn(async move {
-        if let Err(e) = handler.run().await {
-            eprintln!("Ping handler error: {}", e);
-        }
-    });
+    let ping_service = PingService {
+        pong_count: pong_count.clone(),
+    };
+    let client = Client::connect_unix(&socket_path, ping_service).await?;
 
     // Start the ping-pong process
     let num_pings = 5;
@@ -113,8 +105,6 @@ async fn test_pingpong() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     assert_eq!(*pong_count.lock().await, num_pings);
-
-    handler_task.abort();
     pong_server_task.abort();
     Ok(())
 }

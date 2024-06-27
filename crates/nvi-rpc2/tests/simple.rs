@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc2::{connect_unix, Client, ConnectionHandler, RpcError, RpcService, Server};
+use nvi_rpc2::{Client, RpcError, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -16,7 +16,7 @@ struct TestService {
 impl RpcService for TestService {
     async fn handle_request<S>(
         &self,
-        _client: Client,
+        _sender: RpcSender,
         method: &str,
         params: Vec<Value>,
     ) -> Result<Value, RpcError>
@@ -37,7 +37,7 @@ impl RpcService for TestService {
         }
     }
 
-    async fn handle_notification<S>(&self, _client: Client, method: &str, params: Vec<Value>)
+    async fn handle_notification<S>(&self, _sender: RpcSender, method: &str, params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -70,15 +70,7 @@ async fn test_rpc_service() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Connect to the server
-    let connection = connect_unix(&socket_path).await?;
-    let mut handler = ConnectionHandler::new(connection, Arc::new(service.clone()));
-    let client = handler.client().clone();
-    let handler_task = tokio::spawn(async move {
-        if let Err(e) = handler.run().await {
-            eprintln!("Handler error: {}", e);
-        }
-    });
+    let client = Client::connect_unix(&socket_path, service.clone()).await?;
 
     // Test echo request
     let echo_result = client
@@ -120,7 +112,6 @@ async fn test_rpc_service() -> Result<(), Box<dyn std::error::Error>> {
     assert!(unknown_result.is_err());
 
     // Clean up
-    handler_task.abort();
     server_task.abort();
 
     Ok(())

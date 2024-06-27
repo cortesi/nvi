@@ -2,14 +2,16 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use rmpv::Value;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{
     TcpListener as TokioTcpListener, TcpStream, UnixListener as TokioUnixListener, UnixStream,
 };
+use tokio::sync::mpsc;
 use tracing::trace;
 
 use crate::error::*;
-use crate::{ConnectionHandler, RpcConnection, RpcService};
+use crate::{ConnectionHandler, RpcConnection, RpcSender, RpcService};
 
 struct TcpListener {
     inner: TokioTcpListener,
@@ -129,12 +131,63 @@ impl<T: RpcService> Server<T> {
         loop {
             let connection = RpcConnection::new(listener.accept().await?);
             let service_clone = service.clone();
-            let mut handler = ConnectionHandler::new(connection, service_clone);
+
             tokio::spawn(async move {
+                let (sender, receiver) = mpsc::channel(100);
+                let mut handler =
+                    ConnectionHandler::new(connection, service_clone, receiver, sender.clone());
+
                 if let Err(e) = handler.run().await {
                     tracing::error!("Connection error: {}", e);
                 }
             });
         }
+    }
+}
+
+pub struct Client<T: RpcService> {
+    sender: RpcSender,
+    _handler: tokio::task::JoinHandle<()>,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: RpcService> Client<T> {
+    pub async fn connect_unix<P: AsRef<Path>>(path: P, service: T) -> Result<Self> {
+        Self::new(connect_unix(path).await?, service).await
+    }
+
+    pub async fn connect_tcp(addr: &str, service: T) -> Result<Self> {
+        Self::new(connect_tcp(addr).await?, service).await
+    }
+
+    async fn new<S>(connection: RpcConnection<S>, service: T) -> Result<Self>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let (sender, receiver) = mpsc::channel(100);
+        let rpc_sender = RpcSender {
+            sender: sender.clone(),
+        };
+        let mut handler = ConnectionHandler::new(connection, Arc::new(service), receiver, sender);
+
+        let handler_task = tokio::spawn(async move {
+            if let Err(e) = handler.run().await {
+                tracing::error!("Handler error: {}", e);
+            }
+        });
+
+        Ok(Self {
+            sender: rpc_sender,
+            _handler: handler_task,
+            _phantom: std::marker::PhantomData,
+        })
+    }
+
+    pub async fn send_request(&self, method: String, params: Vec<Value>) -> Result<Value> {
+        self.sender.send_request(method, params).await
+    }
+
+    pub async fn send_notification(&self, method: String, params: Vec<Value>) -> Result<()> {
+        self.sender.send_notification(method, params).await
     }
 }
