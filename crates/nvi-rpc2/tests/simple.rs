@@ -66,24 +66,16 @@ async fn test_rpc_service() -> Result<(), Box<dyn std::error::Error>> {
     };
     let server = RpcServer::new(service.clone());
     let listener = UnixListener::bind(&socket_path).await?;
-
     let server_task = tokio::spawn(async move {
         if let Err(e) = server.run_unix(listener).await {
             eprintln!("Server error: {}", e);
         }
     });
 
-    // Give the server some time to start
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
     // Connect to the server
     let connection = connect_unix(&socket_path).await?;
     let mut handler = ConnectionHandler::new(connection, Arc::new(service.clone()));
-
-    // Create a client
     let client = handler.client().clone();
-
-    // Spawn the handler
     let handler_task = tokio::spawn(async move {
         if let Err(e) = handler.run().await {
             eprintln!("Handler error: {}", e);
@@ -135,4 +127,3 @@ async fn test_rpc_service() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
