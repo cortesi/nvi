@@ -10,6 +10,7 @@ use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf},
     sync::{mpsc, oneshot},
 };
+use tracing::trace;
 
 use crate::{
     error::{Result, RpcError, ServiceError},
@@ -253,10 +254,12 @@ where
         self.stream.read_exact(&mut buffer).await?;
 
         let message = Message::decode(&mut &buffer[..])?;
+        trace!("received message: {:?}", message);
         Ok(message)
     }
 
     pub async fn write_message(&mut self, message: &Message) -> Result<()> {
+        trace!("sending message: {:?}", message);
         let mut buffer = Vec::new();
         message.encode(&mut buffer)?;
 
