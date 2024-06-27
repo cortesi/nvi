@@ -1,3 +1,8 @@
+//! Core RPC connection handling and message processing.
+//!
+//! Defines structures and traits for managing RPC connections,
+//! handling incoming and outgoing messages, and implementing
+//! RPC services.
 use std::{
     pin::Pin,
     sync::Arc,
@@ -17,8 +22,9 @@ use crate::{
     message::*,
 };
 
+/// Internal message type for communication between the client API and the connection handler.
 #[derive(Debug)]
-pub enum ClientMessage {
+pub(crate) enum ClientMessage {
     Request {
         method: String,
         params: Vec<Value>,
@@ -30,12 +36,14 @@ pub enum ClientMessage {
     },
 }
 
+/// Handle for sending RPC requests and notifications to a remote service.
 #[derive(Debug, Clone)]
 pub struct RpcSender {
     pub(crate) sender: mpsc::Sender<ClientMessage>,
 }
 
 impl RpcSender {
+    /// Sends an RPC request and waits for the response.
     pub async fn send_request(&self, method: String, params: Vec<Value>) -> Result<Value> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.sender
@@ -51,6 +59,7 @@ impl RpcSender {
             .map_err(|_| RpcError::Protocol("Failed to receive response".to_string()))?
     }
 
+    /// Sends an RPC notification without waiting for a response.
     pub async fn send_notification(&self, method: String, params: Vec<Value>) -> Result<()> {
         self.sender
             .send(ClientMessage::Notification { method, params })
@@ -59,7 +68,8 @@ impl RpcSender {
     }
 }
 
-pub struct ConnectionHandler<S, T: RpcService> {
+/// Manages bidirectional communication between a local service and a remote RPC connection.
+pub(crate) struct ConnectionHandler<S, T: RpcService> {
     connection: RpcConnection<S>,
     service: Arc<T>,
     client_receiver: mpsc::Receiver<ClientMessage>,
@@ -70,6 +80,7 @@ impl<S, T: RpcService> ConnectionHandler<S, T>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
+    /// Creates a new ConnectionHandler with the given connection, service, and message channels.
     pub fn new(
         connection: RpcConnection<S>,
         service: Arc<T>,
@@ -84,6 +95,7 @@ where
         }
     }
 
+    /// Starts the main event loop, handling incoming and outgoing messages.
     pub async fn run(&mut self) -> Result<()> {
         loop {
             tokio::select! {
@@ -98,6 +110,7 @@ where
         }
     }
 
+    /// Processes an incoming message from the remote endpoint.
     async fn handle_incoming_message(&mut self, message: Message) -> Result<()> {
         match message {
             Message::Request(request) => {
@@ -145,6 +158,7 @@ where
         Ok(())
     }
 
+    /// Processes a message from the local client API.
     async fn handle_client_message(&mut self, message: ClientMessage) -> Result<()> {
         match message {
             ClientMessage::Request {
@@ -171,73 +185,56 @@ where
     }
 }
 
+/// Trait for implementing RPC service functionality.
 #[async_trait]
 pub trait RpcService: Send + Sync + Clone + 'static {
+    /// Handles an incoming RPC request.
+    ///
+    /// By default, returns an error indicating the method is not implemented.
     async fn handle_request<S>(
         &self,
-        client: RpcSender,
+        _client: RpcSender,
         method: &str,
         params: Vec<Value>,
     ) -> Result<Value>
     where
-        S: AsyncRead + AsyncWrite + Unpin + Send + 'static;
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        tracing::warn!("Unhandled request: method={}, params={:?}", method, params);
+        Err(RpcError::Protocol(format!(
+            "Method '{}' not implemented",
+            method
+        )))
+    }
 
-    async fn handle_notification<S>(&self, client: RpcSender, method: &str, params: Vec<Value>)
+    /// Handles an incoming RPC notification.
+    ///
+    /// By default, logs a warning about the unhandled notification.
+    async fn handle_notification<S>(&self, _client: RpcSender, method: &str, params: Vec<Value>)
     where
-        S: AsyncRead + AsyncWrite + Unpin + Send + 'static;
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        tracing::warn!(
+            "Unhandled notification: method={}, params={:?}",
+            method,
+            params
+        );
+    }
 }
 
+/// Low-level RPC connection handler for reading and writing messages over a stream.
 #[derive(Debug)]
-pub struct RpcConnection<S> {
+pub(crate) struct RpcConnection<S> {
     stream: S,
     next_request_id: u32,
     pending_requests: std::collections::HashMap<u32, oneshot::Sender<Result<Value>>>,
-}
-
-impl<S> AsyncRead for RpcConnection<S>
-where
-    S: AsyncRead + Unpin,
-{
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.stream).poll_read(cx, buf)
-    }
-}
-
-impl<S> AsyncWrite for RpcConnection<S>
-where
-    S: AsyncWrite + Unpin,
-{
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::result::Result<usize, std::io::Error>> {
-        Pin::new(&mut self.stream).poll_write(cx, buf)
-    }
-
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<std::result::Result<(), std::io::Error>> {
-        Pin::new(&mut self.stream).poll_flush(cx)
-    }
-
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<std::result::Result<(), std::io::Error>> {
-        Pin::new(&mut self.stream).poll_shutdown(cx)
-    }
 }
 
 impl<S> RpcConnection<S>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    /// Creates a new RpcConnection with the given stream.
     pub fn new(stream: S) -> Self {
         Self {
             stream,
@@ -246,6 +243,7 @@ where
         }
     }
 
+    /// Reads and decodes the next message from the stream.
     pub async fn read_message(&mut self) -> Result<Message> {
         let mut length_bytes = [0u8; 4];
         self.stream.read_exact(&mut length_bytes).await?;
@@ -259,6 +257,7 @@ where
         Ok(message)
     }
 
+    /// Encodes and writes a message to the stream.
     pub async fn write_message(&mut self, message: &Message) -> Result<()> {
         trace!("sending message: {:?}", message);
         let mut buffer = Vec::new();
@@ -272,5 +271,49 @@ where
         self.stream.flush().await?;
 
         Ok(())
+    }
+}
+
+impl<S> AsyncRead for RpcConnection<S>
+where
+    S: AsyncRead + Unpin,
+{
+    /// Polls the underlying stream for read readiness.
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.stream).poll_read(cx, buf)
+    }
+}
+
+impl<S> AsyncWrite for RpcConnection<S>
+where
+    S: AsyncWrite + Unpin,
+{
+    /// Polls the underlying stream for write readiness.
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::result::Result<usize, std::io::Error>> {
+        Pin::new(&mut self.stream).poll_write(cx, buf)
+    }
+
+    /// Flushes the underlying stream.
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<std::result::Result<(), std::io::Error>> {
+        Pin::new(&mut self.stream).poll_flush(cx)
+    }
+
+    /// Closes the underlying stream.
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<std::result::Result<(), std::io::Error>> {
+        Pin::new(&mut self.stream).poll_shutdown(cx)
     }
 }

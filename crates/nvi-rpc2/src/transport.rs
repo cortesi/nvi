@@ -1,3 +1,8 @@
+//! Networking components for RPC server and client communication.
+//!
+//! Provides implementations for TCP and Unix domain socket transports,
+//! as well as abstractions for RPC servers and clients.
+
 use std::path::Path;
 use std::sync::Arc;
 
@@ -13,6 +18,7 @@ use tracing::trace;
 use crate::error::*;
 use crate::{ConnectionHandler, RpcConnection, RpcSender, RpcService};
 
+/// TCP listener for accepting RPC connections.
 struct TcpListener {
     inner: TokioTcpListener,
 }
@@ -24,13 +30,14 @@ impl TcpListener {
         Ok(Self { inner: listener })
     }
 
-    pub async fn accept(&self) -> Result<RpcConnection<TcpStream>> {
+    async fn accept(&self) -> Result<RpcConnection<TcpStream>> {
         let (stream, addr) = self.inner.accept().await?;
         trace!("Accepted TCP connection from: {}", addr);
         Ok(RpcConnection::new(stream))
     }
 }
 
+/// Unix domain socket listener for accepting RPC connections.
 struct UnixListener {
     inner: TokioUnixListener,
 }
@@ -43,15 +50,16 @@ impl UnixListener {
         Ok(Self { inner: listener })
     }
 
-    pub async fn accept(&self) -> Result<RpcConnection<UnixStream>> {
+    async fn accept(&self) -> Result<RpcConnection<UnixStream>> {
         let (stream, _) = self.inner.accept().await?;
         trace!("Accepted Unix connection");
         Ok(RpcConnection::new(stream))
     }
 }
 
+/// Trait for types that can accept incoming RPC connections.
 #[async_trait]
-pub trait Accept {
+trait Accept {
     type Stream: AsyncRead + AsyncWrite + Unpin;
     async fn accept(&self) -> Result<RpcConnection<Self::Stream>>;
 }
@@ -72,30 +80,20 @@ impl Accept for UnixListener {
     }
 }
 
-pub async fn connect_tcp(addr: &str) -> Result<RpcConnection<TcpStream>> {
-    let stream = TcpStream::connect(addr).await?;
-    trace!("TCP connection established to: {}", addr);
-    Ok(RpcConnection::new(stream))
-}
-
-pub async fn connect_unix<P: AsRef<Path>>(path: P) -> Result<RpcConnection<UnixStream>> {
-    let path_str = path.as_ref().to_string_lossy().to_string();
-    let stream = UnixStream::connect(path).await?;
-    trace!("Unix connection established to: {:?}", path_str);
-    Ok(RpcConnection::new(stream))
-}
-
-pub struct Server<T: RpcService> {
-    service: Arc<T>,
-    listener: Option<Listener>,
-}
-
+/// Either a TCP or Unix domain socket listener.
 enum Listener {
     Tcp(TcpListener),
     Unix(UnixListener),
 }
 
+/// RPC server that can listen on TCP or Unix domain sockets.
+pub struct Server<T: RpcService> {
+    service: Arc<T>,
+    listener: Option<Listener>,
+}
+
 impl<T: RpcService> Server<T> {
+    /// Creates a new server with the given RPC service.
     pub fn new(service: T) -> Self {
         Self {
             service: Arc::new(service),
@@ -103,16 +101,19 @@ impl<T: RpcService> Server<T> {
         }
     }
 
+    /// Configures the server to listen on a TCP address.
     pub async fn tcp(mut self, addr: &str) -> Result<Self> {
         self.listener = Some(Listener::Tcp(TcpListener::bind(addr).await?));
         Ok(self)
     }
 
+    /// Configures the server to listen on a Unix domain socket.
     pub async fn unix<P: AsRef<Path>>(mut self, path: P) -> Result<Self> {
         self.listener = Some(Listener::Unix(UnixListener::bind(path).await?));
         Ok(self)
     }
 
+    /// Starts the server and begins accepting connections.
     pub async fn run(self) -> Result<()> {
         let listener = self
             .listener
@@ -145,6 +146,7 @@ impl<T: RpcService> Server<T> {
     }
 }
 
+/// RPC client for connecting to a server over TCP or Unix domain sockets.
 pub struct Client<T: RpcService> {
     sender: RpcSender,
     _handler: tokio::task::JoinHandle<()>,
@@ -152,12 +154,19 @@ pub struct Client<T: RpcService> {
 }
 
 impl<T: RpcService> Client<T> {
+    /// Creates a new client connected to a Unix domain socket.
     pub async fn connect_unix<P: AsRef<Path>>(path: P, service: T) -> Result<Self> {
-        Self::new(connect_unix(path).await?, service).await
+        let path_str = path.as_ref().to_string_lossy().to_string();
+        let stream = UnixStream::connect(path).await?;
+        trace!("Unix connection established to: {:?}", path_str);
+        Self::new(RpcConnection::new(stream), service).await
     }
 
+    /// Creates a new client connected to a TCP address.
     pub async fn connect_tcp(addr: &str, service: T) -> Result<Self> {
-        Self::new(connect_tcp(addr).await?, service).await
+        let stream = TcpStream::connect(addr).await?;
+        trace!("TCP connection established to: {}", addr);
+        Self::new(RpcConnection::new(stream), service).await
     }
 
     async fn new<S>(connection: RpcConnection<S>, service: T) -> Result<Self>
@@ -183,10 +192,12 @@ impl<T: RpcService> Client<T> {
         })
     }
 
+    /// Sends an RPC request to the server.
     pub async fn send_request(&self, method: String, params: Vec<Value>) -> Result<Value> {
         self.sender.send_request(method, params).await
     }
 
+    /// Sends an RPC notification to the server.
     pub async fn send_notification(&self, method: String, params: Vec<Value>) -> Result<()> {
         self.sender.send_notification(method, params).await
     }

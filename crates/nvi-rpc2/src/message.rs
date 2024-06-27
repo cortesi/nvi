@@ -1,3 +1,7 @@
+//! Defines the MessagePack-RPC message types and their serialization/deserialization.
+//!
+//! Includes structures for requests, responses, and notifications, as well as
+//! utilities for encoding and decoding these messages.
 use rmpv::Value;
 use std::io::{Read, Write};
 
@@ -7,6 +11,7 @@ const REQUEST_MESSAGE: u64 = 0;
 const RESPONSE_MESSAGE: u64 = 1;
 const NOTIFICATION_MESSAGE: u64 = 2;
 
+/// Represents the different types of RPC messages: requests, responses, and notifications.
 #[derive(PartialEq, Clone, Debug)]
 pub enum Message {
     Request(Request),
@@ -14,6 +19,7 @@ pub enum Message {
     Notification(Notification),
 }
 
+/// An RPC request message containing an ID, method name, and parameters.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Request {
     pub id: u32,
@@ -21,12 +27,14 @@ pub struct Request {
     pub params: Vec<Value>,
 }
 
+/// An RPC response message containing an ID and either a result or an error.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Response {
     pub id: u32,
     pub result: std::result::Result<Value, Value>,
 }
 
+/// An RPC notification message containing a method name and parameters.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Notification {
     pub method: String,
@@ -34,6 +42,7 @@ pub struct Notification {
 }
 
 impl Message {
+    /// Converts the message to a MessagePack-RPC compatible Value.
     pub fn to_value(&self) -> Value {
         match self {
             Message::Request(req) => Value::Array(vec![
@@ -62,6 +71,7 @@ impl Message {
         }
     }
 
+    /// Creates a Message from a MessagePack-RPC compatible Value.
     pub fn from_value(value: Value) -> Result<Self> {
         match value {
             Value::Array(array) => {
@@ -138,12 +148,14 @@ impl Message {
         }
     }
 
+    /// Encodes the message to MessagePack format and writes it to the given writer.
     pub fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
         let value = self.to_value();
         rmpv::encode::write_value(writer, &value)?;
         Ok(())
     }
 
+    /// Reads and decodes a message from MessagePack format using the given reader.
     pub fn decode<R: Read>(reader: &mut R) -> Result<Self> {
         let value = rmpv::decode::read_value(reader)?;
         let message = Self::from_value(value)?;

@@ -2,20 +2,26 @@ use rmpv::Value;
 use std::io;
 use thiserror::Error;
 
+/// Represents errors that can occur during RPC operations.
 #[derive(Error, Debug)]
 pub enum RpcError {
+    /// Error occurred during I/O operations.
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
 
+    /// Error occurred during MessagePack serialization.
     #[error("Serialization error: {0}")]
     Serialization(#[from] rmpv::encode::Error),
 
+    /// Error occurred during MessagePack deserialization.
     #[error("Deserialization error: {0}")]
     Deserialization(#[from] rmpv::decode::Error),
 
+    /// Error related to the RPC protocol.
     #[error("Protocol error: {0}")]
     Protocol(String),
 
+    /// Error returned by the RPC service implementation.
     #[error("Service error: {0}")]
     Service(ServiceError),
 }
