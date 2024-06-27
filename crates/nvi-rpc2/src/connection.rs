@@ -1,13 +1,20 @@
+use std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
 use async_trait::async_trait;
 use rmpv::Value;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf},
+    sync::{mpsc, oneshot},
+};
 
-use crate::error::{Result, RpcError, ServiceError};
-use crate::message::*;
+use crate::{
+    error::{Result, RpcError, ServiceError},
+    message::*,
+};
 
 #[derive(Debug)]
 enum ClientMessage {
@@ -71,6 +78,10 @@ where
             client_receiver: receiver,
             client,
         }
+    }
+
+    pub fn client(&self) -> Client {
+        self.client.clone()
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -234,12 +245,28 @@ where
     }
 
     pub async fn read_message(&mut self) -> Result<Message> {
-        // Implement message reading logic
-        todo!("Implement message reading from the stream")
+        let mut length_bytes = [0u8; 4];
+        self.stream.read_exact(&mut length_bytes).await?;
+        let length = u32::from_be_bytes(length_bytes) as usize;
+
+        let mut buffer = vec![0u8; length];
+        self.stream.read_exact(&mut buffer).await?;
+
+        let message = Message::decode(&mut &buffer[..])?;
+        Ok(message)
     }
 
-    pub async fn write_message(&mut self, _message: &Message) -> Result<()> {
-        // Implement message writing logic
-        todo!("Implement message writing to the stream")
+    pub async fn write_message(&mut self, message: &Message) -> Result<()> {
+        let mut buffer = Vec::new();
+        message.encode(&mut buffer)?;
+
+        let length = buffer.len() as u32;
+        let length_bytes = length.to_be_bytes();
+
+        self.stream.write_all(&length_bytes).await?;
+        self.stream.write_all(&buffer).await?;
+        self.stream.flush().await?;
+
+        Ok(())
     }
 }
