@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc2::{Client, RpcError, RpcSender, RpcService, Server};
+use nvi_rpc::{Client, RpcError, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;

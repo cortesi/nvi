@@ -1,4 +1,4 @@
-use nvi_rpc2::{Result, RpcSender, RpcService, Server};
+use nvi_rpc::{Result, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::error::Error;
 
@@ -18,7 +18,7 @@ impl RpcService for SimpleService {
                 println!("Received echo request with params: {:?}", params);
                 Ok(params[0].clone())
             }
-            _ => Err(nvi_rpc2::RpcError::Protocol(format!(
+            _ => Err(nvi_rpc::RpcError::Protocol(format!(
                 "Unknown method: {}",
                 method
             ))),

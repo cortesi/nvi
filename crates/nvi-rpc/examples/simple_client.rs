@@ -1,4 +1,4 @@
-use nvi_rpc2::{Client, Result, RpcService};
+use nvi_rpc::{Client, RpcService};
 use rmpv::Value;
 use std::error::Error;
 
@@ -7,17 +7,7 @@ use std::error::Error;
 struct DummyClientService;
 
 #[async_trait::async_trait]
-impl RpcService for DummyClientService {
-    async fn handle_request<S>(
-        &self,
-        _: nvi_rpc2::RpcSender,
-        _method: &str,
-        _params: Vec<Value>,
-    ) -> Result<Value> {
-        // This won't be used for our simple client example
-        Ok(Value::Nil)
-    }
-}
+impl RpcService for DummyClientService {}
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {

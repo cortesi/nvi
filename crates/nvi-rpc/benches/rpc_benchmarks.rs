@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nvi_rpc2::{Client, Result, RpcError, RpcSender, RpcService, Server};
+use nvi_rpc::{Client, Result, RpcError, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::path::PathBuf;
 use tempfile::tempdir;

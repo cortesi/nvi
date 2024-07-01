@@ -1,10 +1,17 @@
-use crate::errors::*;
-use rmpv::{decode, encode, Integer, Utf8String, Value};
-use std::convert::From;
-use std::io::{self, Read};
+//! Defines the MessagePack-RPC message types and their serialization/deserialization.
+//!
+//! Includes structures for requests, responses, and notifications, as well as
+//! utilities for encoding and decoding these messages.
+use rmpv::Value;
+use std::io::{Read, Write};
 
-/// Represents a `MessagePack-RPC` message as described in the
-/// [specifications](https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md#messagepack-rpc-protocol-specification).
+use crate::error::*;
+
+const REQUEST_MESSAGE: u64 = 0;
+const RESPONSE_MESSAGE: u64 = 1;
+const NOTIFICATION_MESSAGE: u64 = 2;
+
+/// Represents the different types of RPC messages: requests, responses, and notifications.
 #[derive(PartialEq, Clone, Debug)]
 pub enum Message {
     Request(Request),
@@ -12,241 +19,235 @@ pub enum Message {
     Notification(Notification),
 }
 
-/// Represents a `MessagePack-RPC` request as described in the
-/// [specifications](https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md#messagepack-rpc-protocol-specification).
-///
-/// A request is a message that a client sends to a server when it expects a response. Sending a
-/// request is like calling a method: it includes a method name and an array of parameters. The
-/// response is like the return value.
+/// An RPC request message containing an ID, method name, and parameters.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Request {
-    /// The `id` is used to associate a response with a request. If a client sends a request with a
-    /// particular `id`, the server should send a response with the same `id`.
     pub id: u32,
-    /// A string representing the method name.
     pub method: String,
-    /// An array of parameters to the method.
     pub params: Vec<Value>,
 }
 
-/// Represents a `MessagePack-RPC` response as described in the
-/// [specifications](https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md#messagepack-rpc-protocol-specification).
-///
-/// After a client sends a [`Request`], the server will send a response back.
+/// An RPC response message containing an ID and either a result or an error.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Response {
-    /// The `id` of the [`Request`] that triggered this response.
     pub id: u32,
-    /// The result of the [`Request`] that triggered this response.
-    pub result: Result<Value, Value>,
+    pub result: std::result::Result<Value, Value>,
 }
 
-/// Represents a `MessagePack-RPC` notification as described in the
-/// [specifications](https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md#messagepack-rpc-protocol-specification).
-///
-/// A notification is a message that a client sends to a server when it doesn't expect a response.
-/// Sending a notification is like calling a method with no return value: the notification includes
-/// a method name and an array of parameters.
+/// An RPC notification message containing a method name and parameters.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Notification {
-    /// A string representing the method name.
     pub method: String,
-    /// An array of parameters to the method.
     pub params: Vec<Value>,
 }
 
-const REQUEST_MESSAGE: u64 = 0;
-const RESPONSE_MESSAGE: u64 = 1;
-const NOTIFICATION_MESSAGE: u64 = 2;
-
 impl Message {
-    pub fn decode<R>(rd: &mut R) -> Result<Message, DecodeError>
-    where
-        R: Read,
-    {
-        let msg = decode::value::read_value(rd)?;
-        if let Value::Array(ref array) = msg {
-            if array.len() < 3 {
-                // notification are the shortest message and have 3 items
-                return Err(DecodeError::Invalid);
-            }
-            if let Value::Integer(msg_type) = array[0] {
-                match msg_type.as_u64() {
-                    Some(REQUEST_MESSAGE) => Ok(Message::Request(Request::decode(array)?)),
-                    Some(RESPONSE_MESSAGE) => Ok(Message::Response(Response::decode(array)?)),
-                    Some(NOTIFICATION_MESSAGE) => {
-                        Ok(Message::Notification(Notification::decode(array)?))
-                    }
-                    _ => Err(DecodeError::Invalid),
+    /// Converts the message to a MessagePack-RPC compatible Value.
+    pub fn to_value(&self) -> Value {
+        match self {
+            Message::Request(req) => Value::Array(vec![
+                Value::Integer(REQUEST_MESSAGE.into()),
+                Value::Integer(req.id.into()),
+                Value::String(req.method.clone().into()),
+                Value::Array(req.params.clone()),
+            ]),
+            Message::Response(resp) => Value::Array(vec![
+                Value::Integer(RESPONSE_MESSAGE.into()),
+                Value::Integer(resp.id.into()),
+                match &resp.result {
+                    Ok(_value) => Value::Nil,
+                    Err(err) => err.clone(),
+                },
+                match &resp.result {
+                    Ok(value) => value.clone(),
+                    Err(_) => Value::Nil,
+                },
+            ]),
+            Message::Notification(notif) => Value::Array(vec![
+                Value::Integer(NOTIFICATION_MESSAGE.into()),
+                Value::String(notif.method.clone().into()),
+                Value::Array(notif.params.clone()),
+            ]),
+        }
+    }
+
+    /// Creates a Message from a MessagePack-RPC compatible Value.
+    pub fn from_value(value: Value) -> Result<Self> {
+        match value {
+            Value::Array(array) => {
+                if array.is_empty() {
+                    return Err(RpcError::Protocol("Empty message array".into()));
                 }
-            } else {
-                Err(DecodeError::Invalid)
+                match array[0] {
+                    Value::Integer(msg_type) => match msg_type.as_u64() {
+                        Some(REQUEST_MESSAGE) => {
+                            if array.len() != 4 {
+                                return Err(RpcError::Protocol(
+                                    "Invalid request message length".into(),
+                                ));
+                            }
+                            let id = array[1]
+                                .as_u64()
+                                .ok_or(RpcError::Protocol("Invalid request id".into()))?
+                                as u32;
+                            let method = array[2]
+                                .as_str()
+                                .ok_or(RpcError::Protocol("Invalid request method".into()))?
+                                .to_string();
+                            let params = match &array[3] {
+                                Value::Array(params) => params.clone(),
+                                _ => {
+                                    return Err(RpcError::Protocol("Invalid request params".into()))
+                                }
+                            };
+                            Ok(Message::Request(Request { id, method, params }))
+                        }
+                        Some(RESPONSE_MESSAGE) => {
+                            if array.len() != 4 {
+                                return Err(RpcError::Protocol(
+                                    "Invalid response message length".into(),
+                                ));
+                            }
+                            let id = array[1]
+                                .as_u64()
+                                .ok_or(RpcError::Protocol("Invalid response id".into()))?
+                                as u32;
+                            let result = if array[2] == Value::Nil {
+                                Ok(array[3].clone())
+                            } else {
+                                Err(array[2].clone())
+                            };
+                            Ok(Message::Response(Response { id, result }))
+                        }
+                        Some(NOTIFICATION_MESSAGE) => {
+                            if array.len() != 3 {
+                                return Err(RpcError::Protocol(
+                                    "Invalid notification message length".into(),
+                                ));
+                            }
+                            let method = array[1]
+                                .as_str()
+                                .ok_or(RpcError::Protocol("Invalid notification method".into()))?
+                                .to_string();
+                            let params = match &array[2] {
+                                Value::Array(params) => params.clone(),
+                                _ => {
+                                    return Err(RpcError::Protocol(
+                                        "Invalid notification params".into(),
+                                    ))
+                                }
+                            };
+                            Ok(Message::Notification(Notification { method, params }))
+                        }
+                        _ => Err(RpcError::Protocol("Invalid message type".into())),
+                    },
+                    _ => Err(RpcError::Protocol("Invalid message type".into())),
+                }
             }
-        } else {
-            Err(DecodeError::Invalid)
+            _ => Err(RpcError::Protocol("Invalid message format".into())),
         }
     }
 
-    pub fn as_value(&self) -> Value {
-        match *self {
+    /// Encodes the message to MessagePack format and writes it to the given writer.
+    pub fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
+        let value = self.to_value();
+        rmpv::encode::write_value(writer, &value)?;
+        Ok(())
+    }
+
+    /// Reads and decodes a message from MessagePack format using the given reader.
+    pub fn decode<R: Read>(reader: &mut R) -> Result<Self> {
+        let value = rmpv::decode::read_value(reader)?;
+        let message = Self::from_value(value)?;
+        Ok(message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    // Test cases at the top level of the test module
+    lazy_static::lazy_static! {
+        static ref TEST_CASES: Vec<Message> = vec![
             Message::Request(Request {
-                id,
-                ref method,
-                ref params,
-            }) => Value::Array(vec![
-                Value::Integer(Integer::from(REQUEST_MESSAGE)),
-                Value::Integer(Integer::from(id)),
-                Value::String(Utf8String::from(method.as_str())),
-                Value::Array(params.clone()),
-            ]),
-            Message::Response(Response { id, ref result }) => {
-                let (error, result) = match *result {
-                    Ok(ref result) => (Value::Nil, result.to_owned()),
-                    Err(ref err) => (err.to_owned(), Value::Nil),
-                };
-                Value::Array(vec![
-                    Value::Integer(Integer::from(RESPONSE_MESSAGE)),
-                    Value::Integer(Integer::from(id)),
-                    error,
-                    result,
-                ])
-            }
+                id: 1,
+                method: "test_method".to_string(),
+                params: vec![Value::String("param1".into()), Value::Integer(42.into())],
+            }),
+            Message::Response(Response {
+                id: 2,
+                result: Ok(Value::String("success".into())),
+            }),
+            Message::Response(Response {
+                id: 3,
+                result: Err(Value::String("error".into())),
+            }),
             Message::Notification(Notification {
-                ref method,
-                ref params,
-            }) => Value::Array(vec![
-                Value::Integer(Integer::from(NOTIFICATION_MESSAGE)),
-                Value::String(Utf8String::from(method.as_str())),
-                Value::Array(params.to_owned()),
-            ]),
-        }
-    }
-
-    pub fn pack(&self) -> io::Result<Vec<u8>> {
-        let mut bytes = vec![];
-        encode::write_value(&mut bytes, &self.as_value())?;
-        Ok(bytes)
-    }
-}
-
-impl Notification {
-    fn decode(array: &[Value]) -> Result<Self, DecodeError> {
-        if array.len() < 3 {
-            return Err(DecodeError::Invalid);
-        }
-
-        let method = if let Value::String(ref method) = array[1] {
-            method
-                .as_str()
-                .map(|s| s.to_string())
-                .ok_or(DecodeError::Invalid)?
-        } else {
-            return Err(DecodeError::Invalid);
-        };
-
-        let params = if let Value::Array(ref params) = array[2] {
-            params.clone()
-        } else {
-            return Err(DecodeError::Invalid);
-        };
-
-        Ok(Notification { method, params })
-    }
-}
-
-impl Request {
-    fn decode(array: &[Value]) -> Result<Self, DecodeError> {
-        if array.len() < 4 {
-            return Err(DecodeError::Invalid);
-        }
-
-        let id = if let Value::Integer(id) = array[1] {
-            id.as_u64()
-                .map(|id| id as u32)
-                .ok_or(DecodeError::Invalid)?
-        } else {
-            return Err(DecodeError::Invalid);
-        };
-
-        let method = if let Value::String(ref method) = array[2] {
-            method
-                .as_str()
-                .map(|s| s.to_string())
-                .ok_or(DecodeError::Invalid)?
-        } else {
-            return Err(DecodeError::Invalid);
-        };
-
-        let params = if let Value::Array(ref params) = array[3] {
-            params.clone()
-        } else {
-            return Err(DecodeError::Invalid);
-        };
-
-        Ok(Request { id, method, params })
-    }
-}
-
-impl Response {
-    fn decode(array: &[Value]) -> Result<Self, DecodeError> {
-        if array.len() < 2 {
-            return Err(DecodeError::Invalid);
-        }
-
-        let id = if let Value::Integer(id) = array[1] {
-            id.as_u64()
-                .map(|id| id as u32)
-                .ok_or(DecodeError::Invalid)?
-        } else {
-            return Err(DecodeError::Invalid);
-        };
-
-        match array[2] {
-            Value::Nil => Ok(Response {
-                id,
-                result: Ok(array[3].clone()),
+                method: "test_notification".to_string(),
+                params: vec![Value::Boolean(true), Value::F64(2.14)],
             }),
-            ref error => Ok(Response {
-                id,
-                result: Err(error.clone()),
+            Message::Request(Request {
+                id: 4,
+                method: "complex_method".to_string(),
+                params: vec![
+                    Value::Array(vec![Value::String("nested".into()), Value::Integer(1.into())]),
+                    Value::Map(vec![
+                        (Value::String("key".into()), Value::Boolean(true)),
+                        (Value::String("value".into()), Value::F64(1.718)),
+                    ]),
+                ],
             }),
+        ];
+    }
+
+    #[test]
+    fn test_message_idempotence_and_invalid_inputs() {
+        // Helper function to test idempotence
+        fn assert_idempotence(message: &Message) {
+            let value = message.to_value();
+            let roundtrip_message = Message::from_value(value).unwrap();
+            assert_eq!(message, &roundtrip_message);
+        }
+
+        // Test idempotence for all cases
+        for message in TEST_CASES.iter() {
+            assert_idempotence(message);
+        }
+
+        // Test invalid inputs
+        let invalid_values = vec![
+            Value::Nil,
+            Value::Boolean(true),
+            Value::Integer(42.into()),
+            Value::String("not an array".into()),
+            Value::Array(vec![]),
+            Value::Array(vec![Value::Integer(999.into())]), // Invalid message type
+            Value::Array(vec![Value::Integer(REQUEST_MESSAGE.into())]), // Incomplete request
+        ];
+
+        for invalid_value in invalid_values {
+            assert!(Message::from_value(invalid_value).is_err());
         }
     }
-}
 
-#[test]
-fn test_decode_request() {
-    let valid = Message::Request(Request {
-        id: 1234,
-        method: "dummy".to_string(),
-        params: Vec::new(),
-    });
-    let bytes = valid.pack().unwrap();
+    #[test]
+    fn test_message_round_trip_with_buffer() {
+        for original_message in TEST_CASES.iter() {
+            // Serialize the message to a buffer
+            let mut write_buffer = Vec::new();
+            original_message.encode(&mut write_buffer).unwrap();
 
-    // valid message
-    {
-        let mut buf = io::Cursor::new(&bytes);
-        assert_eq!(valid, Message::decode(&mut buf).unwrap());
-    }
+            // Deserialize the message from the buffer
+            let mut read_buffer = Cursor::new(write_buffer);
+            let deserialized_message = Message::decode(&mut read_buffer).unwrap();
 
-    // truncated
-    {
-        let bytes = Vec::from(&bytes[0..bytes.len() - 1]);
-        let mut buf = io::Cursor::new(&bytes);
-        assert!(matches!(
-            Message::decode(&mut buf),
-            Err(DecodeError::Truncated(_))
-        ));
-    }
+            // Assert that the deserialized message matches the original
+            assert_eq!(original_message, &deserialized_message);
 
-    // invalid message type
-    {
-        let mut bytes = Vec::from(&bytes[..]);
-        bytes[1] = 5;
-        let mut buf = io::Cursor::new(&bytes);
-        assert!(matches!(
-            Message::decode(&mut buf),
-            Err(DecodeError::Invalid)
-        ));
+            // Ensure the entire buffer was consumed
+            assert_eq!(read_buffer.position() as usize, read_buffer.get_ref().len());
+        }
     }
 }
