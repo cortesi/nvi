@@ -20,6 +20,7 @@ use tracing::trace;
 use crate::{
     error::{Result, RpcError, ServiceError},
     message::*,
+    RpcSender,
 };
 
 /// Internal message type for communication between the client API and the connection handler.
@@ -38,13 +39,14 @@ pub(crate) enum ClientMessage {
 
 /// Handle for sending RPC requests and notifications to a remote service.
 #[derive(Debug, Clone)]
-pub struct RpcSender {
+pub struct RpcHandle {
     pub(crate) sender: mpsc::Sender<ClientMessage>,
 }
 
-impl RpcSender {
+#[async_trait]
+impl RpcSender for RpcHandle {
     /// Sends an RPC request and waits for the response.
-    pub async fn send_request(&self, method: String, params: Vec<Value>) -> Result<Value> {
+    async fn send_request(&self, method: String, params: Vec<Value>) -> Result<Value> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.sender
             .send(ClientMessage::Request {
@@ -60,7 +62,7 @@ impl RpcSender {
     }
 
     /// Sends an RPC notification without waiting for a response.
-    pub async fn send_notification(&self, method: String, params: Vec<Value>) -> Result<()> {
+    async fn send_notification(&self, method: String, params: Vec<Value>) -> Result<()> {
         self.sender
             .send(ClientMessage::Notification { method, params })
             .await
@@ -73,7 +75,7 @@ pub(crate) struct ConnectionHandler<S, T: RpcService> {
     connection: RpcConnection<S>,
     service: Arc<T>,
     client_receiver: mpsc::Receiver<ClientMessage>,
-    rpc_sender: RpcSender,
+    rpc_sender: RpcHandle,
 }
 
 impl<S, T: RpcService> ConnectionHandler<S, T>
@@ -91,7 +93,7 @@ where
             connection,
             service,
             client_receiver: receiver,
-            rpc_sender: RpcSender { sender },
+            rpc_sender: RpcHandle { sender },
         }
     }
 
@@ -193,7 +195,7 @@ pub trait RpcService: Send + Sync + Clone + 'static {
     /// By default, returns an error indicating the method is not implemented.
     async fn handle_request<S>(
         &self,
-        _client: RpcSender,
+        _client: RpcHandle,
         method: &str,
         params: Vec<Value>,
     ) -> Result<Value>
@@ -210,7 +212,7 @@ pub trait RpcService: Send + Sync + Clone + 'static {
     /// Handles an incoming RPC notification.
     ///
     /// By default, logs a warning about the unhandled notification.
-    async fn handle_notification<S>(&self, _client: RpcSender, method: &str, params: Vec<Value>)
+    async fn handle_notification<S>(&self, _client: RpcHandle, method: &str, params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {

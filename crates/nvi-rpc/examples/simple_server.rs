@@ -1,4 +1,4 @@
-use nvi_rpc::{Result, RpcSender, RpcService, Server};
+use nvi_rpc::{Result, RpcHandle, RpcService, Server};
 use rmpv::Value;
 use std::error::Error;
 
@@ -9,7 +9,7 @@ struct SimpleService;
 impl RpcService for SimpleService {
     async fn handle_request<S>(
         &self,
-        _: RpcSender,
+        _: RpcHandle,
         method: &str,
         params: Vec<Value>,
     ) -> Result<Value> {

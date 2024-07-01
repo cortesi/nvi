@@ -1,4 +1,4 @@
-use nvi_rpc::{Client, RpcService};
+use nvi_rpc::{Client, RpcSender, RpcService};
 use rmpv::Value;
 use std::error::Error;
 

@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nvi_rpc::{Client, Result, RpcError, RpcSender, RpcService, Server};
+use nvi_rpc::{Client, Result, RpcError, RpcHandle, RpcService, Server};
 use rmpv::Value;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -12,7 +12,7 @@ struct BenchService;
 impl RpcService for BenchService {
     async fn handle_request<S>(
         &self,
-        _: RpcSender,
+        _: RpcHandle,
         method: &str,
         params: Vec<Value>,
     ) -> Result<Value> {

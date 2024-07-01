@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc::{Client, RpcError, RpcSender, RpcService, Server};
+use nvi_rpc::{Client, RpcError, RpcHandle, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -16,7 +16,7 @@ struct PingService {
 impl RpcService for PingService {
     async fn handle_request<S>(
         &self,
-        _sender: RpcSender,
+        _sender: RpcHandle,
         method: &str,
         _params: Vec<Value>,
     ) -> Result<Value, RpcError>
@@ -29,7 +29,7 @@ impl RpcService for PingService {
         )))
     }
 
-    async fn handle_notification<S>(&self, _sender: RpcSender, method: &str, _params: Vec<Value>)
+    async fn handle_notification<S>(&self, _sender: RpcHandle, method: &str, _params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -47,7 +47,7 @@ struct PongService;
 impl RpcService for PongService {
     async fn handle_request<S>(
         &self,
-        sender: RpcSender,
+        sender: RpcHandle,
         method: &str,
         _params: Vec<Value>,
     ) -> Result<Value, RpcError>
@@ -68,7 +68,7 @@ impl RpcService for PongService {
         }
     }
 
-    async fn handle_notification<S>(&self, _sender: RpcSender, _method: &str, _params: Vec<Value>)
+    async fn handle_notification<S>(&self, _sender: RpcHandle, _method: &str, _params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {

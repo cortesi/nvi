@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc::{Client, RpcError, RpcSender, RpcService, Server};
+use nvi_rpc::{Client, RpcError, RpcHandle, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -16,7 +16,7 @@ struct TestService {
 impl RpcService for TestService {
     async fn handle_request<S>(
         &self,
-        _sender: RpcSender,
+        _sender: RpcHandle,
         method: &str,
         params: Vec<Value>,
     ) -> Result<Value, RpcError>
@@ -37,7 +37,7 @@ impl RpcService for TestService {
         }
     }
 
-    async fn handle_notification<S>(&self, _sender: RpcSender, method: &str, params: Vec<Value>)
+    async fn handle_notification<S>(&self, _sender: RpcHandle, method: &str, params: Vec<Value>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
