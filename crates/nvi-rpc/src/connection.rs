@@ -190,6 +190,10 @@ where
 /// Trait for implementing RPC service functionality.
 #[async_trait]
 pub trait RpcService: Send + Sync + Clone + 'static {
+    /// Called after a connection is intiated, either by ai `Client` connecting outbound, or an
+    /// incoming connection on a listening `Server`.
+    async fn connected(&self, _client: RpcHandle) {}
+
     /// Handles an incoming RPC request.
     ///
     /// By default, returns an error indicating the method is not implemented.

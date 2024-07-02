@@ -10,10 +10,16 @@ use tracing_test::traced_test;
 #[derive(Clone)]
 struct PingService {
     pong_count: Arc<Mutex<i32>>,
+    connected_count: Arc<Mutex<i32>>,
 }
 
 #[async_trait]
 impl RpcService for PingService {
+    async fn connected(&self, _client: RpcHandle) {
+        let mut count = self.connected_count.lock().await;
+        *count += 1;
+    }
+
     async fn handle_request<S>(
         &self,
         _sender: RpcHandle,
@@ -41,10 +47,17 @@ impl RpcService for PingService {
 }
 
 #[derive(Clone)]
-struct PongService;
+struct PongService {
+    connected_count: Arc<Mutex<i32>>,
+}
 
 #[async_trait]
 impl RpcService for PongService {
+    async fn connected(&self, _client: RpcHandle) {
+        let mut count = self.connected_count.lock().await;
+        *count += 1;
+    }
+
     async fn handle_request<S>(
         &self,
         sender: RpcHandle,
@@ -83,7 +96,10 @@ async fn test_pingpong() -> Result<(), Box<dyn std::error::Error>> {
     let socket_path = temp_dir.path().join("pong.sock");
 
     // Set up the Pong server
-    let server = Server::new(PongService).unix(&socket_path).await?;
+    let pong_service = PongService {
+        connected_count: Arc::new(Mutex::new(0)),
+    };
+    let server = Server::new(pong_service.clone()).unix(&socket_path).await?;
     let pong_server_task = tokio::spawn(async move {
         let e = server.run().await;
         if let Err(e) = e {
@@ -95,8 +111,9 @@ async fn test_pingpong() -> Result<(), Box<dyn std::error::Error>> {
     let pong_count = Arc::new(Mutex::new(0));
     let ping_service = PingService {
         pong_count: pong_count.clone(),
+        connected_count: Arc::new(Mutex::new(0)),
     };
-    let client = Client::connect_unix(&socket_path, ping_service).await?;
+    let client = Client::connect_unix(&socket_path, ping_service.clone()).await?;
 
     // Start the ping-pong process
     let num_pings = 5;
@@ -105,6 +122,10 @@ async fn test_pingpong() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     assert_eq!(*pong_count.lock().await, num_pings);
+    // Assert that the connected method was called for both client and server
+    assert_eq!(*ping_service.connected_count.lock().await, 1);
+    assert_eq!(*pong_service.connected_count.lock().await, 1);
+
     pong_server_task.abort();
     Ok(())
 }

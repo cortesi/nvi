@@ -141,9 +141,16 @@ impl<T: RpcService> Server<T> {
 
             tokio::spawn(async move {
                 let (sender, receiver) = mpsc::channel(100);
-                let mut handler =
-                    ConnectionHandler::new(connection, service_clone, receiver, sender.clone());
-
+                let rpc_handle = RpcHandle {
+                    sender: sender.clone(),
+                };
+                let mut handler = ConnectionHandler::new(
+                    connection,
+                    service_clone.clone(),
+                    receiver,
+                    sender.clone(),
+                );
+                service_clone.connected(rpc_handle).await;
                 if let Err(e) = handler.run().await {
                     tracing::error!("Connection error: {}", e);
                 }
@@ -183,8 +190,9 @@ impl<T: RpcService> Client<T> {
         let rpc_sender = RpcHandle {
             sender: sender.clone(),
         };
-        let mut handler = ConnectionHandler::new(connection, Arc::new(service), receiver, sender);
-
+        let service = Arc::new(service);
+        let mut handler = ConnectionHandler::new(connection, service.clone(), receiver, sender);
+        service.connected(rpc_sender.clone()).await;
         let handler_task = tokio::spawn(async move {
             if let Err(e) = handler.run().await {
                 tracing::error!("Handler error: {}", e);
