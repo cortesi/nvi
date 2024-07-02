@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nvi_rpc::{Client, RpcError, RpcHandle, RpcSender, RpcService, Server};
+use nvi_rpc::{self, Client, RpcError, RpcHandle, RpcSender, RpcService, Server};
 use rmpv::Value;
 use std::sync::Arc;
 use tempfile::tempdir;
@@ -19,7 +19,7 @@ impl RpcService for TestService {
         _sender: RpcHandle,
         method: &str,
         params: Vec<Value>,
-    ) -> Result<Value, RpcError>
+    ) -> nvi_rpc::Result<Value>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -37,7 +37,12 @@ impl RpcService for TestService {
         }
     }
 
-    async fn handle_notification<S>(&self, _sender: RpcHandle, method: &str, params: Vec<Value>)
+    async fn handle_notification<S>(
+        &self,
+        _sender: RpcHandle,
+        method: &str,
+        params: Vec<Value>,
+    ) -> nvi_rpc::Result<()>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -49,6 +54,7 @@ impl RpcService for TestService {
             let mut count = self.notification_count.lock().await;
             *count += 1;
         }
+        Ok(())
     }
 }
 

@@ -115,18 +115,42 @@ where
 }
 
 /// A wrapper service that translates from nvi_rpc to NviService.
-impl<T> nvi_rpc::ServiceWithClient for ServiceWrapper<T>
+#[async_trait::async_trait]
+impl<T> nvi_rpc::RpcService for ServiceWrapper<T>
 where
-    T: NviService + Send + 'static,
+    T: NviService + Send + Sync + 'static,
 {
-    type RequestFuture = Pin<Box<dyn Future<Output = Result<Value, Value>> + Send>>;
+    async fn connected(&self, client: nvi_rpc::RpcHandle) {
+        let mut vimservice = self.nvi_service.clone();
+        let channel_id = self.channel_id;
+        let shutdown_tx = self.shutdown_tx.clone();
+        let c = Client::new(client, &vimservice.name(), channel_id, shutdown_tx.clone());
 
-    fn handle_request(
-        &mut self,
-        client: &mut nvi_rpc::Client,
+        match vimservice.bootstrap(&mut c).await {
+            Ok(_) => trace!("bootstrap complete"),
+            Err(e) => {
+                warn!("bootstrap failed: {:?}", e);
+                c.shutdown();
+                return;
+            }
+        }
+        let c = Client::new(client, &vimservice.name(), channel_id, shutdown_tx.clone());
+        let ret = vimservice.run(&mut c).await;
+        match ret {
+            Ok(_) => trace!("run() completed"),
+            Err(e) => {
+                warn!("run() failed: {:?}", e);
+                c.shutdown();
+            }
+        }
+    }
+
+    async fn handle_request<S>(
+        &self,
+        client: nvi_rpc::RpcHandle,
         method: &str,
-        params: &[Value],
-    ) -> Self::RequestFuture {
+        params: Vec<Value>,
+    ) -> nvi_rpc::Result<Value> {
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
@@ -141,33 +165,31 @@ where
 
         if method == PING_MESSAGE {
             trace!("ping received");
-            return Box::pin(async move { Ok(Value::Boolean(true)) });
+            return Ok(Value::Boolean(true));
         }
 
-        Box::pin(async move {
-            let c = client.clone();
-            match vimservice.request(&mut client, &method, &params).await {
-                Ok(v) => Ok(v),
-                Err(e) => {
-                    warn!("nvi request error: {:?}", e);
-                    _ = c
-                        .notify(
-                            types::LogLevel::Warn,
-                            &format!("nvi request error: {method} - {e}"),
-                        )
-                        .await
-                        .map_err(|e| warn!("error sending request error notification: {:?}", e));
-                    Err(e)
-                }
+        let c = client.clone();
+        match vimservice.request(&mut client, &method, &params).await {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("nvi request error: {:?}", e);
+                _ = c
+                    .notify(
+                        types::LogLevel::Warn,
+                        &format!("nvi request error: {method} - {e}"),
+                    )
+                    .await
+                    .map_err(|e| warn!("error sending request error notification: {:?}", e));
+                Err(e)
             }
-        })
+        }
     }
 
-    fn handle_notification(
-        &mut self,
-        client: &mut nvi_rpc::Client,
+    async fn handle_notification<S>(
+        &self,
+        client: nvi_rpc::RpcHandle,
         method: &str,
-        params: &[Value],
+        params: Vec<Value>,
     ) {
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);

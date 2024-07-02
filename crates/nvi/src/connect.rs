@@ -2,13 +2,11 @@ use std::{net::SocketAddr, path::Path};
 
 use futures::io::{self, AsyncRead, AsyncWrite};
 
-use nvi_rpc::Endpoint;
 use tokio::{
     net::{TcpListener, TcpStream, UnixListener, UnixStream},
     sync::broadcast,
     task::JoinSet,
 };
-use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, error, trace, warn};
 
 use crate::{
@@ -18,7 +16,7 @@ use crate::{
 };
 
 async fn bootstrap(
-    c: nvi_rpc::Client,
+    c: nvi_rpc::RpcHandle,
     name: &str,
     shutdown_tx: broadcast::Sender<()>,
 ) -> Result<()> {
@@ -95,7 +93,6 @@ where
             msg: format!("Error on join: {}", e),
         })??;
     }
-    println!("END");
     Ok(())
 }
 

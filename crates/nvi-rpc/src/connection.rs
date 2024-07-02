@@ -97,22 +97,31 @@ where
         }
     }
 
-    /// Starts the main event loop, handling incoming and outgoing messages.
     pub async fn run(&mut self) -> Result<()> {
         loop {
             tokio::select! {
                 Some(client_message) = self.client_receiver.recv() => {
-                    self.handle_client_message(client_message).await?;
+                    if let Err(e) = self.handle_client_message(client_message).await {
+                        tracing::warn!("Error handling client message: {}", e);
+                    }
                 }
                 message_result = self.connection.read_message() => {
-                    let message = message_result?;
-                    self.handle_incoming_message(message).await?;
+                    match message_result {
+                        Ok(message) => {
+                            if let Err(e) = self.handle_incoming_message(message).await {
+                                tracing::warn!("Error handling incoming message: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!("Error reading message: {}", e);
+                            return Err(e);
+                        }
+                    }
                 }
             }
         }
     }
 
-    /// Processes an incoming message from the remote endpoint.
     async fn handle_incoming_message(&mut self, message: Message) -> Result<()> {
         match message {
             Message::Request(request) => {
@@ -125,24 +134,37 @@ where
                         id: request.id,
                         result: Ok(value),
                     },
-                    Err(RpcError::Service(service_error)) => Response {
-                        id: request.id,
-                        result: Err(service_error.into()),
-                    },
-                    Err(e) => return Err(e),
+                    Err(RpcError::Service(service_error)) => {
+                        tracing::warn!("Service error: {}", service_error);
+                        Response {
+                            id: request.id,
+                            result: Err(service_error.into()),
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("RPC error: {}", e);
+                        Response {
+                            id: request.id,
+                            result: Err(Value::String(format!("Internal error: {}", e).into())),
+                        }
+                    }
                 };
                 self.connection
                     .write_message(&Message::Response(response))
                     .await?;
             }
             Message::Notification(notification) => {
-                self.service
+                if let Err(e) = self
+                    .service
                     .handle_notification::<S>(
                         self.rpc_sender.clone(),
                         &notification.method,
                         notification.params,
                     )
-                    .await;
+                    .await
+                {
+                    tracing::warn!("Error handling notification: {}", e);
+                }
             }
             Message::Response(response) => {
                 if let Some(sender) = self.connection.pending_requests.remove(&response.id) {
@@ -216,7 +238,12 @@ pub trait RpcService: Send + Sync + Clone + 'static {
     /// Handles an incoming RPC notification.
     ///
     /// By default, logs a warning about the unhandled notification.
-    async fn handle_notification<S>(&self, _client: RpcHandle, method: &str, params: Vec<Value>)
+    async fn handle_notification<S>(
+        &self,
+        _client: RpcHandle,
+        method: &str,
+        params: Vec<Value>,
+    ) -> Result<()>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -225,6 +252,7 @@ pub trait RpcService: Send + Sync + Clone + 'static {
             method,
             params
         );
+        Ok(())
     }
 }
 
