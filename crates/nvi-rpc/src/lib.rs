@@ -27,3 +27,5 @@ pub use connection::*;
 pub use error::*;
 pub use message::*;
 pub use transport::*;
+
+pub use rmpv::Value;
