@@ -28,7 +28,7 @@ enum Commands {
 
 pub async fn inner_run<T>(service: T) -> Result<()>
 where
-    T: NviService + Unpin + 'static,
+    T: NviService + Unpin + Sync + 'static,
 {
     let cli = Cli::parse();
     match &cli.command {
@@ -49,7 +49,7 @@ where
 
 pub async fn run<T>(service: T)
 where
-    T: NviService + Unpin + 'static,
+    T: NviService + Unpin + Sync + 'static,
 {
     match inner_run(service).await {
         Ok(_) => (),

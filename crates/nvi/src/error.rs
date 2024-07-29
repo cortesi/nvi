@@ -73,3 +73,14 @@ impl From<std::io::Error> for Error {
         }
     }
 }
+
+impl From<mrpc::RpcError> for Error {
+    fn from(e: mrpc::RpcError) -> Self {
+        match e {
+            mrpc::RpcError::Service(e) => Error::RemoteError(e.value),
+            e => Error::Internal {
+                msg: format!("{:?}", e),
+            },
+        }
+    }
+}

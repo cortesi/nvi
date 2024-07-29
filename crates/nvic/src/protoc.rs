@@ -231,8 +231,7 @@ fn generate_function(f: api::Function) -> TokenStream {
             #where_clause
         {
             #[allow(unused_variables)]
-            let ret = self.raw_request(#name, &[#(#arg_vals),*]).await
-            .map_err(Error::RemoteError)?;
+            let ret = self.raw_request(#name, &[#(#arg_vals),*]).await?;
             #[allow(clippy::needless_question_mark)]
             Ok(from_value(&ret)?)
         }
@@ -253,19 +252,19 @@ pub fn protoc() -> Result<()> {
         #![allow(clippy::needless_question_mark)]
         #![allow(clippy::needless_borrow)]
 
-        use nvi_rpc::Value;
+        use mrpc::Value;
         use tracing::{trace, debug};
         use serde_rmpv::{from_value, to_value};
         use serde::Serialize;
 
-        use crate::error::{Result, Error};
+        use crate::error::{Result};
         use crate::types::*;
         use crate::opts;
 
         #[derive(Clone)]
         /// Auto-generated API for Neovim's MessagePack-RPC protocol.
         pub struct NvimApi {
-            pub(crate) m_client: nvi_rpc::Client,
+            pub(crate) rpc_sender: mrpc::RpcSender,
         }
 
         impl NvimApi {
@@ -273,10 +272,10 @@ pub fn protoc() -> Result<()> {
             pub async fn raw_request(
                 &self,
                 method: &str,
-                params: &[nvi_rpc::Value],
-            ) -> Result<nvi_rpc::Value, nvi_rpc::Value> {
+                params: &[mrpc::Value],
+            ) -> Result<mrpc::Value, mrpc::RpcError> {
                 trace!("send request: {:?} {:?}", method, params);
-                let ret = self.m_client.request(method, params).await;
+                let ret = self.rpc_sender.send_request(method, params).await;
                 trace!("got response for {:?}: {:?}", method, ret);
                 debug!("request: {:?}, ok", method);
                 ret
@@ -286,11 +285,11 @@ pub fn protoc() -> Result<()> {
             pub async fn raw_notify(
                 &self,
                 method: &str,
-                params: &[nvi_rpc::Value],
-            ) -> Result<(), ()> {
+                params: &[mrpc::Value],
+            ) -> Result<(), mrpc::RpcError> {
                 trace!("send notification: {:?} {:?}", method, params);
                 debug!("notification: {:?}", method);
-                self.m_client.notify(method, params).await
+                self.rpc_sender.send_notification(method, params).await
             }
 
             #(#funcs)*

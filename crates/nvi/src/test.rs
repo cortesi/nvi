@@ -51,7 +51,7 @@ pub async fn wait_for_path(path: &std::path::Path) -> Result<()> {
 /// received on the broadcast channel, all tasks are stopped.
 pub async fn test_service<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
 where
-    T: NviService + Unpin + 'static,
+    T: NviService + Unpin + Sync + 'static,
 {
     let tempdir = tempfile::tempdir()?;
     let socket_path = tempdir.path().join("nvim.socket");

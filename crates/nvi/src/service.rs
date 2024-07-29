@@ -1,14 +1,10 @@
-use std::pin::Pin;
-
 use crate::Value;
 use async_trait::async_trait;
-use futures::Future;
-use tokio::{runtime::Handle, sync::broadcast};
+use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
 use crate::{client::Client, error::Result, types};
 
-pub(crate) const BOOTSTRAP_NOTIFICATION: &str = "__nvi_bootstrap";
 pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
 #[allow(unused_variables)]
@@ -49,47 +45,6 @@ pub trait NviService: Clone + Send {
     }
 }
 
-#[derive(Clone)]
-pub struct AsyncClosureService<F>
-where
-    F: for<'a> Fn(&'a mut Client) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
-        + Clone
-        + Send
-        + 'static,
-{
-    connected_closure: F,
-}
-
-impl<F> AsyncClosureService<F>
-where
-    F: for<'a> Fn(&'a mut Client) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
-        + Clone
-        + Send
-        + 'static,
-{
-    pub fn new(connected_closure: F) -> Self {
-        AsyncClosureService { connected_closure }
-    }
-}
-
-#[async_trait]
-impl<F> NviService for AsyncClosureService<F>
-where
-    F: for<'a> Fn(&'a mut Client) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
-        + Clone
-        + Send
-        + 'static,
-{
-    fn name(&self) -> String {
-        "NvimClosure".to_string()
-    }
-
-    async fn run(&mut self, client: &mut Client) -> Result<()> {
-        (self.connected_closure)(client).await;
-        Ok(())
-    }
-}
-
 // Service handles a single connection to neovim.
 #[derive(Clone)]
 pub(crate) struct ServiceWrapper<T>
@@ -114,17 +69,22 @@ where
     }
 }
 
-/// A wrapper service that translates from nvi_rpc to NviService.
+/// A wrapper service that translates from mrpc to NviService.
 #[async_trait::async_trait]
-impl<T> nvi_rpc::RpcService for ServiceWrapper<T>
+impl<T> mrpc::RpcService for ServiceWrapper<T>
 where
     T: NviService + Send + Sync + 'static,
 {
-    async fn connected(&self, client: nvi_rpc::RpcHandle) {
+    async fn connected(&self, client: mrpc::RpcSender) {
         let mut vimservice = self.nvi_service.clone();
         let channel_id = self.channel_id;
         let shutdown_tx = self.shutdown_tx.clone();
-        let c = Client::new(client, &vimservice.name(), channel_id, shutdown_tx.clone());
+        let mut c = Client::new(
+            client.clone(),
+            &vimservice.name(),
+            channel_id,
+            shutdown_tx.clone(),
+        );
 
         match vimservice.bootstrap(&mut c).await {
             Ok(_) => trace!("bootstrap complete"),
@@ -134,7 +94,7 @@ where
                 return;
             }
         }
-        let c = Client::new(client, &vimservice.name(), channel_id, shutdown_tx.clone());
+        let mut c = Client::new(client, &vimservice.name(), channel_id, shutdown_tx.clone());
         let ret = vimservice.run(&mut c).await;
         match ret {
             Ok(_) => trace!("run() completed"),
@@ -147,10 +107,10 @@ where
 
     async fn handle_request<S>(
         &self,
-        client: nvi_rpc::RpcHandle,
+        client: mrpc::RpcSender,
         method: &str,
         params: Vec<Value>,
-    ) -> nvi_rpc::Result<Value> {
+    ) -> mrpc::Result<Value> {
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
@@ -160,102 +120,66 @@ where
             self.channel_id,
             self.shutdown_tx.clone(),
         );
-        let method = method.to_string();
-        let params = params.to_vec();
 
         if method == PING_MESSAGE {
             trace!("ping received");
             return Ok(Value::Boolean(true));
         }
 
-        let c = client.clone();
-        match vimservice.request(&mut client, &method, &params).await {
+        match vimservice.request(&mut client, method, &params).await {
             Ok(v) => Ok(v),
             Err(e) => {
                 warn!("nvi request error: {:?}", e);
-                _ = c
+                if let Err(notify_err) = client
                     .notify(
                         types::LogLevel::Warn,
-                        &format!("nvi request error: {method} - {e}"),
+                        &format!("nvi request error: {method} - {e:?}"),
                     )
                     .await
-                    .map_err(|e| warn!("error sending request error notification: {:?}", e));
-                Err(e)
+                {
+                    warn!("error sending request error notification: {:?}", notify_err);
+                }
+                Err(mrpc::RpcError::Service(mrpc::ServiceError {
+                    name: "NviServiceError".to_string(),
+                    value: Value::String(format!("{e:?}").into()),
+                }))
             }
         }
     }
 
     async fn handle_notification<S>(
         &self,
-        client: nvi_rpc::RpcHandle,
+        client: mrpc::RpcSender,
         method: &str,
         params: Vec<Value>,
-    ) {
+    ) -> mrpc::Result<()> {
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
         let mut vimservice = self.nvi_service.clone();
-        let handle = Handle::current();
-        let m_client = client.clone();
-        if method == BOOTSTRAP_NOTIFICATION {
-            let id = params[0].as_u64().unwrap();
-            debug!("connected to nvim with channel id: {:?}", id);
-            self.channel_id = Some(id);
-            let channel_id = self.channel_id;
-            let shutdown_tx = self.shutdown_tx.clone();
-            handle.spawn(async move {
-                let mut c = Client::new(
-                    &m_client,
-                    &vimservice.name(),
-                    channel_id,
-                    shutdown_tx.clone(),
-                );
-                let ret = vimservice.bootstrap(&mut c).await;
-                match ret {
-                    Ok(_) => trace!("bootstrap complete"),
-                    Err(e) => {
-                        warn!("bootstrap failed: {:?}", e);
-                        c.shutdown();
-                        return;
-                    }
-                }
-                let ret = vimservice
-                    .run(&mut Client::new(
-                        &m_client,
-                        &vimservice.name(),
-                        channel_id,
-                        shutdown_tx,
-                    ))
-                    .await;
-                match ret {
-                    Ok(_) => trace!("run() completed"),
-                    Err(e) => {
-                        warn!("run() failed: {:?}", e);
-                        c.shutdown();
-                    }
-                }
-            });
-            return;
-        }
-        let method = method.to_string();
-        let params = params.to_vec();
-        let channel_id = self.channel_id;
-        let shutdown_tx = self.shutdown_tx.clone();
-        handle.spawn(async move {
-            let c = &mut Client::new(&m_client, &vimservice.name(), channel_id, shutdown_tx);
+        let mut client = Client::new(
+            client,
+            &vimservice.name(),
+            self.channel_id,
+            self.shutdown_tx.clone(),
+        );
 
-            match vimservice.notify(&mut c.clone(), &method, &params).await {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("error handling request: {:?}", e);
-                    _ = c
-                        .notify(
-                            types::LogLevel::Warn,
-                            &format!("nvi notify error: {method} - {e}"),
-                        )
-                        .await
-                        .map_err(|e| warn!("error sending notify error notification: {:?}", e));
-                }
-            };
-        });
+        if let Err(e) = vimservice.notify(&mut client, method, &params).await {
+            warn!("error handling notification: {:?}", e);
+            if let Err(notify_err) = client
+                .notify(
+                    types::LogLevel::Warn,
+                    &format!("nvi notify error: {method} - {e:?}"),
+                )
+                .await
+            {
+                warn!("error sending notify error notification: {:?}", notify_err);
+            }
+            return Err(mrpc::RpcError::Service(mrpc::ServiceError {
+                name: "NviNotifyError".to_string(),
+                value: Value::String(format!("{e:?}").into()),
+            }));
+        }
+
+        Ok(())
     }
 }

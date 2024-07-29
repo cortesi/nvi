@@ -27,16 +27,14 @@ pub struct Client {
 
 impl Client {
     pub fn new(
-        client: &nvi_rpc::Client,
+        rpc_sender: mrpc::RpcSender,
         name: &str,
         channel_id: Option<u64>,
         shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
         Client {
             name: name.into(),
-            nvim: nvim_api::NvimApi {
-                m_client: client.clone(),
-            },
+            nvim: nvim_api::NvimApi { rpc_sender },
             shutdown_tx,
             channel_id,
         }
@@ -47,15 +45,15 @@ impl Client {
         Ok(r.as_str().unwrap().into())
     }
 
-    async fn register_method<T>(
+    async fn register_method<P>(
         &mut self,
         kind: &str,
         namespace: &str,
         method: &str,
-        params: &[T],
+        params: &[P],
     ) -> Result<()>
     where
-        T: std::string::ToString,
+        P: std::string::ToString,
     {
         let channel_id = self.channel_id.ok_or_else(|| Error::Internal {
             msg: "channel_id not set".into(),
@@ -101,14 +99,14 @@ impl Client {
     /// Which can be invoked from Lua like so:
     ///
     /// test_module.test_fn("value", 3)
-    pub async fn register_rpcrequest<T>(
+    pub async fn register_rpcrequest<P>(
         &mut self,
         namespace: &str,
         method: &str,
-        params: &[T],
+        params: &[P],
     ) -> Result<()>
     where
-        T: std::string::ToString,
+        P: std::string::ToString,
     {
         self.register_method("rpcrequest", namespace, method, params)
             .await
@@ -129,14 +127,14 @@ impl Client {
     /// Which can be invoked from Lua like so:
     ///
     /// test_module.test_fn("value", 3)
-    pub async fn register_rpcnotify<T>(
+    pub async fn register_rpcnotify<P>(
         &mut self,
         namespace: &str,
         method: &str,
-        params: &[T],
+        params: &[P],
     ) -> Result<()>
     where
-        T: std::string::ToString,
+        P: std::string::ToString,
     {
         self.register_method("rpcnotify", namespace, method, params)
             .await

@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 serde-rmpv = { path = "../serde-rmpv" }
-nvi-rpc = { path = "../nvi-rpc"}
+mrpc = { path = "../../../../public/mrpc" }
 
 futures = "0.3.30"
 rmp = "0.8.14"
