@@ -3,23 +3,26 @@ use tokio::sync::broadcast;
 use tracing::{error, trace};
 
 use crate::error::Result;
-use crate::service::{NviService, ServiceWrapper};
-use mrpc::{Client, Server};
+use crate::service::{ConnectionWrapper, NviService};
+use mrpc::{Client, ClosureConnectionMaker, Server};
 
-pub async fn listen_unix<T>(
+pub async fn listen_unix<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     path: impl AsRef<Path>,
-    service: T,
+    make_service: F,
 ) -> Result<()>
 where
     T: NviService + Clone + Send + Sync + 'static,
+    F: Fn() -> T + Send + Sync + 'static,
 {
     let path = path.as_ref();
-    let wrapped_service = ServiceWrapper::new(service, shutdown_tx.clone());
-    let server = Server::new(wrapped_service).unix(path).await?;
-
+    let itx = shutdown_tx.clone();
+    let maker = ClosureConnectionMaker::new(move || {
+        let service = make_service();
+        ConnectionWrapper::new(itx.clone(), service)
+    });
+    let server = Server::from_maker(maker).unix(path).await?;
     let mut shutdown_rx = shutdown_tx.subscribe();
-
     tokio::select! {
         result = server.run() => {
             if let Err(e) = result {
@@ -30,24 +33,27 @@ where
             trace!("Shutdown signal received, stopping listener.");
         }
     }
-
     let _ = std::fs::remove_file(path);
     Ok(())
 }
 
-pub async fn listen_tcp<T>(
+pub async fn listen_tcp<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     addr: SocketAddr,
-    service: T,
+    make_service: F,
 ) -> Result<()>
 where
     T: NviService + Clone + Send + Sync + 'static,
+    F: Fn() -> T + Send + Sync + 'static,
 {
-    let wrapped_service = ServiceWrapper::new(service, shutdown_tx.clone());
-    let server = Server::new(wrapped_service).tcp(&addr.to_string()).await?;
+    let itx = shutdown_tx.clone();
+    let maker = ClosureConnectionMaker::new(move || {
+        let service = make_service();
+        ConnectionWrapper::new(itx.clone(), service)
+    });
+    let server = Server::from_maker(maker).tcp(&addr.to_string()).await?;
 
     let mut shutdown_rx = shutdown_tx.subscribe();
-
     tokio::select! {
         result = server.run() => {
             if let Err(e) = result {
@@ -58,7 +64,6 @@ where
             trace!("Shutdown signal received, stopping listener.");
         }
     }
-
     Ok(())
 }
 
@@ -71,7 +76,7 @@ where
     P: AsRef<Path>,
     T: NviService + Clone + Send + Sync + 'static,
 {
-    let wrapped_service = ServiceWrapper::new(service, shutdown_tx.clone());
+    let wrapped_service = ConnectionWrapper::new(shutdown_tx.clone(), service);
     let client = Client::connect_unix(path, wrapped_service).await?;
     handle_client(shutdown_tx, client).await
 }
@@ -84,12 +89,12 @@ pub async fn connect_tcp<T>(
 where
     T: NviService + Clone + Send + Sync + 'static,
 {
-    let wrapped_service = ServiceWrapper::new(service, shutdown_tx.clone());
+    let wrapped_service = ConnectionWrapper::new(shutdown_tx.clone(), service);
     let client = Client::connect_tcp(&addr.to_string(), wrapped_service).await?;
     handle_client(shutdown_tx, client).await
 }
 
-async fn handle_client<T: mrpc::RpcService + Clone + Send + Sync + 'static>(
+async fn handle_client<T: mrpc::Connection + Clone + Send + Sync + 'static>(
     shutdown_tx: broadcast::Sender<()>,
     _client: Client<T>,
 ) -> Result<()> {
@@ -110,133 +115,91 @@ async fn handle_client<T: mrpc::RpcService + Clone + Send + Sync + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::Client as NviClient;
-    use crate::Value;
-    use std::sync::Arc;
-    use tokio::sync::{broadcast, oneshot, Mutex};
+
+    use std::path::PathBuf;
+
+    use tokio::sync::broadcast;
     use tracing_test::traced_test;
 
-    #[derive(Clone)]
-    struct TestService {
-        on_connect: Arc<Mutex<Option<oneshot::Sender<()>>>>,
-    }
-
-    impl TestService {
-        fn new(sender: oneshot::Sender<()>) -> Self {
-            Self {
-                on_connect: Arc::new(Mutex::new(Some(sender))),
-            }
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl NviService for TestService {
-        fn name(&self) -> String {
-            "TestService".to_string()
-        }
-
-        async fn bootstrap(&mut self, _client: &mut NviClient) -> Result<()> {
-            if let Some(sender) = self.on_connect.lock().await.take() {
-                let _ = sender.send(());
-            }
-            Ok(())
-        }
-
-        async fn request(
-            &mut self,
-            _client: &mut NviClient,
-            method: &str,
-            params: &[Value],
-        ) -> std::result::Result<Value, Value> {
-            if method == "echo" {
-                Ok(params.first().cloned().unwrap_or(Value::Nil))
-            } else {
-                Err(Value::String(format!("Unknown method: {}", method).into()))
-            }
-        }
-    }
+    use crate::test;
 
     #[tokio::test]
     #[traced_test]
     async fn it_listens() {
-        let (shutdown_tx, _) = broadcast::channel(16);
+        let (tx, _) = broadcast::channel(16);
 
+        // Start a listener on a socket
         let tempdir = tempfile::tempdir().unwrap();
         let socket_path = tempdir.path().join("listen.socket");
-
-        let (on_connect_tx, on_connect_rx) = oneshot::channel();
-        let service = TestService::new(on_connect_tx);
-
-        let listener = listen_unix(shutdown_tx.clone(), socket_path.clone(), service);
+        let itx = tx.clone();
+        let listener = listen_unix(itx.clone(), socket_path.clone(), move || {
+            let itx = itx.clone();
+            crate::AsyncClosureService::new(move |client| {
+                let itx = itx.clone();
+                Box::pin({
+                    let tx = itx.clone();
+                    async move {
+                        tx.send(()).unwrap();
+                        client.shutdown();
+                    }
+                })
+            })
+        });
         let ls = tokio::spawn(listener);
 
-        tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            while !socket_path.exists() {
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            }
-        })
-        .await
-        .expect("Timeout waiting for socket to be created");
+        test::wait_for_path(&socket_path).await.unwrap();
 
-        let (client_connect_tx, _) = oneshot::channel();
-        let client_service = TestService::new(client_connect_tx);
-        let client = connect_unix(shutdown_tx.clone(), socket_path.clone(), client_service);
-        let client_handle = tokio::spawn(client);
-
-        on_connect_rx
+        async fn tserv(socket_path: PathBuf, tx: broadcast::Sender<()>) -> Result<()> {
+            test::test_service(
+                crate::AsyncClosureService::new(move |c| {
+                    let socket_path = socket_path.clone();
+                    Box::pin({
+                        async move {
+                            trace!("client connected, sending sockconnect request");
+                            c.nvim
+                                .exec_lua(
+                                    &format!(
+                                        "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
+                                        socket_path.as_os_str().to_string_lossy()
+                                    ),
+                                    vec![],
+                                )
+                                .await
+                                .unwrap();
+                        }
+                    })
+                }),
+                tx.clone(),
+            )
             .await
-            .expect("Failed to receive connection notification");
+        }
 
-        shutdown_tx.send(()).unwrap();
+        // Now start a nvim instance, and connect to it with a client. Using the client, we
+        // instruct nvim to connect back to the listener.
+        let ts = tokio::spawn(tserv(socket_path.clone(), tx.clone()));
+        ts.await.unwrap().unwrap();
 
         ls.await.unwrap().unwrap();
-        client_handle.await.unwrap().unwrap();
 
-        assert!(!socket_path.exists());
+        // We only get here if the listener has been connected to, and has sent the termination
+        // signal.
     }
 
     #[tokio::test]
     #[traced_test]
     async fn it_connects() {
-        let (shutdown_tx, _) = broadcast::channel(16);
-        let (server_ready_tx, server_ready_rx) = oneshot::channel();
-        let (client_connected_tx, client_connected_rx) = oneshot::channel();
+        let (tx, _) = broadcast::channel(16);
 
-        let addr = "127.0.0.1:0".parse::<SocketAddr>().unwrap();
-        let stx = shutdown_tx.clone();
-        let server = tokio::spawn(async move {
-            let service = TestService::new(client_connected_tx);
-            let server_future = listen_tcp(stx, addr, service);
-            let local_addr = addr;
-            server_ready_tx.send(local_addr).unwrap();
-            server_future.await.unwrap();
+        let rtx = tx.clone();
+        let s = crate::AsyncClosureService::new(move |client| {
+            Box::pin({
+                let tx = tx.clone();
+                async move {
+                    tx.send(()).unwrap();
+                    client.shutdown();
+                }
+            })
         });
-
-        let server_addr = server_ready_rx.await.unwrap();
-
-        let (on_connect_tx, on_connect_rx) = oneshot::channel();
-        let client_service = TestService::new(on_connect_tx);
-        let client = connect_tcp(shutdown_tx.clone(), server_addr, client_service);
-        let client_handle = tokio::spawn(client);
-
-        // Wait for both the server and client to establish the connection
-        tokio::select! {
-            _ = client_connected_rx => {
-                trace!("Server received client connection");
-            }
-            _ = on_connect_rx => {
-                trace!("Client connected to server");
-            }
-            _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
-                panic!("Timeout waiting for connection");
-            }
-        }
-
-        // Shutdown everything
-        shutdown_tx.send(()).unwrap();
-
-        // Wait for client and server to shut down
-        client_handle.await.unwrap().unwrap();
-        server.await.unwrap();
+        test::test_service(s, rtx).await.unwrap();
     }
 }

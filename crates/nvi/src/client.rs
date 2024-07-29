@@ -399,6 +399,7 @@ mod tests {
                 Ok(())
             }
         }
+        println!("HERE");
 
         let rtx = tx.clone();
         test::test_service(TestService {}, rtx).await.unwrap();

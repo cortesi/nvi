@@ -1,6 +1,6 @@
 #![allow(clippy::needless_question_mark)]
 #![allow(clippy::needless_borrow)]
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::opts;
 use crate::types::*;
 use mrpc::Value;
