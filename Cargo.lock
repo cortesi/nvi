@@ -630,6 +630,7 @@ dependencies = [
  "rmpv",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 

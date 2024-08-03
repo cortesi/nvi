@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::Value;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
@@ -9,19 +11,19 @@ pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
 #[allow(unused_variables)]
 #[async_trait]
-pub trait NviService: Clone + Send {
+pub trait NviService: Clone + Sync + Send + 'static {
     fn name(&self) -> String;
 
     /// Bootstrapping that happens after connecting to the remote service, but before the run
     /// method is called. This method should execute and exit. Typically, this method will be
     /// derived with the `nvim_service` annotation.
-    async fn bootstrap(&mut self, client: &mut Client) -> Result<()> {
+    async fn bootstrap(&self, client: &mut Client) -> Result<()> {
         Ok(())
     }
 
     /// Handle a generic notification from the remote service. Typcially, this method will be
     /// derived with the `nvim_service` annotation.
-    async fn notify(&mut self, client: &mut Client, method: &str, params: &[Value]) -> Result<()> {
+    async fn notify(&self, client: &mut Client, method: &str, params: &[Value]) -> Result<()> {
         warn!("unhandled notification: {:?}", method);
         Ok(())
     }
@@ -29,7 +31,7 @@ pub trait NviService: Clone + Send {
     /// Handle a generic request from the remote service. Typcially, this method will be
     /// derived with the `nvim_service` annotation.
     async fn request(
-        &mut self,
+        &self,
         client: &mut Client,
         method: &str,
         params: &[Value],
@@ -40,7 +42,7 @@ pub trait NviService: Clone + Send {
 
     /// This method is run on first connecting to the remote service. A loop may be run here that
     /// persists for the life of the connection.
-    async fn run(&mut self, client: &mut Client) -> Result<()> {
+    async fn connected(&self, client: &mut Client) -> Result<()> {
         Ok(())
     }
 }
@@ -53,7 +55,7 @@ where
 {
     nvi_service: T,
     shutdown_tx: broadcast::Sender<()>,
-    channel_id: Option<u64>,
+    channel_id: Arc<Mutex<Option<u64>>>,
 }
 
 impl<T> ConnectionWrapper<T>
@@ -64,7 +66,7 @@ where
         ConnectionWrapper {
             nvi_service,
             shutdown_tx,
-            channel_id: None,
+            channel_id: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -73,17 +75,16 @@ where
 #[async_trait::async_trait]
 impl<T> mrpc::Connection for ConnectionWrapper<T>
 where
-    T: NviService + Send + Sync + 'static,
+    T: NviService,
 {
-    async fn connected(&mut self, client: mrpc::RpcSender) -> mrpc::Result<()> {
+    async fn connected(&self, client: mrpc::RpcSender) -> mrpc::Result<()> {
         let shutdown_tx = self.shutdown_tx.clone();
-        let mut c = Client::new(
+        let c = Client::new(
             client.clone(),
             &self.nvi_service.name(),
             None,
             shutdown_tx.clone(),
         );
-
         let ci = c.nvim.get_chan_info(0).await.map_err(|e| {
             warn!("error getting channel info: {:?}", e);
             mrpc::RpcError::Service(mrpc::ServiceError {
@@ -91,8 +92,14 @@ where
                 value: Value::String(format!("{e:?}").into()),
             })
         })?;
-        self.channel_id = Some(ci.id);
+        self.channel_id.lock().unwrap().replace(ci.id);
 
+        let mut c = Client::new(
+            client.clone(),
+            &self.nvi_service.name(),
+            *self.channel_id.lock().unwrap(),
+            shutdown_tx.clone(),
+        );
         match self.nvi_service.bootstrap(&mut c).await {
             Ok(_) => trace!("bootstrap complete"),
             Err(e) => {
@@ -101,13 +108,7 @@ where
                 return Ok(());
             }
         }
-        let mut c = Client::new(
-            client,
-            &self.nvi_service.name(),
-            Some(ci.id),
-            shutdown_tx.clone(),
-        );
-        let ret = self.nvi_service.run(&mut c).await;
+        let ret = self.nvi_service.connected(&mut c).await;
         match ret {
             Ok(_) => trace!("run() completed"),
             Err(e) => {
@@ -118,19 +119,19 @@ where
         Ok(())
     }
 
-    async fn handle_request<S>(
-        &mut self,
+    async fn handle_request(
+        &self,
         sender: mrpc::RpcSender,
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
-        let mut vimservice = self.nvi_service.clone();
+        let vimservice = self.nvi_service.clone();
         let mut client = Client::new(
             sender,
             &vimservice.name(),
-            self.channel_id,
+            *self.channel_id.lock().unwrap(),
             self.shutdown_tx.clone(),
         );
 
@@ -160,19 +161,19 @@ where
         }
     }
 
-    async fn handle_notification<S>(
-        &mut self,
+    async fn handle_notification(
+        &self,
         client: mrpc::RpcSender,
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<()> {
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
-        let mut vimservice = self.nvi_service.clone();
+        let vimservice = self.nvi_service.clone();
         let mut client = Client::new(
             client,
             &vimservice.name(),
-            self.channel_id,
+            *self.channel_id.lock().unwrap(),
             self.shutdown_tx.clone(),
         );
 

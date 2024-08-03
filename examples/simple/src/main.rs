@@ -32,7 +32,7 @@ impl Simple {
     // serializable to a MessagePack Value. Notification methods can be void, or return a
     // `Result<()>`.
     #[notify]
-    async fn inc(&mut self, _client: &mut nvi::Client, inc: usize) {
+    async fn inc(&self, _client: &mut nvi::Client, inc: usize) {
         let mut n = self.n.lock().unwrap();
         *n += inc;
     }
@@ -43,13 +43,13 @@ impl Simple {
     // MessagePack Value. Requets may be void, return `T` or `Result<T>` where T is serializable to
     // a MesagePack value.
     #[request]
-    async fn get(&mut self, _client: &mut nvi::Client) -> usize {
+    async fn get(&self, _client: &mut nvi::Client) -> usize {
         *self.n.lock().unwrap()
     }
 
-    // If the impl block has a method called `run`, it will be called after connection to the
+    // If the impl block has a method called `connected`, it will be called after connection to the
     // editor.
-    async fn run(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+    async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
         client.info("simple plugin connected").await?;
         Ok(())
     }

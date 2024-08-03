@@ -115,13 +115,28 @@ async fn handle_client<T: mrpc::Connection + Clone + Send + Sync + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::NviService;
     use std::path::PathBuf;
-
     use tokio::sync::broadcast;
     use tracing_test::traced_test;
 
-    use crate::test;
+    #[derive(Clone)]
+    struct TestService {
+        tx: broadcast::Sender<()>,
+    }
+
+    #[async_trait::async_trait]
+    impl NviService for TestService {
+        fn name(&self) -> String {
+            "TestService".into()
+        }
+
+        async fn connected(&self, client: &mut crate::Client) -> crate::error::Result<()> {
+            self.tx.send(()).unwrap();
+            client.shutdown();
+            Ok(())
+        }
+    }
 
     #[tokio::test]
     #[traced_test]
@@ -132,46 +147,46 @@ mod tests {
         let tempdir = tempfile::tempdir().unwrap();
         let socket_path = tempdir.path().join("listen.socket");
         let itx = tx.clone();
-        let listener = listen_unix(itx.clone(), socket_path.clone(), move || {
-            let itx = itx.clone();
-            crate::AsyncClosureService::new(move |client| {
-                let itx = itx.clone();
-                Box::pin({
-                    let tx = itx.clone();
-                    async move {
-                        tx.send(()).unwrap();
-                        client.shutdown();
-                    }
-                })
-            })
+        let listener = listen_unix(itx.clone(), socket_path.clone(), move || TestService {
+            tx: itx.clone(),
         });
         let ls = tokio::spawn(listener);
 
-        test::wait_for_path(&socket_path).await.unwrap();
+        crate::test::wait_for_path(&socket_path).await.unwrap();
 
-        async fn tserv(socket_path: PathBuf, tx: broadcast::Sender<()>) -> Result<()> {
-            test::test_service(
-                crate::AsyncClosureService::new(move |c| {
-                    let socket_path = socket_path.clone();
-                    Box::pin({
-                        async move {
-                            trace!("client connected, sending sockconnect request");
-                            c.nvim
-                                .exec_lua(
-                                    &format!(
-                                        "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
-                                        socket_path.as_os_str().to_string_lossy()
-                                    ),
-                                    vec![],
-                                )
-                                .await
-                                .unwrap();
-                        }
-                    })
-                }),
-                tx.clone(),
-            )
-            .await
+        async fn tserv(
+            socket_path: PathBuf,
+            tx: broadcast::Sender<()>,
+        ) -> crate::error::Result<()> {
+            #[derive(Clone)]
+            struct SockConnectService {
+                socket_path: PathBuf,
+            }
+
+            #[async_trait::async_trait]
+            impl NviService for SockConnectService {
+                fn name(&self) -> String {
+                    "SockConnectService".into()
+                }
+
+                async fn connected(&self, client: &mut crate::Client) -> crate::error::Result<()> {
+                    trace!("client connected, sending sockconnect request");
+                    client
+                        .nvim
+                        .exec_lua(
+                            &format!(
+                                "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
+                                self.socket_path.as_os_str().to_string_lossy()
+                            ),
+                            vec![],
+                        )
+                        .await
+                        .unwrap();
+                    Ok(())
+                }
+            }
+
+            crate::test::test_service(SockConnectService { socket_path }, tx.clone()).await
         }
 
         // Now start a nvim instance, and connect to it with a client. Using the client, we
@@ -189,17 +204,8 @@ mod tests {
     #[traced_test]
     async fn it_connects() {
         let (tx, _) = broadcast::channel(16);
-
         let rtx = tx.clone();
-        let s = crate::AsyncClosureService::new(move |client| {
-            Box::pin({
-                let tx = tx.clone();
-                async move {
-                    tx.send(()).unwrap();
-                    client.shutdown();
-                }
-            })
-        });
-        test::test_service(s, rtx).await.unwrap();
+        let s = TestService { tx };
+        crate::test::test_service(s, rtx).await.unwrap();
     }
 }

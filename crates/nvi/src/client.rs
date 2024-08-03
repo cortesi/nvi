@@ -273,7 +273,7 @@ mod tests {
                            "TestService".into()
                        }
 
-                       async fn run(&mut self, client: &mut Client) -> Result<()> {
+                       async fn connected(&self, client: &mut Client) -> Result<()> {
                            $(qtest!{@inner $s})+
                            match ret(client).await {
                                Ok(_) => (),
@@ -318,7 +318,7 @@ mod tests {
                 "TestService".into()
             }
 
-            async fn run(&mut self, client: &mut Client) -> Result<()> {
+            async fn connected(&self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
@@ -335,7 +335,7 @@ mod tests {
             }
 
             async fn request(
-                &mut self,
+                &self,
                 client: &mut Client,
                 method: &str,
                 params: &[Value],
@@ -369,7 +369,7 @@ mod tests {
                 "TestService".into()
             }
 
-            async fn run(&mut self, client: &mut Client) -> Result<()> {
+            async fn connected(&self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcnotify("test_module", "test_fn", &["foo"])
                     .await
@@ -385,7 +385,7 @@ mod tests {
             }
 
             async fn notify(
-                &mut self,
+                &self,
                 client: &mut Client,
                 method: &str,
                 params: &[Value],
@@ -399,7 +399,6 @@ mod tests {
                 Ok(())
             }
         }
-        println!("HERE");
 
         let rtx = tx.clone();
         test::test_service(TestService {}, rtx).await.unwrap();

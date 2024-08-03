@@ -24,7 +24,7 @@ async fn it_registers_autocmds() {
             Ok(false)
         }
 
-        async fn run(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
             let id = c
                 .autocmd("aucmd", &[Event::User], &[], None, false, false)
                 .await?;
@@ -49,7 +49,7 @@ async fn api_nvim_get_chan_info() {
 
     #[nvi_service]
     impl T {
-        async fn run(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
             let chan = c.nvim.get_chan_info(0).await?;
             assert!(chan.id > 0);
             c.shutdown();

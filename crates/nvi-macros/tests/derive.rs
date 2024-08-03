@@ -40,7 +40,7 @@ async fn it_derives_messages() {
             println!("{}:{}", a, b);
         }
 
-        async fn run(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             self.tx.send(()).unwrap();
             Ok(())
         }

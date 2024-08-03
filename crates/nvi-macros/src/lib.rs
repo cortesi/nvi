@@ -5,7 +5,7 @@ use syn::{spanned::Spanned, Meta};
 
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 
-const RUN: &str = "run";
+const CONNECTED: &str = "connected";
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -13,7 +13,7 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 enum MethodType {
     Request,
     Notify,
-    Run,
+    Connected,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -80,7 +80,7 @@ impl Method {
     }
 
     /// Output the invocation clause of a notify function
-    fn run_invocation(&self, name: syn::Ident) -> proc_macro2::TokenStream {
+    fn connected_invocation(&self, name: syn::Ident) -> proc_macro2::TokenStream {
         let method = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
         match self.ret {
             Return::Void => {
@@ -213,8 +213,8 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
-    if message_type.is_none() && name == RUN {
-        message_type = Some(MethodType::Run);
+    if message_type.is_none() && name == CONNECTED {
+        message_type = Some(MethodType::Connected);
     }
 
     let message_type = if let Some(a) = message_type {
@@ -305,7 +305,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
             .error("notification methods must return Result<()> or be void"));
     }
 
-    if message_type == MethodType::Run {
+    if message_type == MethodType::Connected {
         if !(ret == Return::ResultVoid || ret == Return::Void) {
             return Err(method
                 .span()
@@ -365,7 +365,7 @@ fn inner_nvi_service(
     let bootstraps: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type != MethodType::Run)
+        .filter(|x| x.message_type != MethodType::Connected)
         .map(|x| x.bootstrap_clause(&imp.name))
         .collect();
 
@@ -386,18 +386,18 @@ fn inner_nvi_service(
     let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
     let namestr = imp.name.clone();
 
-    let run_invocations: Vec<proc_macro2::TokenStream> = imp
+    let connected_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MethodType::Run)
-        .map(|x| x.run_invocation(name.clone()))
+        .filter(|x| x.message_type == MethodType::Connected)
+        .map(|x| x.connected_invocation(name.clone()))
         .collect();
 
-    if run_invocations.len() > 1 {
-        return Err(input.span().error("only one run method is allowed"));
+    if connected_invocations.len() > 1 {
+        return Err(input.span().error("only one 'connected' method is allowed"));
     }
 
-    let run = run_invocations.first().unwrap_or(&quote! {}).clone();
+    let connected = connected_invocations.first().unwrap_or(&quote! {}).clone();
 
     Ok(quote! {
         #output
@@ -408,18 +408,18 @@ fn inner_nvi_service(
                 #namestr.into()
             }
 
-            async fn bootstrap(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+            async fn bootstrap(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                 #(#bootstraps)*
                 Ok(())
             }
 
-            async fn run(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
-                #run
+            async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                #connected
                 Ok(())
             }
 
             async fn request(
-                &mut self,
+                &self,
                 client: &mut nvi::Client,
                 method: &str,
                 params: &[nvi::Value],
@@ -435,7 +435,7 @@ fn inner_nvi_service(
             }
 
             async fn notify(
-                &mut self,
+                &self,
                 client: &mut nvi::Client,
                 method: &str,
                 params: &[nvi::Value],
