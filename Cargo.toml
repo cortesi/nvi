@@ -8,3 +8,7 @@ authors = ["Aldo Cortesi <aldo@corte.si>"]
 [workspace]
 resolver = "2"
 members = ["crates/*", "examples/*", "tests"]
+
+[workspace.dependencies]
+
+tokio = "1.38.0"

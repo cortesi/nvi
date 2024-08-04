@@ -500,8 +500,6 @@ where
 /// Get the next diagnostic closest to the cursor position.
 ///
 /// * `opts` - Optional jump options.
-///
-/// Returns an Option<Diagnostic>. None if no next diagnostic is found.
 pub async fn diagnostic_get_next(
     c: &mut Client,
     opts: Option<JumpOpts>,
