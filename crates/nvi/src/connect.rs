@@ -4,7 +4,7 @@ use tracing::{error, trace};
 
 use crate::error::Result;
 use crate::service::{ConnectionWrapper, NviService};
-use mrpc::{Client, ClosureConnectionMaker, Server};
+use mrpc::{Client, ConnectionMakerFn, Server};
 
 pub async fn listen_unix<T, F>(
     shutdown_tx: broadcast::Sender<()>,
@@ -17,7 +17,7 @@ where
 {
     let path = path.as_ref();
     let itx = shutdown_tx.clone();
-    let maker = ClosureConnectionMaker::new(move || {
+    let maker = ConnectionMakerFn::new(move || {
         let service = make_service();
         ConnectionWrapper::new(itx.clone(), service)
     });
@@ -47,7 +47,7 @@ where
     F: Fn() -> T + Send + Sync + 'static,
 {
     let itx = shutdown_tx.clone();
-    let maker = ClosureConnectionMaker::new(move || {
+    let maker = ConnectionMakerFn::new(move || {
         let service = make_service();
         ConnectionWrapper::new(itx.clone(), service)
     });
