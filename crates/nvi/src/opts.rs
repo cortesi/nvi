@@ -83,3 +83,24 @@ pub struct SetOptionValue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buf: Option<types::Buffer>,
 }
+
+/// Options for `nvim_clear_autocmds` method
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
+#[setters(strip_option)]
+pub struct ClearAutocmds {
+    /// Event or events to clear
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event: Option<Vec<String>>,
+
+    /// Pattern or patterns to match exactly
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<Vec<String>>,
+
+    /// Buffer number for buffer-local autocommands
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buffer: Option<types::Buffer>,
+
+    /// Autocommand group name or ID to match against
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<types::Group>,
+}

@@ -190,6 +190,8 @@ impl Client {
     //     Ok(())
     // }
 
+    // FIXME: Maybe a higher-level interface here. We can clear the autocmds before setting, which
+    // is what we want by default.
     pub async fn autocmd(
         &self,
         rpc_request: &str,
@@ -223,6 +225,8 @@ impl Client {
         };
 
         let namespace = &self.name;
+        // We execute a Lua function here, because we need to specify a callback function for the
+        // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
         let ret = self
             .nvim
             .exec_lua(

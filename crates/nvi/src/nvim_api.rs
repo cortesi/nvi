@@ -65,10 +65,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    pub async fn clear_autocmds<T>(&self, opts: T) -> Result<()>
-    where
-        T: Serialize,
-    {
+    pub async fn clear_autocmds(&self, opts: opts::ClearAutocmds) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_clear_autocmds", &[to_value(&opts)?])

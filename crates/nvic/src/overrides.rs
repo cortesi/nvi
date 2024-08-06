@@ -24,6 +24,13 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![],
             ret: Some(quote! { opts::BufDelete }),
         },
+        "nvim_clear_autocmds" => Override {
+            args: vec![Arg {
+                name: "opts".into(),
+                typ: quote! { opts::ClearAutocmds },
+            }],
+            ret: None,
+        },
         "nvim_create_autocmd" => Override {
             args: vec![
                 Arg {

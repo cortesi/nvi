@@ -25,6 +25,9 @@ async fn it_registers_autocmds() {
         }
 
         async fn connected(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
+            c.nvim
+                .clear_autocmds(opts::ClearAutocmds::default())
+                .await?;
             let id = c
                 .autocmd("aucmd", &[Event::User], &[], None, false, false)
                 .await?;

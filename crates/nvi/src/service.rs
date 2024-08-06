@@ -125,8 +125,6 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
-        debug!("recv request: {:?}", method);
-        trace!("recv request data: {:?} {:?}", method, params);
         let vimservice = self.nvi_service.clone();
         let mut client = Client::new(
             sender,
@@ -136,10 +134,11 @@ where
         );
 
         if method == PING_MESSAGE {
-            trace!("ping received");
             return Ok(Value::Boolean(true));
         }
 
+        debug!("recv request: {:?}", method);
+        trace!("recv request data: {:?} {:?}", method, params);
         match vimservice.request(&mut client, method, &params).await {
             Ok(v) => Ok(v),
             Err(e) => {
