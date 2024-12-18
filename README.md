@@ -1,14 +1,9 @@
 
-# Nvi - a tookit for writing Neovim plugins in Rust
+# nvi - Neovim plugins in Rust
 
 
 
 
-
-
-
-
-# Development
 
 
 

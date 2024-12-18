@@ -13,6 +13,7 @@ pub mod types;
 pub use client::Client;
 pub use connect::*;
 pub use mrpc::Value;
+pub use nvi_macros::*;
 pub use run::*;
 pub use service::*;
 pub use types::AutocmdEvent;

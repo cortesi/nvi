@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 mrpc = { path = "../../../../public/mrpc" }
+nvi-macros = { path = "../nvi-macros" }
 
 tokio = {workspace=true, features=["full"]}
 

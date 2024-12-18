@@ -679,6 +679,7 @@ dependencies = [
  "futures",
  "mrpc",
  "nix",
+ "nvi-macros",
  "pretty_assertions",
  "rmp",
  "rmp-serde",
