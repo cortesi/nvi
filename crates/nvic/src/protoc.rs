@@ -61,6 +61,12 @@ fn generate_argument(func: &str, p: &api::Parameter, meta_count: i32) -> (TokenS
                 },
                 false,
             ),
+            api::Type::Dict => (
+                quote! {
+                    HashMap<String, Value>
+                },
+                false,
+            ),
             api::Type::ArrayOf { typ, .. } => {
                 let typ = mk_return_type(typ);
                 (
@@ -141,6 +147,9 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
     match t {
         api::Type::Array => quote! {
             Vec<Value>
+        },
+        api::Type::Dict => quote! {
+            HashMap<String, Value>
         },
         api::Type::ArrayOf { typ, .. } => {
             let typ = mk_return_type(typ);
