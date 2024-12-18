@@ -4,6 +4,7 @@ use nvi::{
 };
 
 use nvi_macros::{nvi_service, request};
+
 use tokio::sync::broadcast;
 use tracing::trace;
 use tracing_test::traced_test;
