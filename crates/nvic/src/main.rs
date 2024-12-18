@@ -1,10 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-mod api;
-mod dump;
-mod overrides;
-mod protoc;
 mod run;
 
 #[derive(Parser)]
@@ -18,13 +14,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Dump the protocol definitions read from Neovim
-    Dump {
-        #[arg(short, long)]
-        raw: bool,
-    },
-    /// Generate the Rust protocol definitions
-    Protoc {},
     /// Run an addon attached to neovim
     Run {
         #[arg(long)]
@@ -48,8 +37,6 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Dump { raw }) => dump::dump(*raw)?,
-        Some(Commands::Protoc {}) => protoc::protoc()?,
         Some(Commands::Run {
             headless,
             path,

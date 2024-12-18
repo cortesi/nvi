@@ -836,6 +836,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "protoc"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "rmp-serde",
+ "serde",
+ "serde_derive",
+ "syn",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
