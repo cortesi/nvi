@@ -8,5 +8,5 @@ authors.workspace = true
 async-trait = "0.1.80"
 nvi = { path = "../../crates/nvi" }
 nvi-macros = { path = "../../crates/nvi-macros" }
-serde-rmpv = { path = "../../crates/serde-rmpv"}
+serde-rmpv = "0.0.1"
 tokio = "1.37.0"

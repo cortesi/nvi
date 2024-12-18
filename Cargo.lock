@@ -989,11 +989,11 @@ dependencies = [
 [[package]]
 name = "serde-rmpv"
 version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "378d72699f64540f26ecf23baa518841167e97ff19c79a688cb41f0ab1bd01a8"
 dependencies = [
  "rmpv",
  "serde",
- "serde_derive",
- "serde_with",
  "thiserror 2.0.7",
 ]
 
