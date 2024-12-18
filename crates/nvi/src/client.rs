@@ -1,9 +1,8 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use tokio::sync::broadcast;
 use tracing::trace;
-
-use crate::Value;
 
 use crate::{
     error::{Error, Result},
@@ -148,9 +147,7 @@ impl Client {
 
     /// Send an nvim_notify notification, with a specified log level.
     pub async fn notify(&self, level: types::LogLevel, msg: &str) -> Result<()> {
-        self.nvim
-            .notify(msg, level.to_u64(), Value::Map(vec![]))
-            .await
+        self.nvim.notify(msg, level.to_u64(), HashMap::new()).await
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Trace`.

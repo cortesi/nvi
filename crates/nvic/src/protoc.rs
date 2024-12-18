@@ -260,6 +260,7 @@ pub fn protoc() -> Result<()> {
     let toks = quote!(
         #![allow(clippy::needless_question_mark)]
         #![allow(clippy::needless_borrow)]
+        use std::collections::HashMap;
 
         use mrpc::Value;
         use tracing::{trace, debug};
