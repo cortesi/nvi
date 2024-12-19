@@ -272,7 +272,7 @@ pub fn protoc() -> Result<()> {
         use crate::opts;
 
         #[derive(Clone)]
-        /// Auto-generated API for Neovim's MessagePack-RPC protocol.
+        /// Generated bindings for Neovim's MessagePack-RPC API.
         pub struct NvimApi {
             pub(crate) rpc_sender: mrpc::RpcSender,
         }

@@ -1,8 +1,7 @@
-//! Diagnostics
+//! Structures and functions for working with Neovim diagnostics.
 //!
-//! This module provides structures and functions for working with diagnostics in Neovim.
-//! It includes types for configuring how diagnostics are displayed (e.g., virtual text,
-//! signs, floating windows) and functions for setting and resetting diagnostics.
+//! Includes types for configuring how diagnostics are displayed (e.g., virtual text, signs,
+//! floating windows) and functions for setting and resetting diagnostics.
 
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
@@ -116,7 +115,7 @@ pub struct SetQfListOpts {
     pub severity: Option<SeverityFilter>,
 }
 
-/// Represents the position of virtual text in the editor.
+/// The position of virtual text in the editor.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum VirtTextPos {
@@ -126,7 +125,7 @@ pub enum VirtTextPos {
     Inline,
 }
 
-/// Represents a filter for diagnostic severity.
+/// A filter for diagnostic severity.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum SeverityFilter {
@@ -138,7 +137,7 @@ pub enum SeverityFilter {
     List(Vec<Severity>),
 }
 
-/// Represents the severity levels of diagnostics.
+/// The diagnostic severity levels.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 pub enum Severity {
     Error,
@@ -148,7 +147,7 @@ pub enum Severity {
     Hint,
 }
 
-/// Represents the source of virtual text.
+/// The source of virtual text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VirtualTextSource {
     True,

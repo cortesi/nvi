@@ -1,3 +1,5 @@
+//! The standard Nvi command line interface.
+
 use tokio::sync::broadcast;
 
 use crate::error::Result;

@@ -9,7 +9,7 @@ use serde_rmpv::{from_value, to_value};
 use std::collections::HashMap;
 use tracing::{debug, trace};
 #[derive(Clone)]
-#[doc = r" Auto-generated API for Neovim's MessagePack-RPC protocol."]
+#[doc = r" Generated bindings for Neovim's MessagePack-RPC API."]
 pub struct NvimApi {
     pub(crate) rpc_sender: mrpc::RpcSender,
 }
