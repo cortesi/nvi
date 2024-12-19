@@ -199,7 +199,28 @@ fn mk_arg_value(p: &api::Parameter) -> TokenStream {
     }
 }
 
+/// Retrieves and formats the documentation for a given function name.
+fn get_docs(name: &str) -> Option<String> {
+    use std::io::{stderr, Write};
+
+    let docs = crate::docs::DOCS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, doc)| {
+            doc.lines()
+                .map(|line| line.trim())
+                .collect::<Vec<_>>()
+                .join("\n")
+        });
+
+    if docs.is_none() {
+        writeln!(stderr(), "Warning: no documentation found for {}", name).ok();
+    }
+    docs
+}
+
 fn generate_function(f: api::Function) -> TokenStream {
+    let docs = get_docs(&f.name);
     // All functions have the nvim_ prefix, so we strip it.
     let id = Ident::new(&f.name[5..], Span::call_site());
     let name = &f.name;
@@ -235,8 +256,19 @@ fn generate_function(f: api::Function) -> TokenStream {
     let ret_type =
         overrides::get_return_override(name).unwrap_or_else(|| mk_return_type(&f.return_type));
 
+    let fn_def = if let Some(doc) = docs {
+        quote! {
+            #[doc = #doc]
+            pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
+        }
+    } else {
+        quote! {
+            pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
+        }
+    };
+
     quote! {
-        pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
+        #fn_def
             #where_clause
         {
             #[allow(unused_variables)]

@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -e 
+
+PROMPT="
+Here's an example of our DOCS format:
+
+const DOCS: &[(&str, &str)] = &[
+    (
+        \"nvim_chan_send\",
+        \"
+            Send data to channel `id`. For a job, it writes it to the stdin of the
+            process. For the stdio channel |channel-stdio|, it writes to Nvim's
+            stdout. For an internal terminal instance (|nvim_open_term()|) it writes
+            directly to terminal output. See |channel-bytes| for more information.
+
+            This function writes raw data, not RPC messages. If the channel was
+            created with `rpc=true` then the channel expects RPC messages, use
+            |vim.rpcnotify()| and |vim.rpcrequest()| instead.
+        \",
+    ),
+    (
+        \"nvim_create_buf\",
+        \"
+            Creates a new, empty, unnamed buffer.
+        \",
+    ),
+];
+
+Extend the list with similar docs, and write it to docs.rs, for all functions
+in the attached documentation. Please include all paragraphs of documentation,
+but omit parameter docs. 
+
+Be exhaustive, don't skip any functions. Format docs to be appropriate for a
+Rust doc comment. Use only ASCII. Never include double quotes. 
+
+Do this in batches, adding batches to the existing file with <replace> tags.
+I'll prompt you for the next batch.
+
+"
+
+tenx new
+tenx ctx url "https://raw.githubusercontent.com/neovim/neovim/refs/heads/master/runtime/doc/api.txt"
+tenx code --prompt "$PROMPT" crates/protoc/src/docs.rs

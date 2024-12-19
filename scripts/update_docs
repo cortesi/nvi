@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e 
+
+PROMPT="
+Update the list of docs in docs.rs. Make sure ALL functions are documented.
+Leave up to date docs intact.
+
+- Please include all paragraphs of documentation, but omit parameter docs. 
+- Format docs to be appropriate for a Rust doc comment. 
+- Remove tag contents and italicise them, eg. <PageUp>  -> *PageUp*
+- Use only ASCII. 
+- Never include double quotes. 
+- Modify docs.rs in-place.
+"
+
+tenx new
+tenx ctx url "https://raw.githubusercontent.com/neovim/neovim/refs/heads/master/runtime/doc/api.txt"
+tenx code --prompt "$PROMPT" crates/protoc/src/docs.rs
