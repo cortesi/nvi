@@ -42,7 +42,7 @@ pub async fn start_plugin(
     path: String,
     socket_path: std::path::PathBuf,
     trace: bool,
-    neovim_headless: bool,
+    silent: bool,
 ) -> Result<()> {
     if !Path::new(&path).join("Cargo.toml").exists() {
         return Err(anyhow::anyhow!("path does not exist"));
@@ -55,7 +55,7 @@ pub async fn start_plugin(
         .arg("--")
         .arg("connect");
 
-    if !neovim_headless {
+    if silent {
         cmd.stdout(Stdio::null()).stderr(Stdio::null());
     }
 

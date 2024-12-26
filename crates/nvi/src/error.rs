@@ -2,6 +2,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("connection error: {msg:}")]
+    Connect { msg: String },
     #[error("request timed out: {method:}")]
     Timeout { method: String },
     #[error("decoding error: {msg:}")]
@@ -14,7 +16,7 @@ pub enum Error {
     RemoteError(rmpv::Value),
     #[error("unimplemented")]
     Unimplemented,
-    #[error("internal")]
+    #[error("internal: {msg:}")]
     Internal { msg: String },
     #[error("{0}")]
     User(String),
@@ -78,6 +80,7 @@ impl From<mrpc::RpcError> for Error {
     fn from(e: mrpc::RpcError) -> Self {
         match e {
             mrpc::RpcError::Service(e) => Error::RemoteError(e.value),
+            mrpc::RpcError::Connect(e) => Error::Connect { msg: e },
             e => Error::Internal {
                 msg: format!("{:?}", e),
             },

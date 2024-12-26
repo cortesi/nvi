@@ -1,13 +1,12 @@
 //! The standard Nvi command line interface.
 
-use tokio::sync::broadcast;
-
-use crate::error::Result;
-use crate::NviService;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+use tokio::sync::broadcast;
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
+
+use crate::{error::Result, NviService};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
