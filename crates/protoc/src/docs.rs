@@ -1,65 +1,83 @@
 pub const DOCS: &[(&str, &str)] = &[
     (
+        "nvim__complete_set",
+        "
+        EXPERIMENTAL: this API may change in the future.
+
+        Sets info for the completion item at the given index. If the info text was 
+        shown in a window, returns the window and buffer ids, or empty dict if not
+        shown.
+        ",
+    ),
+    (
+        "nvim__fs_watch",
+        "Registers a recursive (filesystem) watcher.",
+    ),
+    (
+        "nvim__get_lib",
+        "Gets the paths contained in the runtimepath variable.",
+    ),
+    (
         "nvim_buf_add_highlight",
         "
-            Adds a highlight to buffer.
+        Adds a highlight to buffer.
 
-            Useful for plugins that dynamically generate highlights to a buffer (like
-            a semantic highlighter or linter). The function adds a single highlight to
-            a buffer. Unlike |matchaddpos()| highlights follow changes to line
-            numbering (as lines are inserted/removed above the highlighted line), like
-            signs and marks do.
+        Useful for plugins that dynamically generate highlights to a buffer (like
+        a semantic highlighter or linter). The function adds a single highlight to
+        a buffer. Unlike `matchaddpos()` highlights follow changes to line
+        numbering (as lines are inserted/removed above the highlighted line), like
+        signs and marks do.
 
-            Namespaces are used for batch deletion/updating of a set of highlights. To
-            create a namespace, use |nvim_create_namespace()| which returns a
-            namespace id. Pass it in to this function as ns_id to add highlights to
-            the namespace. All highlights in the same namespace can then be cleared
-            with single call to |nvim_buf_clear_namespace()|. If the highlight never
-            will be deleted by an API call, pass ns_id = -1.
+        Namespaces are used for batch deletion/updating of a set of highlights. To
+        create a namespace, use `nvim_create_namespace()` which returns a
+        namespace id. Pass it in to this function as ns_id to add highlights to
+        the namespace. All highlights in the same namespace can then be cleared
+        with single call to `nvim_buf_clear_namespace()`. If the highlight never
+        will be deleted by an API call, pass ns_id = -1.
 
-            As a shorthand, ns_id = 0 can be used to create a new namespace for the
-            highlight, the allocated id is then returned. If hl_group is the empty
-            string no highlight is added, but a new ns_id is still returned. This is
-            supported for backwards compatibility, new code should use
-            |nvim_create_namespace()| to create a new empty namespace.
+        As a shorthand, ns_id = 0 can be used to create a new namespace for the
+        highlight, the allocated id is then returned. If hl_group is the empty
+        string no highlight is added, but a new ns_id is still returned. This is
+        supported for backwards compatibility, new code should use
+        `nvim_create_namespace()` to create a new empty namespace.
         ",
     ),
     (
         "nvim_buf_attach",
         "
-            Activates buffer-update events on a channel, or as Lua callbacks.
+        Activates buffer-update events on a channel, or as Lua callbacks.
         ",
     ),
     (
         "nvim_buf_call",
         "
-            Call a function with buffer as temporary current buffer.
+        Call a function with buffer as temporary current buffer.
 
-            This temporarily switches current buffer to buffer. If the current
-            window already shows buffer, the window is not switched. If a window
-            inside the current tabpage (including a float) already shows the buffer,
-            then one of these windows will be set as current window temporarily.
-            Otherwise a temporary scratch window (called the autocmd window for
-            historical reasons) will be used.
+        This temporarily switches current buffer to buffer. If the current
+        window already shows buffer, the window is not switched. If a window
+        inside the current tabpage (including a float) already shows the buffer,
+        then one of these windows will be set as current window temporarily.
+        Otherwise a temporary scratch window (called the autocmd window for
+        historical reasons) will be used.
 
-            This is useful e.g. to call Vimscript functions that only work with the
-            current buffer/window currently, like |termopen()|.
+        This is useful e.g. to call Vimscript functions that only work with the
+        current buffer/window currently, like `termopen()`.
         ",
     ),
     (
         "nvim_buf_clear_namespace",
         "
-            Clears |namespace|d objects (highlights, |extmarks|, virtual text) from a
-            region.
+        Clears namespaced objects (highlights, extmarks, virtual text) from a
+        region.
 
-            Lines are 0-indexed. |api-indexing| To clear the namespace in the entire
-            buffer, specify line_start=0 and line_end=-1.
+        Lines are 0-indexed. `api-indexing` To clear the namespace in the entire
+        buffer, specify line_start=0 and line_end=-1.
         ",
     ),
     (
         "nvim_buf_del_extmark",
         "
-            Removes an |extmark|.
+        Removes an extmark.
         ",
     ),
     ("nvim__get_runtime", "Find files in runtime directories."),
@@ -369,236 +387,236 @@ pub const DOCS: &[(&str, &str)] = &[
     (
         "nvim_buf_set_mark",
         "
-            Sets a named mark in the given buffer, all marks are allowed
-            file/uppercase, visual, last change, etc. See |mark-motions|.
+        Sets a named mark in the given buffer, all marks are allowed
+        file/uppercase, visual, last change, etc. See mark-motions.
 
-            Marks are (1,0)-indexed. |api-indexing|
+        Marks are (1,0)-indexed. api-indexing
 
-            Note: Passing 0 as line deletes the mark
+        Note: Passing 0 as line deletes the mark
         ",
     ),
     (
         "nvim_buf_set_name",
         "
-            Sets the full file name for a buffer, like |:file_f|
+        Sets the full file name for a buffer, like :file_f
         ",
     ),
     (
         "nvim_buf_set_text",
         "
-            Sets (replaces) a range in the buffer
+        Sets (replaces) a range in the buffer
 
-            This is recommended over |nvim_buf_set_lines()| when only modifying parts
-            of a line, as extmarks will be preserved on non-modified parts of the
-            touched lines.
+        This is recommended over nvim_buf_set_lines() when only modifying parts
+        of a line, as extmarks will be preserved on non-modified parts of the
+        touched lines.
 
-            Indexing is zero-based. Row indices are end-inclusive, and column indices
-            are end-exclusive.
+        Indexing is zero-based. Row indices are end-inclusive, and column indices
+        are end-exclusive.
 
-            To insert text at a given (row, column) location, use
-            start_row = end_row = row and start_col = end_col = col. To delete the
-            text in a range, use replacement = {}.
+        To insert text at a given (row, column) location, use
+        start_row = end_row = row and start_col = end_col = col. To delete the
+        text in a range, use replacement = {}.
 
-            Note: Prefer |nvim_buf_set_lines()| (for performance) to add or delete
-            entire lines.
-            Note: Prefer |nvim_paste()| or |nvim_put()| to insert (instead of replace)
-            text at cursor.
+        Note: Prefer nvim_buf_set_lines() (for performance) to add or delete
+        entire lines.
+        Note: Prefer nvim_paste() or nvim_put() to insert (instead of replace)
+        text at cursor.
         ",
     ),
     (
         "nvim_buf_set_var",
         "
-            Sets a buffer-scoped (b:) variable
+        Sets a buffer-scoped (b:) variable
         ",
     ),
     (
         "nvim_chan_send",
         "
-            Send data to channel. For a job, it writes it to the stdin of the
-            process. For the stdio channel |channel-stdio|, it writes to Nvim's
-            stdout. For an internal terminal instance (|nvim_open_term()|) it writes
-            directly to terminal output. See |channel-bytes| for more information.
+        Send data to channel. For a job, it writes it to the stdin of the
+        process. For the stdio channel `channel-stdio`, it writes to Nvim's
+        stdout. For an internal terminal instance (`nvim_open_term()`) it writes
+        directly to terminal output. See `channel-bytes` for more information.
 
-            This function writes raw data, not RPC messages. If the channel was
-            created with rpc=true then the channel expects RPC messages, use
-            |vim.rpcnotify()| and |vim.rpcrequest()| instead.
+        This function writes raw data, not RPC messages. If the channel was
+        created with rpc=true then the channel expects RPC messages, use
+        `vim.rpcnotify()` and `vim.rpcrequest()` instead.
         ",
     ),
     (
         "nvim_clear_autocmds",
         "
-            Clears all autocommands selected by {opts}. To delete autocmds see
-            |nvim_del_autocmd()|.
+        Clears all autocommands selected by {opts}. To delete autocmds see
+        `nvim_del_autocmd()`.
         ",
     ),
     (
         "nvim_cmd",
         "
-            Executes an Ex command.
+        Executes an Ex command.
 
-            Unlike |nvim_command()| this command takes a structured Dict instead of a
-            String. This allows for easier construction and manipulation of an Ex
-            command. This also allows for things such as having spaces inside a
-            command argument, expanding filenames in a command that otherwise does not
-            expand filenames, etc. Command arguments may also be Number, Boolean or
-            String.
+        Unlike `nvim_command()` this command takes a structured Dict instead of a
+        String. This allows for easier construction and manipulation of an Ex
+        command. This also allows for things such as having spaces inside a
+        command argument, expanding filenames in a command that otherwise does not
+        expand filenames, etc. Command arguments may also be Number, Boolean or
+        String.
 
-            The first argument may also be used instead of count for commands that
-            support it in order to make their usage simpler. For example, instead of
-            vim.cmd.bdelete{ count = 2 }, you may do vim.cmd.bdelete(2).
+        The first argument may also be used instead of count for commands that
+        support it in order to make their usage simpler. For example, instead of
+        `vim.cmd.bdelete{ count = 2 }`, you may do `vim.cmd.bdelete(2)`.
 
-            On execution error: fails with Vimscript error, updates v:errmsg.
+        On execution error: fails with Vimscript error, updates v:errmsg.
         ",
     ),
     (
         "nvim_command",
         "
-            Executes an Ex command.
+        Executes an Ex command.
 
-            On execution error: fails with Vimscript error, updates v:errmsg.
+        On execution error: fails with Vimscript error, updates v:errmsg.
 
-            Prefer |nvim_cmd()| or |nvim_exec2()| instead. To modify an Ex command in
-            a structured way before executing it, modify the result of
-            |nvim_parse_cmd()| then pass it to |nvim_cmd()|.
+        Prefer `nvim_cmd()` or `nvim_exec2()` instead. To modify an Ex command in
+        a structured way before executing it, modify the result of
+        `nvim_parse_cmd()` then pass it to `nvim_cmd()`.
         ",
     ),
     (
         "nvim_create_augroup",
         "
-            Create or get an autocommand group |autocmd-groups|.
+        Create or get an autocommand group autocmd-groups.
         ",
     ),
     (
         "nvim_create_autocmd",
         "
-            Creates an |autocommand| event handler, defined by callback (Lua
-            function or Vimscript function name string) or command (Ex command
-            string).
+        Creates an autocommand event handler, defined by callback (Lua
+        function or Vimscript function name string) or command (Ex command
+        string).
 
-            Note: pattern is NOT automatically expanded (unlike with |:autocmd|),
-            thus names like $HOME and ~ must be expanded explicitly.
+        Note: pattern is NOT automatically expanded (unlike with :autocmd),
+        thus names like $HOME and ~ must be expanded explicitly.
         ",
     ),
     (
         "nvim_create_buf",
         "
-            Creates a new, empty, unnamed buffer.
+        Creates a new, empty, unnamed buffer.
         ",
     ),
     (
         "nvim_create_namespace",
         "
-            Creates a new namespace or gets an existing one.
+        Creates a new namespace or gets an existing one.
 
-            Namespaces are used for buffer highlights and virtual text, see
-            |nvim_buf_add_highlight()| and |nvim_buf_set_extmark()|.
+        Namespaces are used for buffer highlights and virtual text, see
+        nvim_buf_add_highlight() and nvim_buf_set_extmark().
 
-            Namespaces can be named or anonymous. If name matches an existing
-            namespace, the associated id is returned. If name is an empty string a
-            new, anonymous namespace is created.
+        Namespaces can be named or anonymous. If name matches an existing
+        namespace, the associated id is returned. If name is an empty string a
+        new, anonymous namespace is created.
         ",
     ),
     (
         "nvim_create_user_command",
         "
-            Creates a global |user-commands| command.
+        Creates a global user-commands command.
         ",
     ),
     (
         "nvim_del_augroup_by_id",
         "
-            Delete an autocommand group by id.
+        Delete an autocommand group by id.
 
-            To get a group id one can use |nvim_get_autocmds()|.
+        To get a group id one can use nvim_get_autocmds().
 
-            NOTE: behavior differs from |:augroup-delete|. When deleting a group,
-            autocommands contained in this group will also be deleted and cleared.
-            This group will no longer exist.
+        NOTE: behavior differs from :augroup-delete. When deleting a group,
+        autocommands contained in this group will also be deleted and cleared.
+        This group will no longer exist.
         ",
     ),
     (
         "nvim_del_augroup_by_name",
         "
-            Delete an autocommand group by name.
+        Delete an autocommand group by name.
 
-            NOTE: behavior differs from |:augroup-delete|. When deleting a group,
-            autocommands contained in this group will also be deleted and cleared.
-            This group will no longer exist.
+        NOTE: behavior differs from :augroup-delete. When deleting a group,
+        autocommands contained in this group will also be deleted and cleared.
+        This group will no longer exist.
         ",
     ),
     (
         "nvim_del_autocmd",
         "
-            Deletes an autocommand by id.
+        Deletes an autocommand by id.
         ",
     ),
     (
         "nvim_del_current_line",
         "
-            Deletes the current line.
+        Deletes the current line.
         ",
     ),
     (
         "nvim_del_keymap",
         "
-            Unmaps a global |mapping| for the given mode.
+        Unmaps a global mapping for the given mode.
 
-            To unmap a buffer-local mapping, use |nvim_buf_del_keymap()|.
+        To unmap a buffer-local mapping, use nvim_buf_del_keymap().
         ",
     ),
     (
         "nvim_del_mark",
         "
-            Deletes an uppercase/file named mark. See |mark-motions|.
+        Deletes an uppercase/file named mark. See mark-motions.
 
-            Note: Lowercase name (or other buffer-local mark) is an error.
+        Note: Lowercase name (or other buffer-local mark) is an error.
         ",
     ),
     (
         "nvim_del_user_command",
         "
-            Delete a user-defined command.
+        Delete a user-defined command.
         ",
     ),
     (
         "nvim_del_var",
         "
-            Removes a global (g:) variable.
+        Removes a global (g:) variable.
         ",
     ),
     (
         "nvim_echo",
         "
-            Echo a message.
+        Echo a message.
         ",
     ),
     (
         "nvim_err_write",
         "
-            Writes a message to the Vim error buffer. Does not append \\n, the
-            message is buffered (will not display) until a linefeed is written.
+        Writes a message to the Vim error buffer. Does not append \\n, the
+        message is buffered (will not display) until a linefeed is written.
         ",
     ),
     (
         "nvim_err_writeln",
         "
-            Writes a message to the Vim error buffer. Appends \\n, so the buffer is
-            flushed (and displayed).
+        Writes a message to the Vim error buffer. Appends \\n, so the buffer is
+        flushed (and displayed).
         ",
     ),
     (
         "nvim_eval",
         "
-            Evaluates a Vimscript |expression|. Dicts and Lists are recursively
-            expanded.
+        Evaluates a Vimscript expression. Dicts and Lists are recursively
+        expanded.
 
-            On execution error: fails with Vimscript error, updates v:errmsg.
+        On execution error: fails with Vimscript error, updates v:errmsg.
         ",
     ),
     (
         "nvim_eval_statusline",
         "
-            Evaluates statusline string.
+        Evaluates statusline string.
         ",
     ),
     (
@@ -1443,107 +1461,107 @@ pub const DOCS: &[(&str, &str)] = &[
     (
         "nvim_win_text_height",
         "
-            Computes the number of screen lines occupied by a range of text in a given
-            window. Works for off-screen text and takes folds into account.
+        Computes the number of screen lines occupied by a range of text in a given
+        window. Works for off-screen text and takes folds into account.
 
-            Diff filler or virtual lines above a line are counted as a part of that
-            line, unless the line is on start_row and start_vcol is specified.
+        Diff filler or virtual lines above a line are counted as a part of that
+        line, unless the line is on start_row and start_vcol is specified.
 
-            Diff filler or virtual lines below the last buffer line are counted in the
-            result when end_row is omitted.
+        Diff filler or virtual lines below the last buffer line are counted in the
+        result when end_row is omitted.
 
-            Line indexing is similar to |nvim_buf_get_text()|.
+        Line indexing is similar to `nvim_buf_get_text()`.
         ",
     ),
     (
         "nvim_get_autocmds",
         "
-            Get all autocommands that match the corresponding {opts}.
+        Get all autocommands that match the corresponding {opts}.
 
-            These examples will get autocommands matching ALL the given criteria:
-            - Matches all criteria
-            - All commands from one group
-            
-            NOTE: When multiple patterns or events are provided, it will find all the
-            autocommands that match any combination of them.
+        These examples will get autocommands matching ALL the given criteria:
+        - Matches all criteria
+        - All commands from one group
+        
+        NOTE: When multiple patterns or events are provided, it will find all the
+        autocommands that match any combination of them.
         ",
     ),
     (
         "nvim_exec_autocmds",
         "
-            Execute all autocommands for {event} that match the corresponding {opts}
-            |autocmd-execute|.
+        Execute all autocommands for {event} that match the corresponding {opts}
+        `autocmd-execute`.
         ",
     ),
     (
         "nvim_buf_create_user_command",
         "
-            Creates a buffer-local command |user-commands|.
+        Creates a buffer-local command `user-commands`.
         ",
     ),
     (
         "nvim_buf_del_user_command",
         "
-            Delete a buffer-local user-defined command.
+        Delete a buffer-local user-defined command.
 
-            Only commands created with |:command-buffer| or
-            |nvim_buf_create_user_command()| can be deleted with this function.
+        Only commands created with `:command-buffer` or
+        `nvim_buf_create_user_command()` can be deleted with this function.
         ",
     ),
     (
         "nvim_buf_set_extmark",
         "
-            Creates or updates an |extmark|.
+        Creates or updates an extmark.
 
-            By default a new extmark is created when no id is passed in, but it is
-            also possible to create a new mark by passing in a previously unused id or
-            move an existing mark by passing in its id. The caller must then keep
-            track of existing and unused ids itself. (Useful over RPC, to avoid
-            waiting for the return value.)
+        By default a new extmark is created when no id is passed in, but it is
+        also possible to create a new mark by passing in a previously unused id or
+        move an existing mark by passing in its id. The caller must then keep
+        track of existing and unused ids itself. (Useful over RPC, to avoid
+        waiting for the return value.)
 
-            Using the optional arguments, it is possible to use this to highlight a
-            range of text, and also to associate virtual text to the mark.
+        Using the optional arguments, it is possible to use this to highlight a
+        range of text, and also to associate virtual text to the mark.
 
-            If present, the position defined by end_col and end_row should be
-            after the start position in order for the extmark to cover a range. An
-            earlier end position is not an error, but then it behaves like an empty
-            range (no highlighting).
+        If present, the position defined by end_col and end_row should be
+        after the start position in order for the extmark to cover a range. An
+        earlier end position is not an error, but then it behaves like an empty
+        range (no highlighting).
         ",
     ),
     (
         "nvim_call_function",
         "
-            Calls a Vimscript function with the given arguments.
+        Calls a Vimscript function with the given arguments.
 
-            On execution error: fails with Vimscript error, updates v:errmsg.
+        On execution error: fails with Vimscript error, updates v:errmsg.
         ",
     ),
     (
         "nvim_call_dict_function",
         "
-            Calls a Vimscript |Dictionary-function| with the given arguments.
+        Calls a Vimscript `Dictionary-function` with the given arguments.
 
-            On execution error: fails with Vimscript error, updates v:errmsg.
+        On execution error: fails with Vimscript error, updates v:errmsg.
         ",
     ),
     (
         "nvim_win_set_config",
         "
-            Configures window layout. Cannot be used to move the last window in a
-            tabpage to a different one.
+        Configures window layout. Cannot be used to move the last window in a
+        tabpage to a different one.
 
-            When reconfiguring a window, absent option keys will not be changed.
-            row/col and relative must be reconfigured together.
+        When reconfiguring a window, absent option keys will not be changed.
+        row/col and relative must be reconfigured together.
         ",
     ),
     (
         "nvim_win_get_config",
         "
-            Gets window configuration.
+        Gets window configuration.
 
-            The returned value may be given to |nvim_open_win()|.
+        The returned value may be given to `nvim_open_win()`.
 
-            relative is empty for normal windows.
+        relative is empty for normal windows.
         ",
     ),
 ];

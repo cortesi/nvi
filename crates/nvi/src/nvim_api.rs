@@ -45,7 +45,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCreates an |autocommand| event handler, defined by callback (Lua\nfunction or Vimscript function name string) or command (Ex command\nstring).\n\nNote: pattern is NOT automatically expanded (unlike with |:autocmd|),\nthus names like $HOME and ~ must be expanded explicitly.\n"]
+    #[doc = "\nCreates an autocommand event handler, defined by callback (Lua\nfunction or Vimscript function name string) or command (Ex command\nstring).\n\nNote: pattern is NOT automatically expanded (unlike with :autocmd),\nthus names like $HOME and ~ must be expanded explicitly.\n"]
     pub async fn create_autocmd(&self, event: &[Event], opts: opts::CreateAutocmd) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
@@ -66,7 +66,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nClears all autocommands selected by {opts}. To delete autocmds see\n|nvim_del_autocmd()|.\n"]
+    #[doc = "\nClears all autocommands selected by {opts}. To delete autocmds see\nnvim_del_autocmd().\n"]
     pub async fn clear_autocmds(&self, opts: opts::ClearAutocmds) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -75,7 +75,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCreate or get an autocommand group |autocmd-groups|.\n"]
+    #[doc = "\nCreate or get an autocommand group autocmd-groups.\n"]
     pub async fn create_augroup(&self, name: &str, opts: HashMap<String, Value>) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
@@ -84,7 +84,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nDelete an autocommand group by id.\n\nTo get a group id one can use |nvim_get_autocmds()|.\n\nNOTE: behavior differs from |:augroup-delete|. When deleting a group,\nautocommands contained in this group will also be deleted and cleared.\nThis group will no longer exist.\n"]
+    #[doc = "\nDelete an autocommand group by id.\n\nTo get a group id one can use nvim_get_autocmds().\n\nNOTE: behavior differs from :augroup-delete. When deleting a group,\nautocommands contained in this group will also be deleted and cleared.\nThis group will no longer exist.\n"]
     pub async fn del_augroup_by_id(&self, id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -93,7 +93,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nDelete an autocommand group by name.\n\nNOTE: behavior differs from |:augroup-delete|. When deleting a group,\nautocommands contained in this group will also be deleted and cleared.\nThis group will no longer exist.\n"]
+    #[doc = "\nDelete an autocommand group by name.\n\nNOTE: behavior differs from :augroup-delete. When deleting a group,\nautocommands contained in this group will also be deleted and cleared.\nThis group will no longer exist.\n"]
     pub async fn del_augroup_by_name(&self, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -198,7 +198,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSets (replaces) a range in the buffer\n\nThis is recommended over |nvim_buf_set_lines()| when only modifying parts\nof a line, as extmarks will be preserved on non-modified parts of the\ntouched lines.\n\nIndexing is zero-based. Row indices are end-inclusive, and column indices\nare end-exclusive.\n\nTo insert text at a given (row, column) location, use\nstart_row = end_row = row and start_col = end_col = col. To delete the\ntext in a range, use replacement = {}.\n\nNote: Prefer |nvim_buf_set_lines()| (for performance) to add or delete\nentire lines.\nNote: Prefer |nvim_paste()| or |nvim_put()| to insert (instead of replace)\ntext at cursor.\n"]
+    #[doc = "\nSets (replaces) a range in the buffer\n\nThis is recommended over nvim_buf_set_lines() when only modifying parts\nof a line, as extmarks will be preserved on non-modified parts of the\ntouched lines.\n\nIndexing is zero-based. Row indices are end-inclusive, and column indices\nare end-exclusive.\n\nTo insert text at a given (row, column) location, use\nstart_row = end_row = row and start_col = end_col = col. To delete the\ntext in a range, use replacement = {}.\n\nNote: Prefer nvim_buf_set_lines() (for performance) to add or delete\nentire lines.\nNote: Prefer nvim_paste() or nvim_put() to insert (instead of replace)\ntext at cursor.\n"]
     pub async fn buf_set_text(
         &self,
         buffer: &Buffer,
@@ -368,7 +368,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSets the full file name for a buffer, like |:file_f|\n"]
+    #[doc = "\nSets the full file name for a buffer, like :file_f\n"]
     pub async fn buf_set_name(&self, buffer: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -417,7 +417,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSets a named mark in the given buffer, all marks are allowed\nfile/uppercase, visual, last change, etc. See |mark-motions|.\n\nMarks are (1,0)-indexed. |api-indexing|\n\nNote: Passing 0 as line deletes the mark\n"]
+    #[doc = "\nSets a named mark in the given buffer, all marks are allowed\nfile/uppercase, visual, last change, etc. See mark-motions.\n\nMarks are (1,0)-indexed. api-indexing\n\nNote: Passing 0 as line deletes the mark\n"]
     pub async fn buf_set_mark(
         &self,
         buffer: &Buffer,
@@ -464,7 +464,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nExecutes an Ex command.\n\nUnlike |nvim_command()| this command takes a structured Dict instead of a\nString. This allows for easier construction and manipulation of an Ex\ncommand. This also allows for things such as having spaces inside a\ncommand argument, expanding filenames in a command that otherwise does not\nexpand filenames, etc. Command arguments may also be Number, Boolean or\nString.\n\nThe first argument may also be used instead of count for commands that\nsupport it in order to make their usage simpler. For example, instead of\nvim.cmd.bdelete{ count = 2 }, you may do vim.cmd.bdelete(2).\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
+    #[doc = "\nExecutes an Ex command.\n\nUnlike nvim_command() this command takes a structured Dict instead of a\nString. This allows for easier construction and manipulation of an Ex\ncommand. This also allows for things such as having spaces inside a\ncommand argument, expanding filenames in a command that otherwise does not\nexpand filenames, etc. Command arguments may also be Number, Boolean or\nString.\n\nThe first argument may also be used instead of count for commands that\nsupport it in order to make their usage simpler. For example, instead of\nvim.cmd.bdelete{ count = 2 }, you may do vim.cmd.bdelete(2).\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
     pub async fn cmd(
         &self,
         cmd: HashMap<String, Value>,
@@ -477,7 +477,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCreates a global |user-commands| command.\n"]
+    #[doc = "\nCreates a global user-commands command.\n"]
     pub async fn create_user_command<T>(
         &self,
         name: &str,
@@ -572,7 +572,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCreates a new namespace or gets an existing one.\n\nNamespaces are used for buffer highlights and virtual text, see\n|nvim_buf_add_highlight()| and |nvim_buf_set_extmark()|.\n\nNamespaces can be named or anonymous. If name matches an existing\nnamespace, the associated id is returned. If name is an empty string a\nnew, anonymous namespace is created.\n"]
+    #[doc = "\nCreates a new namespace or gets an existing one.\n\nNamespaces are used for buffer highlights and virtual text, see\nnvim_buf_add_highlight() and nvim_buf_set_extmark().\n\nNamespaces can be named or anonymous. If name matches an existing\nnamespace, the associated id is returned. If name is an empty string a\nnew, anonymous namespace is created.\n"]
     pub async fn create_namespace(&self, name: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
@@ -677,7 +677,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nAdds a highlight to buffer.\n\nUseful for plugins that dynamically generate highlights to a buffer (like\na semantic highlighter or linter). The function adds a single highlight to\na buffer. Unlike |matchaddpos()| highlights follow changes to line\nnumbering (as lines are inserted/removed above the highlighted line), like\nsigns and marks do.\n\nNamespaces are used for batch deletion/updating of a set of highlights. To\ncreate a namespace, use |nvim_create_namespace()| which returns a\nnamespace id. Pass it in to this function as ns_id to add highlights to\nthe namespace. All highlights in the same namespace can then be cleared\nwith single call to |nvim_buf_clear_namespace()|. If the highlight never\nwill be deleted by an API call, pass ns_id = -1.\n\nAs a shorthand, ns_id = 0 can be used to create a new namespace for the\nhighlight, the allocated id is then returned. If hl_group is the empty\nstring no highlight is added, but a new ns_id is still returned. This is\nsupported for backwards compatibility, new code should use\n|nvim_create_namespace()| to create a new empty namespace.\n"]
+    #[doc = "\nAdds a highlight to buffer.\n\nUseful for plugins that dynamically generate highlights to a buffer (like\na semantic highlighter or linter). The function adds a single highlight to\na buffer. Unlike matchaddpos() highlights follow changes to line\nnumbering (as lines are inserted/removed above the highlighted line), like\nsigns and marks do.\n\nNamespaces are used for batch deletion/updating of a set of highlights. To\ncreate a namespace, use nvim_create_namespace() which returns a\nnamespace id. Pass it in to this function as ns_id to add highlights to\nthe namespace. All highlights in the same namespace can then be cleared\nwith single call to nvim_buf_clear_namespace(). If the highlight never\nwill be deleted by an API call, pass ns_id = -1.\n\nAs a shorthand, ns_id = 0 can be used to create a new namespace for the\nhighlight, the allocated id is then returned. If hl_group is the empty\nstring no highlight is added, but a new ns_id is still returned. This is\nsupported for backwards compatibility, new code should use\nnvim_create_namespace() to create a new empty namespace.\n"]
     pub async fn buf_add_highlight(
         &self,
         buffer: &Buffer,
@@ -958,7 +958,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nTells Nvim the number of elements displaying in the popupmenu, to decide\n<PageUp> and <PageDown> movement.\n"]
+    #[doc = "\nTells Nvim the number of elements displaying in the popupmenu, to decide\n*PageUp* and *PageDown* movement.\n"]
     pub async fn ui_pum_set_height(&self, height: i64) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1066,7 +1066,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSends input-keys to Nvim, subject to various quirks controlled by mode\nflags. This is a blocking call, unlike |nvim_input()|.\n\nOn execution error: does not fail, but updates v:errmsg.\n\nTo input sequences like <C-o> use |nvim_replace_termcodes()| (typically\nwith escape_ks=false) to replace |keycodes|, then pass the result to\nnvim_feedkeys().\n"]
+    #[doc = "\nSends input-keys to Nvim, subject to various quirks controlled by mode\nflags. This is a blocking call, unlike |nvim_input()|.\n\nOn execution error: does not fail, but updates v:errmsg.\n\nTo input sequences like *C-o* use |nvim_replace_termcodes()| (typically\nwith escape_ks=false) to replace |keycodes|, then pass the result to\nnvim_feedkeys().\n"]
     pub async fn feedkeys(&self, keys: &str, mode: &str, escape_ks: bool) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1078,14 +1078,14 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nQueues raw user-input. Unlike |nvim_feedkeys()|, this uses a low-level\ninput buffer and the call is non-blocking (input is processed\nasynchronously by the eventloop).\n\nTo input blocks of text, |nvim_paste()| is much faster and should be\npreferred.\n\nOn execution error: does not fail, but updates v:errmsg.\n\nNote: |keycodes| like <CR> are translated, so < is special. To input a\nliteral <, send <LT>.\n\nNote: For mouse events use |nvim_input_mouse()|. The pseudokey form\n<LeftMouse><col,row> is deprecated since |api-level| 6.\n"]
+    #[doc = "\nQueues raw user-input. Unlike |nvim_feedkeys()|, this uses a low-level\ninput buffer and the call is non-blocking (input is processed\nasynchronously by the eventloop).\n\nTo input blocks of text, |nvim_paste()| is much faster and should be\npreferred.\n\nOn execution error: does not fail, but updates v:errmsg.\n\nNote: |keycodes| like *CR* are translated, so < is special. To input a\nliteral *, send <LT*.\n\nNote: For mouse events use |nvim_input_mouse()|. The pseudokey form\n*LeftMouse**col,row* is deprecated since |api-level| 6.\n"]
     pub async fn input(&self, keys: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self.raw_request("nvim_input", &[to_value(&keys)?]).await?;
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSend mouse event from GUI.\n\nNon-blocking: does not wait on any result, but queues the event to be\nprocessed soon by the event loop.\n\nNote: Currently this does not support scripting multiple mouse events by\ncalling it multiple times in a loop: the intermediate mouse positions\nwill be ignored. It should be used to implement real-time mouse input\nin a GUI. The deprecated pseudokey form (<LeftMouse><col,row>) of\n|nvim_input()| has the same limitation.\n"]
+    #[doc = "\nSend mouse event from GUI.\n\nNon-blocking: does not wait on any result, but queues the event to be\nprocessed soon by the event loop.\n\nNote: Currently this does not support scripting multiple mouse events by\ncalling it multiple times in a loop: the intermediate mouse positions\nwill be ignored. It should be used to implement real-time mouse input\nin a GUI. The deprecated pseudokey form (*LeftMouse**col,row*) of\n|nvim_input()| has the same limitation.\n"]
     pub async fn input_mouse(
         &self,
         button: &str,
@@ -1112,7 +1112,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nReplaces terminal codes and |keycodes| (<CR>, <Esc>, ...) in a string with\nthe internal representation.\n"]
+    #[doc = "\nReplaces terminal codes and |keycodes| (*CR*, *Esc*, ...) in a string with\nthe internal representation.\n"]
     pub async fn replace_termcodes(
         &self,
         str: &str,
@@ -1161,7 +1161,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCalculates the number of display cells occupied by text. Control\ncharacters including <Tab> count as one cell.\n"]
+    #[doc = "\nCalculates the number of display cells occupied by text. Control\ncharacters including *Tab* count as one cell.\n"]
     pub async fn strwidth(&self, text: &str) -> Result<i64> {
         #[allow(unused_variables)]
         let ret = self
@@ -1383,7 +1383,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSend data to channel. For a job, it writes it to the stdin of the\nprocess. For the stdio channel |channel-stdio|, it writes to Nvim's\nstdout. For an internal terminal instance (|nvim_open_term()|) it writes\ndirectly to terminal output. See |channel-bytes| for more information.\n\nThis function writes raw data, not RPC messages. If the channel was\ncreated with rpc=true then the channel expects RPC messages, use\n|vim.rpcnotify()| and |vim.rpcrequest()| instead.\n"]
+    #[doc = "\nSend data to channel. For a job, it writes it to the stdin of the\nprocess. For the stdio channel channel-stdio, it writes to Nvim's\nstdout. For an internal terminal instance (nvim_open_term()) it writes\ndirectly to terminal output. See channel-bytes for more information.\n\nThis function writes raw data, not RPC messages. If the channel was\ncreated with rpc=true then the channel expects RPC messages, use\nvim.rpcnotify() and vim.rpcrequest() instead.\n"]
     pub async fn chan_send(&self, chan: i64, data: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1503,7 +1503,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSets a global |mapping| for the given mode.\n\nTo set a buffer-local mapping, use |nvim_buf_set_keymap()|.\n\nUnlike |:map|, leading/trailing whitespace is accepted as part of the\n{lhs} or {rhs}. Empty {rhs} is <Nop>. |keycodes| are replaced as usual.\n"]
+    #[doc = "\nSets a global |mapping| for the given mode.\n\nTo set a buffer-local mapping, use |nvim_buf_set_keymap()|.\n\nUnlike |:map|, leading/trailing whitespace is accepted as part of the\n{lhs} or {rhs}. Empty {rhs} is *Nop*. |keycodes| are replaced as usual.\n"]
     pub async fn set_keymap(
         &self,
         mode: &str,
@@ -1526,7 +1526,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nUnmaps a global |mapping| for the given mode.\n\nTo unmap a buffer-local mapping, use |nvim_buf_del_keymap()|.\n"]
+    #[doc = "\nUnmaps a global mapping for the given mode.\n\nTo unmap a buffer-local mapping, use nvim_buf_del_keymap().\n"]
     pub async fn del_keymap(&self, mode: &str, lhs: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1608,7 +1608,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSelects an item in the completion popup menu.\n\nIf neither |ins-completion| nor |cmdline-completion| popup menu is active\nthis API call is silently ignored. Useful for an external UI using\n|ui-popupmenu| to control the popup menu with the mouse. Can also be used\nin a mapping; use <Cmd> |:map-cmd| or a Lua mapping to ensure the mapping\ndoes not end completion mode.\n"]
+    #[doc = "\nSelects an item in the completion popup menu.\n\nIf neither |ins-completion| nor |cmdline-completion| popup menu is active\nthis API call is silently ignored. Useful for an external UI using\n|ui-popupmenu| to control the popup menu with the mouse. Can also be used\nin a mapping; use *Cmd* |:map-cmd| or a Lua mapping to ensure the mapping\ndoes not end completion mode.\n"]
     pub async fn select_popupmenu_item(
         &self,
         item: i64,
@@ -1631,7 +1631,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nDeletes an uppercase/file named mark. See |mark-motions|.\n\nNote: Lowercase name (or other buffer-local mark) is an error.\n"]
+    #[doc = "\nDeletes an uppercase/file named mark. See mark-motions.\n\nNote: Lowercase name (or other buffer-local mark) is an error.\n"]
     pub async fn del_mark(&self, name: &str) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
@@ -1675,7 +1675,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nExecutes an Ex command.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n\nPrefer |nvim_cmd()| or |nvim_exec2()| instead. To modify an Ex command in\na structured way before executing it, modify the result of\n|nvim_parse_cmd()| then pass it to |nvim_cmd()|.\n"]
+    #[doc = "\nExecutes an Ex command.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n\nPrefer nvim_cmd() or nvim_exec2() instead. To modify an Ex command in\na structured way before executing it, modify the result of\nnvim_parse_cmd() then pass it to nvim_cmd().\n"]
     pub async fn command(&self, command: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1684,7 +1684,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nEvaluates a Vimscript |expression|. Dicts and Lists are recursively\nexpanded.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
+    #[doc = "\nEvaluates a Vimscript expression. Dicts and Lists are recursively\nexpanded.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
     pub async fn eval(&self, expr: &str) -> Result<Value> {
         #[allow(unused_variables)]
         let ret = self.raw_request("nvim_eval", &[to_value(&expr)?]).await?;

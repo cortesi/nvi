@@ -201,14 +201,17 @@ fn mk_arg_value(p: &api::Parameter) -> TokenStream {
 
 /// Retrieves and formats the documentation for a given function name.
 fn get_docs(name: &str) -> Option<String> {
+    use regex::Regex;
     use std::io::{stderr, Write};
 
     let docs = crate::docs::DOCS
         .iter()
         .find(|(n, _)| *n == name)
         .map(|(_, doc)| {
+            let re = Regex::new(r"<([^>]+)>").unwrap();
             doc.lines()
                 .map(|line| line.trim())
+                .map(|line| re.replace_all(line, "*$1*").to_string())
                 .collect::<Vec<_>>()
                 .join("\n")
         });

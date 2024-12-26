@@ -3,17 +3,18 @@
 set -e 
 
 PROMPT="
-Update the list of docs in docs.rs. Make sure ALL functions are documented.
-Leave up to date docs intact.
+Update docs.rs. Make sure ALL functions are documented. 
 
 - Please include all paragraphs of documentation, but omit parameter docs. 
-- Format docs to be appropriate for a Rust doc comment. 
-- Remove tag contents and italicise them, eg. <PageUp>  -> *PageUp*
+- Format docs to be appropriate for a Rust doc comment text (without the leading ///).
 - Use only ASCII. 
 - Never include double quotes. 
-- Modify docs.rs in-place.
+- Change only what's needed in-place with <replace>.
+- In the vim documentation links are written as |link|, please remove the pipes
+and enclose the word in bacticks like this: \`word\`.
+- Work in batches. I will ask you to continue after reviewing your changes.
 "
 
 tenx new
 tenx ctx url "https://raw.githubusercontent.com/neovim/neovim/refs/heads/master/runtime/doc/api.txt"
-tenx code --prompt "$PROMPT" crates/protoc/src/docs.rs
+tenx --model deepseek code --prompt "$PROMPT" crates/protoc/src/docs.rs
