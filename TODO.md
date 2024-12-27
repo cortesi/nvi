@@ -2,6 +2,7 @@
 # Questions
 
 - Extract an nvi-ui library?
+- Derive for autocmds?
 
 
 # Design
@@ -14,7 +15,7 @@
 - nvi-nav
 
 
-# Development
+# Dev tools
 
 - nvic live rebuild/reconnect
 - nvic run should inject a truss that consumes logs from the client and sends

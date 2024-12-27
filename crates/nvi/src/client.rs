@@ -1,3 +1,4 @@
+//! A Neovim client. This is the primary interface for interacting with Neovim from a service.
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -39,11 +40,15 @@ impl Client {
         }
     }
 
+    /// Get the current working directory from Neovim.
     pub async fn getcwd(&self) -> Result<PathBuf> {
         let r = self.nvim.exec_lua("return vim.fn.getcwd()", vec![]).await?;
         Ok(r.as_str().unwrap().into())
     }
 
+    /// Register an RPC method in Neovim. This creates a Lua function under the specified namespace
+    /// that will send an RPC message back to this client when called. The `kind` parameter
+    /// specifies whether this is a request or notification method.
     async fn register_method<P>(
         &mut self,
         kind: &str,
@@ -222,7 +227,7 @@ impl Client {
         };
 
         let namespace = &self.name;
-        // We execute a Lua function here, because we need to specify a callback function for the
+        // We execute a Lua function here because we need to specify a callback function for the
         // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
         let ret = self
             .nvim

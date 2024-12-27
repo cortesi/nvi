@@ -1,4 +1,4 @@
-/* A compendium of types for working with the Neovim msgrpc API */
+//! A compendium of types for working with the Neovim msgrpc API
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{serde_as, Bytes, NoneAsEmptyString};
@@ -169,130 +169,251 @@ pub struct AutocmdEvent {
     pub data: Option<crate::Value>,
 }
 
-/// Autocommand events. See here for documentation: https://neovim.io/doc/user/autocmd.html#autocmd-events
+/// Autocommand events. See here for documentation:
+/// https://neovim.io/doc/user/autocmd.html#autocmd-events
 #[derive(
     Debug, Clone, PartialEq, Eq, strum::Display, strum::EnumString, Deserialize, Serialize,
 )]
 pub enum Event {
+    /// After adding a new buffer or existing unlisted buffer to the buffer list
     BufAdd,
+    /// Before deleting a buffer from the buffer list
     BufDelete,
+    /// After entering (visiting, switching-to) a new or existing buffer
     BufEnter,
+    /// After changing the name of the current buffer with `:file` or `:saveas`
     BufFilePost,
+    /// Before changing the name of the current buffer with `:file` or `:saveas`
     BufFilePre,
+    /// Before a buffer becomes hidden
     BufHidden,
+    /// Before leaving to another buffer
     BufLeave,
+    /// After creating a new buffer or renaming an existing buffer
     BufNew,
+    /// After the `modified` value of a buffer has been changed
     BufModifiedSet,
+    /// When starting to edit a file that doesn't exist
     BufNewFile,
+    /// When starting to edit a new buffer, after reading the file into the buffer
     BufRead,
+    /// After reading a file into a buffer
     BufReadPost,
+    /// Before a buffer is removed from a window
     BufWinLeave,
+    /// Before completely deleting a buffer
     BufWipeout,
+    /// Before writing the whole buffer to a file
     BufWrite,
+    /// Before writing the whole buffer to a file
     BufWritePre,
+    /// After writing the whole buffer to a file
     BufWritePost,
+    /// Before writing the whole buffer to a file (should do the writing)
     BufWriteCmd,
+    /// State of channel changed, for instance the client of a RPC channel described itself
     ChanInfo,
+    /// Just after a channel was opened
     ChanOpen,
+    /// When a user command is used but it isn't defined
     CmdUndefined,
+    /// After a change was made to the text inside command line
     CmdlineChanged,
+    /// After entering the command-line
     CmdlineEnter,
+    /// Before leaving the command-line
     CmdlineLeave,
+    /// After entering the command-line window
     CmdwinEnter,
+    /// Before leaving the command-line window
     CmdwinLeave,
+    /// After loading a color scheme
     ColorScheme,
+    /// Before loading a color scheme
     ColorSchemePre,
+    /// After each time the Insert mode completion menu changed
     CompleteChanged,
+    /// After Insert mode completion is done, before clearing completion info
     CompleteDonePre,
+    /// After Insert mode completion is done
     CompleteDone,
+    /// When the user doesn't press a key for the time specified with `updatetime`
     CursorHold,
+    /// Like `CursorHold`, but in Insert mode
     CursorHoldI,
+    /// After the cursor was moved in Normal or Visual mode
     CursorMoved,
+    /// After the cursor was moved in Insert mode
     CursorMovedI,
+    /// After diffs have been updated
     DiffUpdated,
+    /// After the current directory was changed
     DirChanged,
+    /// When the current directory is going to be changed
     DirChangedPre,
+    /// When using `:quit`, `:wq` in a way it makes Vim exit
     ExitPre,
+    /// Before appending to a file
     FileAppendCmd,
+    /// After appending to a file
     FileAppendPost,
+    /// Before appending to a file
     FileAppendPre,
+    /// Before making the first change to a read-only file
     FileChangedRO,
+    /// When Vim notices that the modification time of a file has changed
     FileChangedShell,
+    /// After handling a file that was changed outside of Vim
     FileChangedShellPost,
+    /// Before reading a file with a `:read` command
     FileReadCmd,
+    /// After reading a file with a `:read` command
     FileReadPost,
+    /// Before reading a file with a `:read` command
     FileReadPre,
+    /// When the `filetype` option has been set
     FileType,
+    /// Before writing to a file, when not writing the whole buffer
     FileWriteCmd,
+    /// After writing to a file, when not writing the whole buffer
     FileWritePost,
+    /// Before writing to a file, when not writing the whole buffer
     FileWritePre,
+    /// After reading a file from a filter command
     FilterReadPost,
+    /// Before reading a file from a filter command
     FilterReadPre,
+    /// After writing a file for a filter command
     FilterWritePost,
+    /// Before writing a file for a filter command
     FilterWritePre,
+    /// Nvim got focus
     FocusGained,
+    /// Nvim lost focus
     FocusLost,
+    /// When a user function is used but it isn't defined
     FuncUndefined,
+    /// After a UI connects via `nvim_ui_attach()`
     UIEnter,
+    /// After a UI disconnects from Nvim
     UILeave,
+    /// When typing `<Insert>` while in Insert or Replace mode
     InsertChange,
+    /// When a character is typed in Insert mode, before inserting the char
     InsertCharPre,
+    /// Just before starting Insert mode
     InsertEnter,
+    /// Just before leaving Insert mode
     InsertLeavePre,
+    /// Just after leaving Insert mode
     InsertLeave,
+    /// Just before showing the popup menu (under the right mouse button)
     MenuPopup,
+    /// After changing the mode
     ModeChanged,
+    /// After setting an option
     OptionSet,
+    /// Before a quickfix command is run
     QuickFixCmdPre,
+    /// After a quickfix command is run
     QuickFixCmdPost,
+    /// When using `:quit`, `:wq` or `:qall`, before deciding whether it closes the current window
     QuitPre,
+    /// When a reply from a Vim that functions as server was received
     RemoteReply,
+    /// After making a search with `n` or `N` if the search wraps around the document
     SearchWrapped,
+    /// When a macro starts recording
     RecordingEnter,
+    /// When a macro stops recording
     RecordingLeave,
+    /// When nothing is pending, going to wait for the user to type a character
     SafeState,
+    /// After loading the session file created using `:mksession`
     SessionLoadPost,
+    /// After writing a session file by calling `:mksession`
     SessionWritePost,
+    /// After executing a shell command with `:!cmd`, `:make` and `:grep`
     ShellCmdPost,
+    /// After Nvim receives a signal
     Signal,
+    /// After executing a shell command with `:{range}!cmd`, `:w !cmd` or `:r !cmd`
     ShellFilterPost,
+    /// Before sourcing a Vimscript/Lua file
     SourcePre,
+    /// After sourcing a Vimscript/Lua file
     SourcePost,
+    /// When sourcing a Vimscript/Lua file
     SourceCmd,
+    /// When trying to load a spell checking file and it can't be found
     SpellFileMissing,
+    /// During startup, after reading from stdin into the buffer
     StdinReadPost,
+    /// During startup, before reading from stdin into the buffer
     StdinReadPre,
+    /// Detected an existing swap file when starting to edit a file
     SwapExists,
+    /// When the `syntax` option has been set
     Syntax,
+    /// Just after entering a tab page
     TabEnter,
+    /// Just before leaving a tab page
     TabLeave,
+    /// When creating a new tab page
     TabNew,
+    /// After entering a new tab page
     TabNewEntered,
+    /// After closing a tab page
     TabClosed,
+    /// When a terminal job is starting
     TermOpen,
+    /// After entering Terminal-mode
     TermEnter,
+    /// After leaving Terminal-mode
     TermLeave,
+    /// When a terminal job ends
     TermClose,
+    /// When a `:terminal` child process emits an OSC or DCS sequence
     TermRequest,
+    /// When Nvim receives an OSC or DCS response from the host terminal
     TermResponse,
+    /// After a change was made to the text in the current buffer in Normal mode
     TextChanged,
+    /// After a change was made to the text in the current buffer in Insert mode
     TextChangedI,
+    /// After a change was made to the text in the current buffer in Insert mode, only when the popup menu is visible
     TextChangedP,
+    /// After a change was made to the text in the current buffer in Terminal-mode
     TextChangedT,
+    /// Just after a yank or deleting command
     TextYankPost,
+    /// Not executed automatically. Use `:doautocmd` to trigger this
     User,
+    /// When the user presses the same key 42 times. Just kidding! :-)
     UserGettingBored,
+    /// After doing all the startup stuff, including loading vimrc files
     VimEnter,
+    /// Before exiting Vim, just after writing the `.shada` file
     VimLeave,
+    /// Before exiting Vim, just before writing the `.shada` file
     VimLeavePre,
+    /// After the Vim window was resized
     VimResized,
+    /// After Nvim resumes from suspend state
     VimResume,
+    /// Before Nvim enters suspend state
     VimSuspend,
+    /// When closing a window, just before it is removed from the window layout
     WinClosed,
+    /// After entering another window
     WinEnter,
+    /// Before leaving a window
     WinLeave,
+    /// When a new window was created
     WinNew,
+    /// After any window in the current tab page scrolled the text
     WinScrolled,
+    /// After a window in the current tab page changed width or height
     WinResized,
 }
 
@@ -361,8 +482,7 @@ pub enum Anchor {
     SE,
 }
 
-/// A group specification, used in many command options. Groups can be specified as either a string
-/// name, or as a numeric ID.
+/// Plain text, or a sequence of highlights.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Text {
@@ -372,8 +492,7 @@ pub enum Text {
     Highlights(Vec<(String, String)>),
 }
 
-/// A group specification, used in many command options. Groups can be specified as either a string
-/// name, or as a numeric ID.
+/// A border specification.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 #[serde(untagged)]
@@ -387,6 +506,7 @@ pub enum Border {
     Array(Vec<String>),
 }
 
+/// Window configuration options.
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Setters, Default)]
 #[setters(strip_option)]
