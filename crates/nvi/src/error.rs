@@ -1,7 +1,9 @@
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Nvi standard error types
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// Error connecting to a server
     #[error("connection error: {msg:}")]
     Connect { msg: String },
     #[error("request timed out: {method:}")]
@@ -14,8 +16,6 @@ pub enum Error {
     IO { msg: String },
     #[error("remote error: {0:}")]
     RemoteError(rmpv::Value),
-    #[error("unimplemented")]
-    Unimplemented,
     #[error("internal: {msg:}")]
     Internal { msg: String },
     #[error("{0}")]

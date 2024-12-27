@@ -16,7 +16,7 @@ pub trait NviService: Clone + Sync + Send + 'static {
 
     /// Bootstrapping that happens after connecting to the remote service, but before the run
     /// method is called. This method should execute and exit. Typically, this method will be
-    /// derived with the `nvim_service` annotation.
+    /// derived with the `nvim_service` annotation, and should not be over-ridden by the user.
     async fn bootstrap(&self, client: &mut Client) -> Result<()> {
         Ok(())
     }

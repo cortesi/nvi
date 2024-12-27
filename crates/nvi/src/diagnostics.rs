@@ -334,8 +334,7 @@ pub struct Jump {
 }
 
 /// Configuration options for sorting diagnostics by severity.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
-#[setters(strip_option)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
 pub struct SeveritySort {
     /// Reverse sort order
     pub reverse: Option<bool>,

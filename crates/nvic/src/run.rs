@@ -69,15 +69,18 @@ pub async fn start_plugin(
     Ok(())
 }
 
-pub async fn run(path: &str, headless: bool, trace: bool, lua: Option<String>) -> Result<()> {
-    let tempdir = tempfile::tempdir()?;
-    let socket_path = tempdir.path().join("nvic.socket");
-
+pub async fn run(
+    path: &str,
+    headless: bool,
+    trace: bool,
+    lua: Option<String>,
+    socket_path: std::path::PathBuf,
+) -> Result<()> {
     build_plugin(path.to_string()).await?;
 
     let nvim = start_nvim(socket_path.clone(), headless, lua);
 
-    let plugin = start_plugin(path.to_string(), socket_path, trace, headless);
+    let plugin = start_plugin(path.to_string(), socket_path, trace, !headless);
     tokio::spawn(async move {
         match plugin.await {
             Ok(_) => println!("plugin exited"),

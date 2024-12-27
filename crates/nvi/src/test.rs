@@ -1,15 +1,19 @@
-use std::process::Stdio;
+//! Utilities for writing tests for Nvi plugins.
+use std::{os::unix::process::CommandExt, process::Stdio};
 
-use nix::sys::signal::{killpg, Signal};
-use nix::unistd::Pid;
-use std::os::unix::process::CommandExt;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::select;
-use tokio::{process::Command, sync::broadcast};
+use nix::{
+    sys::signal::{killpg, Signal},
+    unistd::Pid,
+};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+    select,
+    sync::broadcast,
+};
 
 use crate::{connect_unix, error::Result, NviService};
 
-/// Start a neovim process, and wait for a signal on the broadcast channel to trigger termination.
 /// Start a neovim process, and wait for a signal on the broadcast channel to trigger termination.
 pub async fn start_nvim(
     mut termrx: broadcast::Receiver<()>,

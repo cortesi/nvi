@@ -27,7 +27,7 @@ enum Commands {
     },
 }
 
-pub async fn inner_run<T>(service: T) -> Result<()>
+async fn inner_run<T>(service: T) -> Result<()>
 where
     T: NviService + Unpin + Sync + 'static,
 {
@@ -48,6 +48,7 @@ where
     Ok(())
 }
 
+/// Expose the standard Nvi command line interface. Call this from your your `main` function.
 pub async fn run<T>(service: T)
 where
     T: NviService + Unpin + Sync + 'static,

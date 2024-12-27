@@ -12,7 +12,9 @@ struct Cli {
     command: Option<Commands>,
 }
 
-const DEFAULT_SOCKET_PATH: &str = "nvic.socket";
+fn default_socket_path() -> std::path::PathBuf {
+    std::env::temp_dir().join("nvic.socket")
+}
 
 #[derive(Subcommand)]
 enum Commands {
@@ -72,22 +74,28 @@ async fn main() -> Result<()> {
             path,
             trace,
             lua,
-        }) => run::run(path, *headless, *trace, lua.clone()).await?,
+        }) => run::run(path, *headless, *trace, lua.clone(), default_socket_path()).await?,
         Some(Commands::Nvim {
             headless,
             lua,
             socket,
         }) => {
-            let socket_path = socket.as_deref().unwrap_or(DEFAULT_SOCKET_PATH);
-            run::start_nvim(socket_path.into(), *headless, lua.clone()).await?
+            let socket_path = socket
+                .as_deref()
+                .map(Into::into)
+                .unwrap_or_else(default_socket_path);
+            run::start_nvim(socket_path, *headless, lua.clone()).await?
         }
         Some(Commands::Plugin {
             trace,
             socket,
             path,
         }) => {
-            let socket_path = socket.as_deref().unwrap_or(DEFAULT_SOCKET_PATH);
-            run::start_plugin(path.to_string(), socket_path.into(), *trace, false).await?
+            let socket_path = socket
+                .as_deref()
+                .map(Into::into)
+                .unwrap_or_else(default_socket_path);
+            run::start_plugin(path.to_string(), socket_path, *trace, false).await?
         }
         None => {
             unreachable!()

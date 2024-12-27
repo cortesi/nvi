@@ -1,11 +1,11 @@
 mod client;
 mod connect;
+mod nvim_api;
 mod service;
 
 pub mod cmd;
 pub mod diagnostics;
 pub mod error;
-mod nvim_api;
 pub mod opts;
 pub mod test;
 pub mod types;
