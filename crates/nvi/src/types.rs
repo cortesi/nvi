@@ -193,6 +193,8 @@ pub enum Event {
     BufNew,
     /// After the `modified` value of a buffer has been changed
     BufModifiedSet,
+    /// Before reading a file into a buffer
+    BufReadPre,
     /// When starting to edit a file that doesn't exist
     BufNewFile,
     /// When starting to edit a new buffer, after reading the file into the buffer
@@ -211,6 +213,8 @@ pub enum Event {
     BufWritePost,
     /// Before writing the whole buffer to a file (should do the writing)
     BufWriteCmd,
+    /// Before unloading a buffer, when the text in the buffer is going to be freed
+    BufUnload,
     /// State of channel changed, for instance the client of a RPC channel described itself
     ChanInfo,
     /// Just after a channel was opened
