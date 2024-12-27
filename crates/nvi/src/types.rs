@@ -430,6 +430,15 @@ pub enum Group {
     Id(u64),
 }
 
+impl Group {
+    pub fn to_lua_arg(&self) -> String {
+        match self {
+            Group::Name(s) => s.clone(),
+            Group::Id(i) => format!("'{}'", i),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LogLevel {
     Trace = 0,

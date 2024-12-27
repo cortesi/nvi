@@ -180,26 +180,81 @@ impl Client {
         self.notify(types::LogLevel::Error, msg).await
     }
 
-    // pub async fn autocmd_buflocal(
-    //     &self,
-    //     rpc_request: &str,
-    //     events: &[types::Event],
-    //     buffer: Option<u64>,
-    //     group: Option<u64>,
-    //     once: bool,
-    //     nested: bool,
-    // ) -> Result<()> {
-    //     Ok(())
-    // }
-
-    // FIXME: Maybe a higher-level interface here. We can clear the autocmds before setting, which
-    // is what we want by default.
-    pub async fn autocmd(
+    /// Set an autocmd for a buffer.
+    pub async fn autocmd_buffer(
         &self,
+        buffer: types::Buffer,
         rpc_request: &str,
         events: &[types::Event],
+        group: Option<types::Group>,
+        once: bool,
+        nested: bool,
+    ) -> Result<u64> {
+        // Vim autocommands can return values through several mechanisms:
+        //
+        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to control
+        //    autocommand lifecycle
+        // 2. Special variables in the input object that get modified (v:swapchoice, v:fcs_choice,
+        //    v:event.abort) to control Vim behavior
+        // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd, FileWriteCmd, etc.)
+        // 4. Event data modifications (CompleteChanged event)
+        //
+        // Modifying variables in the input object specifically is not covered by the current API.
+
+        if events.is_empty() {
+            return Err(Error::Internal {
+                msg: "events must not be empty".into(),
+            });
+        }
+        let events = events
+            .iter()
+            .map(|e| format!("\"{}\"", e))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let group = if let Some(g) = group {
+            let arg = g.to_lua_arg();
+            format!("group = {arg},")
+        } else {
+            "".to_string()
+        };
+        let bufno: u64 = buffer.into();
+
+        let namespace = &self.name;
+        // We execute a Lua function here because we need to specify a callback function for the
+        // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
+        let ret = self
+            .nvim
+            .exec_lua(
+                &format!(
+                    r#"
+                        return vim.api.nvim_create_autocmd(
+                            {{ {events} }},
+                            {{
+                                buffer = {bufno},
+                                once = {once},
+                                nested = {nested},
+                                {group}
+                                callback = function(ev)
+                                  {namespace}.{rpc_request}(ev)
+                                end
+                            }}
+                        )
+                    "#,
+                ),
+                vec![],
+            )
+            .await?;
+        Ok(ret.as_u64().unwrap())
+    }
+
+    /// Set an autocmd for a set of patterns.
+    pub async fn autocmd_pattern(
+        &self,
         patterns: &[String],
-        group: Option<u64>,
+        rpc_request: &str,
+        events: &[types::Event],
+        group: Option<types::Group>,
         once: bool,
         nested: bool,
     ) -> Result<u64> {
@@ -232,7 +287,8 @@ impl Client {
             .join(", ");
 
         let group = if let Some(g) = group {
-            format!("group = {g},")
+            let arg = g.to_lua_arg();
+            format!("group = {arg},")
         } else {
             "".to_string()
         };
