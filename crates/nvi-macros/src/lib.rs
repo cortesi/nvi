@@ -5,9 +5,9 @@ use syn::{punctuated::Punctuated, spanned::Spanned, Expr, ExprLit, Lit, Meta, To
 
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 
-const CONNECTED: &str = "connected";
-
 type Result<T> = std::result::Result<T, Diagnostic>;
+
+const CONNECTED: &str = "connected";
 
 const RPC: &str = "request";
 const RPC_NOTIFICATION: &str = "notify";
@@ -22,6 +22,7 @@ enum MethodType {
     Request,
     Notify,
     Connected,
+    AutoCmd,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -217,62 +218,76 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         } else if a.path().is_ident(RPC_AUTOCMD) {
             message_type = Some(MethodType::Request);
             if let Meta::List(list) = &a.meta {
-                let mut events = vec![];
                 let mut patterns = vec![];
                 let mut group = None;
                 let mut nested = false;
+                let mut events = vec![];
 
-                for nested_meta in
-                    list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?
-                {
-                    match nested_meta {
-                        Meta::NameValue(meta) if meta.path.is_ident(RPC_AUTOCMD_EVENTS) => {
-                            if let Expr::Array(array) = &meta.value {
-                                for event in array.elems.iter() {
-                                    if let Expr::Lit(ExprLit {
-                                        lit: Lit::Str(lit), ..
-                                    }) = event
-                                    {
-                                        events.push(lit.value());
-                                    }
-                                }
-                            }
+                let nested_metas =
+                    list.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
+                let mut iter = nested_metas.iter();
+
+                // First argument must be an array of events
+                if let Some(Expr::Array(array)) = iter.next() {
+                    for event in array.elems.iter() {
+                        if let Expr::Lit(ExprLit {
+                            lit: Lit::Str(lit), ..
+                        }) = event
+                        {
+                            events.push(lit.value());
+                        } else {
+                            return Err(event.span().error("event must be a string literal"));
                         }
-                        Meta::NameValue(meta) if meta.path.is_ident(RPC_AUTOCMD_PATTERNS) => {
-                            if let Expr::Array(array) = &meta.value {
-                                for pattern in array.elems.iter() {
-                                    if let Expr::Lit(ExprLit {
-                                        lit: Lit::Str(lit), ..
-                                    }) = pattern
-                                    {
-                                        patterns.push(lit.value());
-                                    }
-                                }
-                            }
-                        }
-                        Meta::NameValue(meta) if meta.path.is_ident(RPC_AUTOCMD_GROUP) => {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Str(lit), ..
-                            }) = &meta.value
-                            {
-                                group = Some(lit.value());
-                            }
-                        }
-                        Meta::NameValue(meta) if meta.path.is_ident(RPC_AUTOCMD_NESTED) => {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Bool(lit),
-                                ..
-                            }) = &meta.value
-                            {
-                                nested = lit.value();
-                            }
-                        }
-                        _ => return Err(a.span().error("invalid autocmd attribute")),
                     }
+                } else {
+                    return Err(a
+                        .span()
+                        .error("first argument must be an array of event strings"));
                 }
 
                 if events.is_empty() {
-                    return Err(a.span().error("autocmd must specify events"));
+                    return Err(a.span().error("autocmd must specify at least one event"));
+                }
+
+                // Parse optional named arguments
+                for meta in iter {
+                    if let Expr::Assign(assign) = meta {
+                        if let Expr::Path(path) = &*assign.left {
+                            let ident = path.path.get_ident().unwrap().to_string();
+                            match ident.as_str() {
+                                "patterns" => {
+                                    if let Expr::Array(array) = &*assign.right {
+                                        for pattern in array.elems.iter() {
+                                            if let Expr::Lit(ExprLit {
+                                                lit: Lit::Str(lit), ..
+                                            }) = pattern
+                                            {
+                                                patterns.push(lit.value());
+                                            }
+                                        }
+                                    }
+                                }
+                                "group" => {
+                                    if let Expr::Lit(ExprLit {
+                                        lit: Lit::Str(lit), ..
+                                    }) = &*assign.right
+                                    {
+                                        group = Some(lit.value());
+                                    }
+                                }
+                                "nested" => {
+                                    if let Expr::Lit(ExprLit {
+                                        lit: Lit::Bool(lit),
+                                        ..
+                                    }) = &*assign.right
+                                    {
+                                        nested = lit.value();
+                                    }
+                                }
+                                _ => return Err(meta.span().error("invalid autocmd attribute")),
+                            }
+                        }
+                    }
                 }
 
                 autocmd = Some(AutoCmd {
@@ -572,6 +587,15 @@ pub fn notify(
     input
 }
 
+/// Mark a method as an AutoCommand.
+#[proc_macro_attribute]
+pub fn autocmd(
+    _attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    input
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -762,7 +786,7 @@ mod tests {
     fn it_parses_autocmd() {
         let s = quote! {
             impl Test {
-                #[autocmd(events=["BufEnter", "BufLeave"], patterns=["*.rs"], group="test", nested=true)]
+                #[autocmd(["BufEnter", "BufLeave"], patterns=["*.rs"], group="test", nested=true)]
                 async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                     Ok(())
                 }
@@ -779,6 +803,110 @@ mod tests {
                 events: vec!["BufEnter".into(), "BufLeave".into()],
                 patterns: vec!["*.rs".into()],
                 group: Some("test".into()),
+                nested: true,
+            })
+        );
+    }
+
+    #[test]
+    fn it_parses_autocmd_without_options() {
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"])]
+                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let result = parse_impl(&s);
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+
+        let (_, ret) = result.unwrap();
+        assert_eq!(
+            ret.methods[0].autocmd,
+            Some(AutoCmd {
+                events: vec!["BufEnter".into(), "BufLeave".into()],
+                patterns: vec![],
+                group: None,
+                nested: false,
+            })
+        );
+    }
+
+    #[test]
+    fn it_parses_autocmd_with_patterns() {
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"], patterns=["*.rs"])]
+                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let result = parse_impl(&s);
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+
+        let (_, ret) = result.unwrap();
+        assert_eq!(
+            ret.methods[0].autocmd,
+            Some(AutoCmd {
+                events: vec!["BufEnter".into(), "BufLeave".into()],
+                patterns: vec!["*.rs".into()],
+                group: None,
+                nested: false,
+            })
+        );
+    }
+
+    #[test]
+    fn it_parses_autocmd_with_group() {
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"], group="test")]
+                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let result = parse_impl(&s);
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+
+        let (_, ret) = result.unwrap();
+        assert_eq!(
+            ret.methods[0].autocmd,
+            Some(AutoCmd {
+                events: vec!["BufEnter".into(), "BufLeave".into()],
+                patterns: vec![],
+                group: Some("test".into()),
+                nested: false,
+            })
+        );
+    }
+
+    #[test]
+    fn it_parses_autocmd_with_nested() {
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"], nested=true)]
+                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let result = parse_impl(&s);
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+
+        let (_, ret) = result.unwrap();
+        assert_eq!(
+            ret.methods[0].autocmd,
+            Some(AutoCmd {
+                events: vec!["BufEnter".into(), "BufLeave".into()],
+                patterns: vec![],
+                group: None,
                 nested: true,
             })
         );

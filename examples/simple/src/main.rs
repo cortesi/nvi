@@ -1,3 +1,4 @@
+use nvi::AutocmdEvent;
 use nvi_macros::*;
 use std::sync::{Arc, Mutex};
 
@@ -45,6 +46,18 @@ impl Simple {
     #[request]
     async fn get(&self, _client: &mut nvi::Client) -> usize {
         *self.n.lock().unwrap()
+    }
+
+    /// The `#[autocmd]` attribute macro marks a method as an autocmd handler. Autocmds are methods
+    /// that are called when an event occurs in the editor. The only argument apart from client
+    /// must be an `AutocmdEvent`. This macro takes a list of event names, a
+    #[autocmd(["BufEnter", "BufLeave"], patterns=["*.rs"], group="test", nested=true)]
+    async fn on_buf_enter(
+        &self,
+        client: &mut nvi::Client,
+        evt: AutocmdEvent,
+    ) -> nvi::error::Result<()> {
+        client.info(&format!("bufenter: {:?}", evt)).await
     }
 
     // If the impl block has a method called `connected`, it will be called after connection to the
