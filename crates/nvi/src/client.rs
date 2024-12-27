@@ -203,6 +203,17 @@ impl Client {
         once: bool,
         nested: bool,
     ) -> Result<u64> {
+        // Vim autocommands can return values through several mechanisms:
+        //
+        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to control
+        //    autocommand lifecycle
+        // 2. Special variables in the input object that get modified (v:swapchoice, v:fcs_choice,
+        //    v:event.abort) to control Vim behavior
+        // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd, FileWriteCmd, etc.)
+        // 4. Event data modifications (CompleteChanged event)
+        //
+        // Modifying variables in the input object specifically is not covered by the current API.
+
         if events.is_empty() {
             return Err(Error::Internal {
                 msg: "events must not be empty".into(),
