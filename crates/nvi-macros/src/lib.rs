@@ -12,7 +12,6 @@ const CONNECTED: &str = "connected";
 const RPC: &str = "request";
 const RPC_NOTIFICATION: &str = "notify";
 const RPC_AUTOCMD: &str = "autocmd";
-const RPC_AUTOCMD_EVENTS: &str = "events";
 const RPC_AUTOCMD_PATTERNS: &str = "patterns";
 const RPC_AUTOCMD_GROUP: &str = "group";
 const RPC_AUTOCMD_NESTED: &str = "nested";
@@ -22,7 +21,6 @@ enum MethodType {
     Request,
     Notify,
     Connected,
-    AutoCmd,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -255,7 +253,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                         if let Expr::Path(path) = &*assign.left {
                             let ident = path.path.get_ident().unwrap().to_string();
                             match ident.as_str() {
-                                "patterns" => {
+                                RPC_AUTOCMD_PATTERNS => {
                                     if let Expr::Array(array) = &*assign.right {
                                         for pattern in array.elems.iter() {
                                             if let Expr::Lit(ExprLit {
@@ -267,7 +265,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                                         }
                                     }
                                 }
-                                "group" => {
+                                RPC_AUTOCMD_GROUP => {
                                     if let Expr::Lit(ExprLit {
                                         lit: Lit::Str(lit), ..
                                     }) = &*assign.right
@@ -275,7 +273,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                                         group = Some(lit.value());
                                     }
                                 }
-                                "nested" => {
+                                RPC_AUTOCMD_NESTED => {
                                     if let Expr::Lit(ExprLit {
                                         lit: Lit::Bool(lit),
                                         ..
@@ -404,6 +402,21 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         return Err(method
             .span()
             .error("notification methods must return Result<()> or be void"));
+    }
+
+    // Validate autocmd arguments
+    if autocmd.is_some() && !args.is_empty() {
+        if args.len() != 1 {
+            return Err(method
+                .span()
+                .error("autocmd must take exactly one argument of type AutocmdEvent"));
+        }
+        let arg = &args[0];
+        if arg.typ != "AutocmdEvent" && arg.typ != "nvi::AutocmdEvent" {
+            return Err(method
+                .span()
+                .error("autocmd argument must be of type AutocmdEvent"));
+        }
     }
 
     if message_type == MethodType::Connected {
@@ -783,11 +796,58 @@ mod tests {
     }
 
     #[test]
+    fn test_autocmd_validation() {
+        // Test valid autocmd with AutocmdEvent
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"])]
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: AutocmdEvent) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+        assert!(parse_impl(&s).is_ok());
+
+        // Test valid autocmd with nvi::AutocmdEvent
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"])]
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: nvi::AutocmdEvent) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+        assert!(parse_impl(&s).is_ok());
+
+        // Test invalid autocmd with wrong type
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"])]
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: String) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+        assert!(parse_impl(&s).is_err());
+
+        // Test invalid autocmd with multiple args
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter", "BufLeave"])]
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: AutocmdEvent, other: String) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+        assert!(parse_impl(&s).is_err());
+    }
+
+    #[test]
     fn it_parses_autocmd() {
         let s = quote! {
             impl Test {
                 #[autocmd(["BufEnter", "BufLeave"], patterns=["*.rs"], group="test", nested=true)]
-                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: AutocmdEvent) -> nvi::error::Result<()> {
                     Ok(())
                 }
             }
@@ -839,7 +899,7 @@ mod tests {
         let s = quote! {
             impl Test {
                 #[autocmd(["BufEnter", "BufLeave"], patterns=["*.rs"])]
-                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: AutocmdEvent) -> nvi::error::Result<()> {
                     Ok(())
                 }
             }
@@ -865,7 +925,7 @@ mod tests {
         let s = quote! {
             impl Test {
                 #[autocmd(["BufEnter", "BufLeave"], group="test")]
-                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: AutocmdEvent) -> nvi::error::Result<()> {
                     Ok(())
                 }
             }
@@ -891,7 +951,7 @@ mod tests {
         let s = quote! {
             impl Test {
                 #[autocmd(["BufEnter", "BufLeave"], nested=true)]
-                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                async fn test_autocmd(&self, client: &mut nvi::Client, event: AutocmdEvent) -> nvi::error::Result<()> {
                     Ok(())
                 }
             }
