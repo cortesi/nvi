@@ -649,6 +649,15 @@ mod tests {
     }
 
     #[test]
+    fn test_event_from_str() {
+        use std::str::FromStr;
+        assert_eq!(Event::from_str("User").unwrap(), Event::User);
+        assert_eq!(Event::from_str("BufAdd").unwrap(), Event::BufAdd);
+        assert_eq!(Event::from_str("ColorScheme").unwrap(), Event::ColorScheme);
+        assert!(Event::from_str("InvalidEvent").is_err());
+    }
+
+    #[test]
     fn test_serialize_group() {
         let group = Group::Name("test".to_string());
         let serialized = serde_rmpv::to_value(&group).unwrap();

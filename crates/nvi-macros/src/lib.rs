@@ -3,7 +3,8 @@ use std::vec;
 use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, spanned::Spanned, Expr, ExprLit, Lit, Meta, Token};
 
-use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
+use macro_types::*;
+use proc_macro2_diagnostics::SpanDiagnosticExt;
 
 type Result<T> = std::result::Result<T, syn::Error>;
 
@@ -16,49 +17,6 @@ const RPC_AUTOCMD_PATTERNS: &str = "patterns";
 const RPC_AUTOCMD_GROUP: &str = "group";
 const RPC_AUTOCMD_NESTED: &str = "nested";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum MethodType {
-    Request,
-    Notify,
-    Connected,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-struct Arg {
-    name: String,
-    typ: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Return {
-    /// A void return
-    Void,
-    /// A Result<()> return
-    ResultVoid,
-    /// A Result with an inner type
-    Result(String),
-    /// A naked non-Result return
-    Type(String),
-}
-
-#[derive(Debug, Eq, PartialEq)]
-struct AutoCmd {
-    events: Vec<String>,
-    patterns: Vec<String>,
-    group: Option<String>,
-    nested: bool,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-struct Method {
-    name: String,
-    docs: String,
-    ret: Return,
-    message_type: MethodType,
-    args: Vec<Arg>,
-    autocmd: Option<AutoCmd>,
-}
-
 #[derive(Debug, Eq, PartialEq)]
 struct ImplBlock {
     name: String,
@@ -66,171 +24,169 @@ struct ImplBlock {
     run: Option<Method>,
 }
 
-impl Method {
-    fn bootstrap_clause(&self, namespace: &str) -> proc_macro2::TokenStream {
-        let method = self.name.clone();
+fn bootstrap_clause(m: &Method, namespace: &str) -> proc_macro2::TokenStream {
+    let method = m.name.clone();
 
-        // First create the RPC registration
-        let rpc_registration = if self.args.is_empty() {
-            // If we have no arguments, we must satisfy the compiler by specifying a generic type
-            // for the empty array.
-            if self.message_type == MethodType::Notify {
-                quote! {
-                    client.register_rpcnotify::<String>(#namespace, #method, &[]).await?;
-                }
-            } else {
-                quote! {
-                    client.register_rpcrequest::<String>(#namespace, #method, &[]).await?;
-                }
-            }
-        } else {
-            let args = self.args.clone().into_iter().map(|a| a.name.to_string());
-            if self.message_type == MethodType::Notify {
-                quote! {
-                    client.register_rpcnotify(#namespace, #method, &[#(#args),*]).await?;
-                }
-            } else {
-                quote! {
-                    client.register_rpcrequest(#namespace, #method, &[#(#args),*]).await?;
-                }
-            }
-        };
-
-        // Then add autocmd registration if needed
-        if let Some(autocmd) = &self.autocmd {
-            let events = autocmd.events.iter().collect::<Vec<_>>();
-            let patterns = &autocmd.patterns;
-            let once = false; // We don't support 'once' yet
-            let nested = autocmd.nested;
-            let group = if let Some(g) = &autocmd.group {
-                quote! { Some(nvi::types::Group::Name(#g.to_string())) }
-            } else {
-                quote! { None }
-            };
-
-            let events = events.iter().map(|e| {
-                let ident = syn::Ident::new(e, proc_macro2::Span::call_site());
-                quote! { nvi::types::Event::#ident }
-            });
+    // First create the RPC registration
+    let rpc_registration = if m.args.is_empty() {
+        // If we have no arguments, we must satisfy the compiler by specifying a generic type
+        // for the empty array.
+        if m.message_type == MethodType::Notify {
             quote! {
-                #rpc_registration
-                client.autocmd_pattern(
-                    &[#(#patterns.to_string()),*],
-                    #method,
-                    &[#(#events),*],
-                    #group,
-                    #once,
-                    #nested
-                ).await?;
+                client.register_rpcnotify::<String>(#namespace, #method, &[]).await?;
             }
         } else {
-            rpc_registration
+            quote! {
+                client.register_rpcrequest::<String>(#namespace, #method, &[]).await?;
+            }
         }
-    }
-
-    /// Output the invocation clause of a connecte function
-    fn connected_invocation(&self, name: syn::Ident) -> proc_macro2::TokenStream {
-        let method = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
-        match self.ret {
-            Return::Void => {
-                quote! {
-                        #name::#method(self, client).await;
-                }
+    } else {
+        let args = m.args.clone().into_iter().map(|a| a.name.to_string());
+        if m.message_type == MethodType::Notify {
+            quote! {
+                client.register_rpcnotify(#namespace, #method, &[#(#args),*]).await?;
             }
-            Return::ResultVoid => {
-                quote! {
-                        #name::#method(self, client).await?;
-                }
+        } else {
+            quote! {
+                client.register_rpcrequest(#namespace, #method, &[#(#args),*]).await?;
             }
-            _ => panic!("unreachable"),
         }
-    }
+    };
 
-    /// Output the invocation clause of a notify function
-    fn notify_invocation(&self) -> proc_macro2::TokenStream {
-        let name = self.name.clone();
-        let method = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
-        let mut args = vec![];
-        for (idx, _) in self.args.iter().enumerate() {
-            let a = quote! {
-                serde_rmpv::from_value(&params[#idx])?
-            };
-            args.push(a);
-        }
-
-        let inv = match self.ret {
-            Return::Void => {
-                quote! {
-                        self.#method(client, #(#args),*).await;
-                }
-            }
-            Return::ResultVoid => {
-                quote! {
-                        self.#method(client, #(#args),*).await?;
-                }
-            }
-            _ => panic!("unreachable"),
+    // Then add autocmd registration if needed
+    if let Some(autocmd) = &m.autocmd {
+        let events = autocmd.events.iter().collect::<Vec<_>>();
+        let patterns = &autocmd.patterns;
+        let once = false; // We don't support 'once' yet
+        let nested = autocmd.nested;
+        let group = if let Some(g) = &autocmd.group {
+            quote! { Some(nvi::types::Group::Name(#g.to_string())) }
+        } else {
+            quote! { None }
         };
 
+        let events = events.iter().map(|e| {
+            let ident = syn::Ident::new(e, proc_macro2::Span::call_site());
+            quote! { nvi::types::Event::#ident }
+        });
         quote! {
-            #name => {
-                #inv
+            #rpc_registration
+            client.autocmd_pattern(
+                &[#(#patterns.to_string()),*],
+                #method,
+                &[#(#events),*],
+                #group,
+                #once,
+                #nested
+            ).await?;
+        }
+    } else {
+        rpc_registration
+    }
+}
+
+/// Output the invocation clause of a connecte function
+fn connected_invocation(m: &Method, name: syn::Ident) -> proc_macro2::TokenStream {
+    let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
+    match m.ret {
+        Return::Void => {
+            quote! {
+                    #name::#method(self, client).await;
             }
         }
+        Return::ResultVoid => {
+            quote! {
+                    #name::#method(self, client).await?;
+            }
+        }
+        _ => panic!("unreachable"),
+    }
+}
+
+/// Output the invocation clause of a notify function
+fn notify_invocation(m: &Method) -> proc_macro2::TokenStream {
+    let name = m.name.clone();
+    let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
+    let mut args = vec![];
+    for (idx, _) in m.args.iter().enumerate() {
+        let a = quote! {
+            serde_rmpv::from_value(&params[#idx])?
+        };
+        args.push(a);
     }
 
-    /// Output the invocation clause of a request function
-    fn request_invocation(&self) -> proc_macro2::TokenStream {
-        let name = self.name.clone();
-        let method = syn::Ident::new(&self.name, proc_macro2::Span::call_site());
-        let mut args = vec![];
-        for (idx, _) in self.args.iter().enumerate() {
-            let a = quote! {
-                serde_rmpv::from_value(&params[#idx])
-                    .map_err(|e| nvi::Value::from(format!("{}", e)))?
-            };
-            args.push(a);
+    let inv = match m.ret {
+        Return::Void => {
+            quote! {
+                    self.#method(client, #(#args),*).await;
+            }
         }
+        Return::ResultVoid => {
+            quote! {
+                    self.#method(client, #(#args),*).await?;
+            }
+        }
+        _ => panic!("unreachable"),
+    };
 
-        let arg_len = self.args.len();
+    quote! {
+        #name => {
+            #inv
+        }
+    }
+}
 
-        let inv = match self.ret {
-            Return::Void => {
-                quote! {
-                        self.#method(client, #(#args),*).await;
-                        nvi::Value::Nil
-                }
-            }
-            Return::ResultVoid => {
-                quote! {
-                        self.#method(client, #(#args),*).await.map_err(|e| nvi::Value::from(format!("{}", e)))?;
-                        nvi::Value::Nil
-                }
-            }
-            Return::Result(_) => {
-                quote! {
-                        serde_rmpv::to_value(
-                            &self.#method(client, #(#args),*).await
-                                .map_err(|e| nvi::Value::from(format!("{}", e)))?
-                        ).map_err(|e| nvi::Value::from(format!("{}", e)))?
-                }
-            }
-            Return::Type(_) => {
-                quote! {
-                        serde_rmpv::to_value(
-                            &self.#method(client, #(#args),*).await
-                        ).map_err(|e| nvi::Value::from(format!("{}", e)))?
-                }
-            }
+/// Output the invocation clause of a request function
+fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
+    let name = m.name.clone();
+    let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
+    let mut args = vec![];
+    for (idx, _) in m.args.iter().enumerate() {
+        let a = quote! {
+            serde_rmpv::from_value(&params[#idx])
+                .map_err(|e| nvi::Value::from(format!("{}", e)))?
         };
+        args.push(a);
+    }
 
-        quote! {
-            #name => {
-                if params.len() != #arg_len {
-                    nvi::error::Result::Err(nvi::Value::from("invalid number of arguments"))?
-                }
-                #inv
+    let arg_len = m.args.len();
+
+    let inv = match m.ret {
+        Return::Void => {
+            quote! {
+                    self.#method(client, #(#args),*).await;
+                    nvi::Value::Nil
             }
+        }
+        Return::ResultVoid => {
+            quote! {
+                    self.#method(client, #(#args),*).await.map_err(|e| nvi::Value::from(format!("{}", e)))?;
+                    nvi::Value::Nil
+            }
+        }
+        Return::Result(_) => {
+            quote! {
+                    serde_rmpv::to_value(
+                        &self.#method(client, #(#args),*).await
+                            .map_err(|e| nvi::Value::from(format!("{}", e)))?
+                    ).map_err(|e| nvi::Value::from(format!("{}", e)))?
+            }
+        }
+        Return::Type(_) => {
+            quote! {
+                    serde_rmpv::to_value(
+                        &self.#method(client, #(#args),*).await
+                    ).map_err(|e| nvi::Value::from(format!("{}", e)))?
+            }
+        }
+    };
+
+    quote! {
+        #name => {
+            if params.len() != #arg_len {
+                nvi::error::Result::Err(nvi::Value::from("invalid number of arguments"))?
+            }
+            #inv
         }
     }
 }
@@ -566,21 +522,21 @@ fn inner_nvi_service(
         .methods
         .iter()
         .filter(|x| x.message_type != MethodType::Connected)
-        .map(|x| x.bootstrap_clause(&imp.name))
+        .map(|x| bootstrap_clause(x, &imp.name))
         .collect();
 
     let request_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
         .filter(|x| x.message_type == MethodType::Request)
-        .map(|x| x.request_invocation())
+        .map(request_invocation)
         .collect();
 
     let notify_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
         .filter(|x| x.message_type == MethodType::Notify)
-        .map(|x| x.notify_invocation())
+        .map(notify_invocation)
         .collect();
 
     let name = syn::Ident::new(&type_name, proc_macro2::Span::call_site());
@@ -590,7 +546,7 @@ fn inner_nvi_service(
         .methods
         .iter()
         .filter(|x| x.message_type == MethodType::Connected)
-        .map(|x| x.connected_invocation(name.clone()))
+        .map(|x| connected_invocation(x, name.clone()))
         .collect();
 
     if connected_invocations.len() > 1 {

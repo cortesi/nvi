@@ -583,6 +583,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
+name = "macro-types"
+version = "0.0.1"
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,6 +681,7 @@ dependencies = [
  "clap-verbosity-flag",
  "derive_setters",
  "futures",
+ "macro-types",
  "mrpc",
  "nix",
  "nvi-macros",
@@ -704,6 +709,7 @@ name = "nvi-macros"
 version = "0.0.1"
 dependencies = [
  "async-trait",
+ "macro-types",
  "nvi",
  "pretty_assertions",
  "proc-macro2",
