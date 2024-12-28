@@ -24,3 +24,5 @@
   them to neovim?
 - option to start neovim with the user's config intact
 - option to start plugins from installed binary
+- lua script to execute on startup (for setting up the environment)
+- neovim vim config file arg

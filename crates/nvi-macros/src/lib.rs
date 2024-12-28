@@ -49,7 +49,7 @@ fn notify_invocation(m: &Method) -> proc_macro2::TokenStream {
     let mut args = vec![];
     for (idx, _) in m.args.iter().enumerate() {
         let a = quote! {
-            serde_rmpv::from_value(&params[#idx])?
+            nvi::serde_rmpv::from_value(&params[#idx])?
         };
         args.push(a);
     }
@@ -82,7 +82,7 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
     let mut args = vec![];
     for (idx, _) in m.args.iter().enumerate() {
         let a = quote! {
-            serde_rmpv::from_value(&params[#idx])
+            nvi::serde_rmpv::from_value(&params[#idx])
                 .map_err(|e| nvi::Value::from(format!("{}", e)))?
         };
         args.push(a);
@@ -105,7 +105,7 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
         }
         Return::Result(_) => {
             quote! {
-                    serde_rmpv::to_value(
+                    nvi::serde_rmpv::to_value(
                         &self.#method(client, #(#args),*).await
                             .map_err(|e| nvi::Value::from(format!("{}", e)))?
                     ).map_err(|e| nvi::Value::from(format!("{}", e)))?
@@ -113,7 +113,7 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
         }
         Return::Type(_) => {
             quote! {
-                    serde_rmpv::to_value(
+                    nvi::serde_rmpv::to_value(
                         &self.#method(client, #(#args),*).await
                     ).map_err(|e| nvi::Value::from(format!("{}", e)))?
             }
@@ -563,7 +563,7 @@ fn inner_nvi_service(
     Ok(quote! {
         #output
 
-        #[async_trait::async_trait]
+        #[nvi::async_trait::async_trait]
         impl nvi::NviService for #name {
             fn name(&self) -> String {
                 #namestr.into()
