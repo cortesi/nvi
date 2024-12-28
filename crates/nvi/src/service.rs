@@ -10,6 +10,8 @@ use crate::{client::Client, error::Result, macro_types, types};
 
 pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
+/// The `NviService` trait is the way Nvi plugins are defined. Usually this is done with the
+/// `nvi_service` attribute macro, which generates the required methods for the trait.
 #[allow(unused_variables)]
 #[async_trait]
 pub trait NviService: Clone + Sync + Send + 'static {
@@ -243,4 +245,3 @@ where
         Ok(())
     }
 }
-
