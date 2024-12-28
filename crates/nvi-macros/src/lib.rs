@@ -5,7 +5,7 @@ use syn::{punctuated::Punctuated, spanned::Spanned, Expr, ExprLit, Lit, Meta, To
 
 use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 
-type Result<T> = std::result::Result<T, Diagnostic>;
+type Result<T> = std::result::Result<T, syn::Error>;
 
 const CONNECTED: &str = "connected";
 
@@ -234,17 +234,24 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                         {
                             events.push(lit.value());
                         } else {
-                            return Err(event.span().error("event must be a string literal"));
+                            return Err(syn::Error::new(
+                                event.span(),
+                                "event must be a string literal",
+                            ));
                         }
                     }
                 } else {
-                    return Err(a
-                        .span()
-                        .error("first argument must be an array of event strings"));
+                    return Err(syn::Error::new(
+                        a.span(),
+                        "first argument must be an array of event strings",
+                    ));
                 }
 
                 if events.is_empty() {
-                    return Err(a.span().error("autocmd must specify at least one event"));
+                    return Err(syn::Error::new(
+                        a.span(),
+                        "autocmd must specify at least one event",
+                    ));
                 }
 
                 // Parse optional named arguments
@@ -282,7 +289,12 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                                         nested = lit.value();
                                     }
                                 }
-                                _ => return Err(meta.span().error("invalid autocmd attribute")),
+                                _ => {
+                                    return Err(syn::Error::new(
+                                        meta.span(),
+                                        "invalid autocmd attribute",
+                                    ))
+                                }
                             }
                         }
                     }
@@ -307,7 +319,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                 }) => {
                     docs.push(lit.value().trim().to_string());
                 }
-                _ => Err(method.span().error("invalid doc attribute"))?,
+                _ => return Err(syn::Error::new(method.span(), "invalid doc attribute")),
             }
         }
     }
@@ -337,7 +349,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     syn::Pat::Wild(_) => {
                         arg.name = "_".to_string();
                     }
-                    _ => return Err(i.span().error("unsupported argument type")),
+                    _ => return Err(syn::Error::new(i.span(), "unsupported argument type")),
                 }
                 match &*x.ty {
                     syn::Type::Path(p) => {
@@ -346,7 +358,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     syn::Type::Reference(p) => {
                         arg.typ = p.to_token_stream().to_string();
                     }
-                    _ => return Err(i.span().error("unsupported argument type")),
+                    _ => return Err(syn::Error::new(i.span(), "unsupported argument type")),
                 }
                 args.push(arg);
             }
@@ -355,10 +367,16 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
 
     if let Some(first) = args.first() {
         if !first.typ.ends_with("Client") {
-            return Err(method.span().error("first argument must be `Client`"));
+            return Err(syn::Error::new(
+                method.span(),
+                "first argument must be `Client`",
+            ));
         }
     } else {
-        return Err(method.span().error("no arguments on command method"));
+        return Err(syn::Error::new(
+            method.span(),
+            "no arguments on command method",
+        ));
     }
 
     let args = args.into_iter().skip(1).collect::<Vec<_>>();
@@ -371,7 +389,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     match &p.path.segments.last().unwrap().arguments {
                         syn::PathArguments::AngleBracketed(a) => {
                             if a.args.len() != 1 {
-                                return Err(method.span().error("invalid rpc method"));
+                                return Err(syn::Error::new(method.span(), "invalid rpc method"));
                             } else {
                                 match a.args.first().unwrap() {
                                     syn::GenericArgument::Type(syn::Type::Path(t)) => {
@@ -384,51 +402,61 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                                             Return::Result(e.to_token_stream().to_string())
                                         }
                                     }
-                                    _ => return Err(method.span().error("invalid rpc method")),
+                                    _ => {
+                                        return Err(syn::Error::new(
+                                            method.span(),
+                                            "invalid rpc method",
+                                        ))
+                                    }
                                 }
                             }
                         }
-                        _ => return Err(method.span().error("invalid rpc method")),
+                        _ => return Err(syn::Error::new(method.span(), "invalid rpc method")),
                     }
                 } else {
                     Return::Type(p.to_token_stream().to_string())
                 }
             }
-            _ => return Err(method.span().error("invalid rpc method")),
+            _ => return Err(syn::Error::new(method.span(), "invalid rpc method")),
         },
     };
 
     if message_type == MethodType::Notify && !(ret == Return::ResultVoid || ret == Return::Void) {
-        return Err(method
-            .span()
-            .error("notification methods must return Result<()> or be void"));
+        return Err(syn::Error::new(
+            method.span(),
+            "notification methods must return Result<()> or be void",
+        ));
     }
 
     // Validate autocmd arguments
     if autocmd.is_some() && !args.is_empty() {
         if args.len() != 1 {
-            return Err(method
-                .span()
-                .error("autocmd must take exactly one argument of type AutocmdEvent"));
+            return Err(syn::Error::new(
+                method.span(),
+                "autocmd must take exactly one argument of type AutocmdEvent",
+            ));
         }
         let arg = &args[0];
         if arg.typ != "AutocmdEvent" && arg.typ != "nvi::AutocmdEvent" {
-            return Err(method
-                .span()
-                .error("autocmd argument must be of type AutocmdEvent"));
+            return Err(syn::Error::new(
+                method.span(),
+                "autocmd argument must be of type AutocmdEvent",
+            ));
         }
     }
 
     if message_type == MethodType::Connected {
         if !(ret == Return::ResultVoid || ret == Return::Void) {
-            return Err(method
-                .span()
-                .error("notification methods must return Result<()> or be void"));
+            return Err(syn::Error::new(
+                method.span(),
+                "notification methods must return Result<()> or be void",
+            ));
         }
         if !args.is_empty() {
-            return Err(method
-                .span()
-                .error("run methods must take only a Client argument"));
+            return Err(syn::Error::new(
+                method.span(),
+                "run methods must take only a Client argument",
+            ));
         }
     }
 
@@ -475,6 +503,30 @@ fn inner_nvi_service(
     _attr: proc_macro2::TokenStream,
     input: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream> {
+    // First parse the input as an impl block to verify basic syntax
+    let impl_block = syn::parse2::<syn::ItemImpl>(input.clone())
+        .map_err(|e| input.span().error(format!("Invalid impl block: {}", e)))?;
+
+    // Verify this is implementing a struct or enum
+    let impl_type = match &*impl_block.self_ty {
+        syn::Type::Path(p) => p,
+        _ => {
+            return Err(syn::Error::new(
+                impl_block.self_ty.span(),
+                "Expected a struct or enum name",
+            ))
+        }
+    };
+
+    // Get the name of the type being implemented
+    let type_name = impl_type
+        .path
+        .segments
+        .last()
+        .ok_or_else(|| impl_block.self_ty.span().error("Invalid type name"))?
+        .ident
+        .to_string();
+
     let (output, imp) = parse_impl(&input)?;
 
     let bootstraps: Vec<proc_macro2::TokenStream> = imp
@@ -498,8 +550,8 @@ fn inner_nvi_service(
         .map(|x| x.notify_invocation())
         .collect();
 
-    let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
-    let namestr = imp.name.clone();
+    let name = syn::Ident::new(&type_name, proc_macro2::Span::call_site());
+    let namestr = type_name.clone();
 
     let connected_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
@@ -509,10 +561,21 @@ fn inner_nvi_service(
         .collect();
 
     if connected_invocations.len() > 1 {
-        return Err(input.span().error("only one 'connected' method is allowed"));
+        return Err(syn::Error::new(
+            input.span(),
+            "Only one 'connected' method is allowed per service",
+        ));
     }
 
     let connected = connected_invocations.first().unwrap_or(&quote! {}).clone();
+
+    // Verify we have at least one method
+    if imp.methods.is_empty() {
+        return Err(syn::Error::new(
+    input.span(),
+    "No RPC methods found in the implementation. Use #[request], #[notify], or #[autocmd] to mark RPC methods"
+));
+    }
 
     Ok(quote! {
         #output
@@ -543,7 +606,7 @@ fn inner_nvi_service(
                     match method {
                         #(#request_invocations),*
                         _ => {
-                            nvi::error::Result::Err(nvi::Value::from("unknown method"))?
+                            nvi::error::Result::Err(nvi::Value::from(format!("Unknown method: {}", method)))?
                         }
                     }
                 )
@@ -558,7 +621,7 @@ fn inner_nvi_service(
                 match method {
                     #(#notify_invocations),*
                     _ => {
-                        Err(nvi::error::Error::Internal{ msg: "unknown method".to_string() })?
+                        Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {}", method) })?
                     }
                 }
                 Ok(())
@@ -575,9 +638,10 @@ pub fn nvi_service(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    match inner_nvi_service(_attr.into(), input.into()) {
+    let input_span = proc_macro2::TokenStream::from(input.clone());
+    match inner_nvi_service(_attr.into(), input_span.clone()) {
         Ok(x) => x.into(),
-        Err(e) => e.emit_as_expr_tokens().into(),
+        Err(e) => e.into_compile_error().into(),
     }
 }
 

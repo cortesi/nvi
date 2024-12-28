@@ -1,4 +1,3 @@
-use nvi::AutocmdEvent;
 use nvi_macros::*;
 use std::sync::{Arc, Mutex};
 
@@ -55,7 +54,7 @@ impl Simple {
     async fn on_buf_enter(
         &self,
         client: &mut nvi::Client,
-        evt: AutocmdEvent,
+        evt: nvi::AutocmdEvent,
     ) -> nvi::error::Result<()> {
         client.info(&format!("bufenter: {:?}", evt)).await
     }
