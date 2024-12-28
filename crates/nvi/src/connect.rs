@@ -186,8 +186,12 @@ mod tests {
                 }
             }
 
-            crate::test::run_plugin_with_shutdown(SockConnectService { socket_path }, tx.clone())
-                .await
+            let _handle = crate::test::run_plugin_with_shutdown(
+                SockConnectService { socket_path },
+                tx.clone(),
+            )
+            .await;
+            Ok(())
         }
 
         // Now start a nvim instance, and connect to it with a client. Using the client, we
