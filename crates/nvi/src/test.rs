@@ -91,8 +91,10 @@ pub async fn wait_for_path(path: &std::path::Path) -> Result<()> {
 }
 
 /// Run a test service, starting a neovim headless instance and connecting to it. When a signal is
-/// received on the broadcast channel, all tasks are stopped.
-pub async fn test_service<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
+/// received on the broadcast channel, all tasks are stopped. This variant takes the shutdown
+/// signal as an argument, for cases where the caller wants to pass the signal into the plugin
+/// itself.
+pub async fn run_plugin_with_shutdown<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
 where
     T: NviService + Unpin + Sync + 'static,
 {
@@ -109,4 +111,18 @@ where
     serv.await?;
     nv.await.unwrap()?;
     Ok(())
+}
+
+/// Run a test service, starting a neovim headless instance and connecting to it. Returns a
+/// broadcast sender that can be used to shutdown the plugin.
+pub fn run_plugin<T>(nvi: T) -> broadcast::Sender<()>
+where
+    T: NviService + Unpin + Sync + 'static,
+{
+    let (shutdown_tx, _) = broadcast::channel(1);
+    let tx = shutdown_tx.clone();
+    tokio::spawn(async move {
+        run_plugin_with_shutdown(nvi, shutdown_tx).await.unwrap();
+    });
+    tx
 }

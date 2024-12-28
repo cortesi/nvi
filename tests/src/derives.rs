@@ -23,7 +23,7 @@ async fn it_derives_basic_service() {
     }
 
     let (tx, _) = broadcast::channel(16);
-    test::test_service(TestService { tx: tx.clone() }, tx)
+    test::run_plugin_with_shutdown(TestService { tx: tx.clone() }, tx)
         .await
         .unwrap();
     assert!(logs_contain("connected"));
@@ -61,6 +61,8 @@ async fn it_derives_autocmd_handler() {
     }
 
     let (tx, _) = broadcast::channel(16);
-    test::test_service(TestService {}, tx).await.unwrap();
+    test::run_plugin_with_shutdown(TestService {}, tx)
+        .await
+        .unwrap();
     assert!(logs_contain("user event received"));
 }

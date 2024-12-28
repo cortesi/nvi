@@ -47,5 +47,7 @@ async fn it_derives_messages() {
     }
 
     let (tx, _) = broadcast::channel(16);
-    test::test_service(T { tx: tx.clone() }, tx).await.unwrap();
+    test::run_plugin_with_shutdown(T { tx: tx.clone() }, tx)
+        .await
+        .unwrap();
 }

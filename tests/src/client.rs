@@ -41,7 +41,7 @@ async fn it_registers_pattern_autocmds() {
     }
     trace!("starting test");
     let (tx, _) = broadcast::channel(16);
-    test::test_service(T {}, tx).await.unwrap();
+    test::run_plugin_with_shutdown(T {}, tx).await.unwrap();
     assert!(logs_contain("aucmd received"));
 }
 
@@ -77,7 +77,7 @@ async fn it_registers_buffer_autocmds() {
     }
     trace!("starting test");
     let (tx, _) = broadcast::channel(16);
-    test::test_service(T {}, tx).await.unwrap();
+    test::run_plugin_with_shutdown(T {}, tx).await.unwrap();
     assert!(logs_contain("aucmd received"));
 }
 
@@ -98,5 +98,5 @@ async fn api_nvim_get_chan_info() {
     }
     trace!("starting test");
     let (tx, _) = broadcast::channel(16);
-    test::test_service(T {}, tx).await.unwrap();
+    test::run_plugin_with_shutdown(T {}, tx).await.unwrap();
 }

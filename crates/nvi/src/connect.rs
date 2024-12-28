@@ -186,7 +186,8 @@ mod tests {
                 }
             }
 
-            crate::test::test_service(SockConnectService { socket_path }, tx.clone()).await
+            crate::test::run_plugin_with_shutdown(SockConnectService { socket_path }, tx.clone())
+                .await
         }
 
         // Now start a nvim instance, and connect to it with a client. Using the client, we
@@ -206,6 +207,6 @@ mod tests {
         let (tx, _) = broadcast::channel(16);
         let rtx = tx.clone();
         let s = TestService { tx };
-        crate::test::test_service(s, rtx).await.unwrap();
+        crate::test::run_plugin_with_shutdown(s, rtx).await.unwrap();
     }
 }

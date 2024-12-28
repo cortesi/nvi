@@ -359,7 +359,7 @@ mod tests {
                        }
                    }
                    let rtx = tx.clone();
-                   test::test_service(TestService {}, rtx)
+                   test::run_plugin_with_shutdown(TestService {}, rtx)
                }
         }
     }
@@ -425,7 +425,9 @@ mod tests {
         }
 
         let rtx = tx.clone();
-        test::test_service(TestService {}, rtx).await.unwrap();
+        test::run_plugin_with_shutdown(TestService {}, rtx)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -474,6 +476,8 @@ mod tests {
         }
 
         let rtx = tx.clone();
-        test::test_service(TestService {}, rtx).await.unwrap();
+        test::run_plugin_with_shutdown(TestService {}, rtx)
+            .await
+            .unwrap();
     }
 }
