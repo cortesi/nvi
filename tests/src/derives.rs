@@ -37,7 +37,7 @@ async fn it_derives_autocmd_handler() {
 
     #[nvi_service]
     impl TestService {
-        #[autocmd(["User"])]
+        #[autocmd(["User"], patterns=["*.rs"])]
         async fn on_user_event(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
             trace!("user event received");
             client.shutdown();
@@ -45,9 +45,16 @@ async fn it_derives_autocmd_handler() {
         }
 
         async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+            use nvi::opts::ExecAutocmds;
             client
                 .nvim
-                .exec_autocmds(&[nvi::types::Event::User], Default::default())
+                .exec_autocmds(
+                    &[nvi::types::Event::User],
+                    ExecAutocmds {
+                        pattern: Some(vec!["*.rs".to_string()]),
+                        ..Default::default()
+                    },
+                )
                 .await?;
             Ok(())
         }
