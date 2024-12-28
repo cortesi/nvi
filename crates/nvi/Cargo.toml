@@ -7,7 +7,6 @@ edition = "2021"
 doctest = false
 
 [dependencies]
-mrpc = { path = "../../../../public/mrpc" }
 macro-types = { path = "../macro-types" }
 nvi-macros = { path = "../nvi-macros" }
 
@@ -33,6 +32,7 @@ strum = { version = "0.26.2", features = ["derive"] }
 clap-verbosity-flag = "3.0.2"
 tracing-log = "0.2.0"
 derive_setters = "0.1.6"
+mrpc = "0.0.4"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
