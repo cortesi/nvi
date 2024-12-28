@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use crate::Value;
@@ -23,6 +24,47 @@ pub trait NviService: Clone + Sync + Send + 'static {
     /// method is called. This method should execute and exit. Typically, this method will be
     /// derived with the `nvim_service` annotation, and should not be over-ridden by the user.
     async fn bootstrap(&self, client: &mut Client) -> Result<()> {
+        let methods = self.introspect();
+        for method in methods {
+            let name = method.name.clone();
+
+            match method.message_type {
+                macro_types::MethodType::Notify => {
+                    let args: Vec<String> = method.args.iter().map(|a| a.name.clone()).collect();
+                    client
+                        .register_rpcnotify(&self.name(), &name, &args)
+                        .await?;
+                }
+                macro_types::MethodType::Request => {
+                    let args: Vec<String> = method.args.iter().map(|a| a.name.clone()).collect();
+                    client
+                        .register_rpcrequest(&self.name(), &name, &args)
+                        .await?;
+
+                    // Handle autocmd registration if present
+                    if let Some(autocmd) = method.autocmd {
+                        let group = autocmd.group.map(types::Group::Name);
+                        let events = autocmd
+                            .events
+                            .iter()
+                            .map(|e| types::Event::from_str(e.as_str()).unwrap())
+                            .collect::<Vec<_>>();
+
+                        client
+                            .autocmd_pattern(
+                                &autocmd.patterns,
+                                &name,
+                                &events,
+                                group,
+                                false, // once (not supported yet)
+                                autocmd.nested,
+                            )
+                            .await?;
+                    }
+                }
+                macro_types::MethodType::Connected => (), // Nothing to register for connected methods
+            }
+        }
         Ok(())
     }
 
@@ -201,3 +243,4 @@ where
         Ok(())
     }
 }
+

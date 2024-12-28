@@ -24,68 +24,7 @@ struct ImplBlock {
     run: Option<Method>,
 }
 
-fn bootstrap_clause(m: &Method, namespace: &str) -> proc_macro2::TokenStream {
-    let method = m.name.clone();
-
-    // First create the RPC registration
-    let rpc_registration = if m.args.is_empty() {
-        // If we have no arguments, we must satisfy the compiler by specifying a generic type
-        // for the empty array.
-        if m.message_type == MethodType::Notify {
-            quote! {
-                client.register_rpcnotify::<String>(#namespace, #method, &[]).await?;
-            }
-        } else {
-            quote! {
-                client.register_rpcrequest::<String>(#namespace, #method, &[]).await?;
-            }
-        }
-    } else {
-        let args = m.args.clone().into_iter().map(|a| a.name.to_string());
-        if m.message_type == MethodType::Notify {
-            quote! {
-                client.register_rpcnotify(#namespace, #method, &[#(#args),*]).await?;
-            }
-        } else {
-            quote! {
-                client.register_rpcrequest(#namespace, #method, &[#(#args),*]).await?;
-            }
-        }
-    };
-
-    // Then add autocmd registration if needed
-    if let Some(autocmd) = &m.autocmd {
-        let events = autocmd.events.iter().collect::<Vec<_>>();
-        let patterns = &autocmd.patterns;
-        let once = false; // We don't support 'once' yet
-        let nested = autocmd.nested;
-        let group = if let Some(g) = &autocmd.group {
-            quote! { Some(nvi::types::Group::Name(#g.to_string())) }
-        } else {
-            quote! { None }
-        };
-
-        let events = events.iter().map(|e| {
-            let ident = syn::Ident::new(e, proc_macro2::Span::call_site());
-            quote! { nvi::types::Event::#ident }
-        });
-        quote! {
-            #rpc_registration
-            client.autocmd_pattern(
-                &[#(#patterns.to_string()),*],
-                #method,
-                &[#(#events),*],
-                #group,
-                #once,
-                #nested
-            ).await?;
-        }
-    } else {
-        rpc_registration
-    }
-}
-
-/// Output the invocation clause of a connecte function
+/// Output the invocation clause of a connect function
 fn connected_invocation(m: &Method, name: syn::Ident) -> proc_macro2::TokenStream {
     let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
     match m.ret {
@@ -579,13 +518,6 @@ fn inner_nvi_service(
 
     let (output, imp) = parse_impl(&input)?;
 
-    let bootstraps: Vec<proc_macro2::TokenStream> = imp
-        .methods
-        .iter()
-        .filter(|x| x.message_type != MethodType::Connected)
-        .map(|x| bootstrap_clause(x, &imp.name))
-        .collect();
-
     let request_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
@@ -635,11 +567,6 @@ fn inner_nvi_service(
         impl nvi::NviService for #name {
             fn name(&self) -> String {
                 #namestr.into()
-            }
-
-            async fn bootstrap(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
-                #(#bootstraps)*
-                Ok(())
             }
 
             async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {

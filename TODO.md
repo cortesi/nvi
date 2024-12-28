@@ -2,7 +2,6 @@
 # Questions
 
 - Extract an nvi-ui library?
-- Derive for autocmds?
 
 
 # Design
