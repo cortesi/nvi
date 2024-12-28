@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
-use crate::{client::Client, error::Result, types};
+use crate::{client::Client, error::Result, macro_types, types};
 
 pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
@@ -13,6 +13,11 @@ pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 #[async_trait]
 pub trait NviService: Clone + Sync + Send + 'static {
     fn name(&self) -> String;
+
+    /// Introspect the service methods, as derived with the `nvi_service` attribute macro.
+    fn introspect(&self) -> Vec<macro_types::Method> {
+        vec![]
+    }
 
     /// Bootstrapping that happens after connecting to the remote service, but before the run
     /// method is called. This method should execute and exit. Typically, this method will be

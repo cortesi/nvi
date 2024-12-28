@@ -11,6 +11,7 @@ pub mod test;
 pub mod types;
 
 pub use connect::*;
+pub use macro_types;
 pub use nvi_macros::*;
 pub use nvim_api::*;
 pub use service::*;

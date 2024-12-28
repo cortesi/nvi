@@ -488,6 +488,67 @@ fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBl
 }
 
 // Extract this to ease testing, since proc_macro::TokenStream can't cross proc-macro boundaries.
+fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
+    imp.methods.iter().map(|m| {
+        let name = &m.name;
+        let docs = &m.docs;
+        let message_type = match m.message_type {
+            MethodType::Request => quote! { nvi::macro_types::MethodType::Request },
+            MethodType::Notify => quote! { nvi::macro_types::MethodType::Notify },
+            MethodType::Connected => quote! { nvi::macro_types::MethodType::Connected },
+        };
+
+        let ret = match &m.ret {
+            Return::Void => quote! { nvi::macro_types::Return::Void },
+            Return::ResultVoid => quote! { nvi::macro_types::Return::ResultVoid },
+            Return::Result(typ) => quote! { nvi::macro_types::Return::Result(#typ.to_string()) },
+            Return::Type(typ) => quote! { nvi::macro_types::Return::Type(#typ.to_string()) },
+        };
+
+        let args = m.args.iter().map(|a| {
+            let name = &a.name;
+            let typ = &a.typ;
+            quote! {
+                nvi::macro_types::Arg {
+                    name: #name.to_string(),
+                    typ: #typ.to_string(),
+                }
+            }
+        });
+
+        let autocmd = if let Some(a) = &m.autocmd {
+            let events = &a.events;
+            let patterns = &a.patterns;
+            let group = match &a.group {
+                Some(g) => quote! { Some(#g.to_string()) },
+                None => quote! { None },
+            };
+            let nested = a.nested;
+            quote! {
+                Some(nvi::macro_types::AutoCmd {
+                    events: vec![#(#events.to_string()),*],
+                    patterns: vec![#(#patterns.to_string()),*],
+                    group: #group,
+                    nested: #nested,
+                })
+            }
+        } else {
+            quote! { None }
+        };
+
+        quote! {
+            nvi::macro_types::Method {
+                name: #name.to_string(),
+                docs: #docs.to_string(),
+                ret: #ret,
+                message_type: #message_type,
+                args: vec![#(#args),*],
+                autocmd: #autocmd,
+            }
+        }
+    })
+}
+
 fn inner_nvi_service(
     _attr: proc_macro2::TokenStream,
     input: proc_macro2::TokenStream,
@@ -542,6 +603,7 @@ fn inner_nvi_service(
     let name = syn::Ident::new(&type_name, proc_macro2::Span::call_site());
     let namestr = type_name.clone();
 
+    let methods = generate_methods(&imp);
     let connected_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
@@ -614,6 +676,13 @@ fn inner_nvi_service(
                     }
                 }
                 Ok(())
+            }
+
+            #[inline]
+            fn introspect(&self) -> Vec<nvi::macro_types::Method> {
+                vec![
+                    #(#methods),*
+                ]
             }
         }
     }
