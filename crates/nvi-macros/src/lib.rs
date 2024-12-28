@@ -69,7 +69,9 @@ struct ImplBlock {
 impl Method {
     fn bootstrap_clause(&self, namespace: &str) -> proc_macro2::TokenStream {
         let method = self.name.clone();
-        if self.args.is_empty() {
+
+        // First create the RPC registration
+        let rpc_registration = if self.args.is_empty() {
             // If we have no arguments, we must satisfy the compiler by specifying a generic type
             // for the empty array.
             if self.message_type == MethodType::Notify {
@@ -92,6 +94,37 @@ impl Method {
                     client.register_rpcrequest(#namespace, #method, &[#(#args),*]).await?;
                 }
             }
+        };
+
+        // Then add autocmd registration if needed
+        if let Some(autocmd) = &self.autocmd {
+            let events = autocmd.events.iter().collect::<Vec<_>>();
+            let patterns = &autocmd.patterns;
+            let once = false; // We don't support 'once' yet
+            let nested = autocmd.nested;
+            let group = if let Some(g) = &autocmd.group {
+                quote! { Some(nvi::types::Group::Name(#g.to_string())) }
+            } else {
+                quote! { None }
+            };
+
+            let events = events.iter().map(|e| {
+                let ident = syn::Ident::new(e, proc_macro2::Span::call_site());
+                quote! { nvi::types::Event::#ident }
+            });
+            quote! {
+                #rpc_registration
+                client.autocmd_pattern(
+                    &[#(#patterns.to_string()),*],
+                    #method,
+                    &[#(#events),*],
+                    #group,
+                    #once,
+                    #nested
+                ).await?;
+            }
+        } else {
+            rpc_registration
         }
     }
 
