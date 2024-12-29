@@ -101,7 +101,7 @@ pub(crate) struct RpcConnection<T>
 where
     T: NviPlugin,
 {
-    plugin: T,
+    plugin: tokio::sync::RwLock<T>,
     shutdown_tx: broadcast::Sender<()>,
     channel_id: Arc<Mutex<Option<u64>>>,
 }
@@ -112,7 +112,7 @@ where
 {
     pub fn new(shutdown_tx: broadcast::Sender<()>, plugin: T) -> Self {
         RpcConnection {
-            plugin,
+            plugin: tokio::sync::RwLock::new(plugin),
             shutdown_tx,
             channel_id: Arc::new(Mutex::new(None)),
         }
@@ -128,6 +128,7 @@ where
     async fn connected(&self, sender: mrpc::RpcSender) -> mrpc::Result<()> {
         let shutdown_tx = self.shutdown_tx.clone();
 
+        let plugin = self.plugin.read().await;
         let nv = nvim::api::NvimApi {
             rpc_sender: sender.clone(),
         };
@@ -142,11 +143,11 @@ where
 
         let mut c = Client::new(
             sender.clone(),
-            &self.plugin.name(),
+            &plugin.name(),
             self.channel_id.lock().unwrap().expect("channel id not set"),
             shutdown_tx.clone(),
         );
-        match self.plugin.bootstrap(&mut c).await {
+        match plugin.bootstrap(&mut c).await {
             Ok(_) => trace!("bootstrap complete"),
             Err(e) => {
                 warn!("bootstrap failed: {:?}", e);
@@ -154,7 +155,7 @@ where
                 return Ok(());
             }
         }
-        let ret = self.plugin.connected(&mut c).await;
+        let ret = plugin.connected(&mut c).await;
         match ret {
             Ok(_) => trace!("connected() completed"),
             Err(e) => {
@@ -171,9 +172,10 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
+        let plugin = self.plugin.read().await;
         let mut client = Client::new(
             sender,
-            &self.plugin.name(),
+            &plugin.name(),
             self.channel_id.lock().unwrap().expect("channel id not set"),
             self.shutdown_tx.clone(),
         );
@@ -184,7 +186,7 @@ where
 
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
-        match self.plugin.request(&mut client, method, &params).await {
+        match plugin.request(&mut client, method, &params).await {
             Ok(v) => Ok(v),
             Err(e) => {
                 warn!("nvi request error: {:?}", e);
@@ -213,14 +215,15 @@ where
     ) -> mrpc::Result<()> {
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
+        let plugin = self.plugin.read().await;
         let mut client = Client::new(
             sender,
-            &self.plugin.name(),
+            &plugin.name(),
             self.channel_id.lock().unwrap().expect("channel id not set"),
             self.shutdown_tx.clone(),
         );
 
-        if let Err(e) = self.plugin.notify(&mut client, method, &params).await {
+        if let Err(e) = plugin.notify(&mut client, method, &params).await {
             warn!("error handling notification: {:?}", e);
             if let Err(notify_err) = client
                 .notify(
