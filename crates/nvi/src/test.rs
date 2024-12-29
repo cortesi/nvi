@@ -19,7 +19,7 @@ use tokio::{
 use crate::{connect_unix, error::Result, NviService};
 
 /// A handle to a running test instance.
-pub struct TestHandle {
+pub struct NviTest {
     pub client: crate::Client,
     pub shutdown_tx: broadcast::Sender<()>,
     pub nvim_task: tokio::task::JoinHandle<Result<()>>,
@@ -27,7 +27,7 @@ pub struct TestHandle {
     logs: std::sync::Arc<Mutex<Vec<String>>>,
 }
 
-impl TestHandle {
+impl NviTest {
     /// Start a neovim instance and plugin in separate tasks. Returns a handle that can be used to control
     /// and monitor the test instance.
     pub async fn new<T>(nvi: T) -> Result<Self>
