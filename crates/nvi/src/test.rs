@@ -1,5 +1,8 @@
 //! Utilities for writing tests for Nvi plugins.
-use std::{os::unix::process::CommandExt, process::Stdio};
+use std::{os::unix::process::CommandExt, process::Stdio, sync::Mutex, time::Duration};
+
+/// Default timeout for log assertions
+const DEFAULT_LOG_TIMEOUT: Duration = Duration::from_secs(5);
 
 use mrpc;
 use nix::{
@@ -21,6 +24,7 @@ pub struct TestHandle {
     pub shutdown_tx: broadcast::Sender<()>,
     pub nvim_task: tokio::task::JoinHandle<Result<()>>,
     pub plugin_task: tokio::task::JoinHandle<Result<()>>,
+    logs: std::sync::Arc<Mutex<Vec<String>>>,
 }
 
 impl TestHandle {
@@ -30,6 +34,40 @@ impl TestHandle {
     where
         T: NviService + Unpin + Sync + 'static,
     {
+        let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
+        let logs_clone = logs.clone();
+
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || {
+                let logs = logs_clone.clone();
+                struct Writer(std::sync::Arc<Mutex<Vec<String>>>);
+                impl std::io::Write for Writer {
+                    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                        if let Ok(s) = String::from_utf8(buf.to_vec()) {
+                            self.0.lock().unwrap().push(s);
+                        }
+                        Ok(buf.len())
+                    }
+                    fn flush(&mut self) -> std::io::Result<()> {
+                        Ok(())
+                    }
+                }
+                Writer(logs)
+            })
+            .with_ansi(false)
+            .with_file(true)
+            .with_line_number(true)
+            .with_thread_ids(true)
+            .with_thread_names(true)
+            .with_target(true)
+            .compact()
+            .try_init();
+
+        if let Ok(_guard) = subscriber {
+            tracing::info!("Test logging initialized");
+        }
+
         let tempdir = tempfile::tempdir()?;
         let socket_path = tempdir.path().join("nvim.socket");
 
@@ -58,6 +96,55 @@ impl TestHandle {
             shutdown_tx,
             nvim_task,
             plugin_task,
+            logs,
+        })
+    }
+
+    /// Assert that a log message containing the given string exists
+    pub fn assert_log(&self, contains: &str) {
+        let logs = self.logs.lock().unwrap();
+        assert!(
+            logs.iter().any(|log| log.contains(contains)),
+            "Log containing '{}' not found in logs: {:?}",
+            contains,
+            logs
+        );
+    }
+
+    /// Get a copy of the current logs
+    pub fn logs(&self) -> Vec<String> {
+        self.logs.lock().unwrap().clone()
+    }
+
+    /// Wait for a log message containing the given string to appear, with a default timeout of 5 seconds
+    pub async fn await_log(&self, contains: &str) -> Result<()> {
+        self.await_log_timeout(contains, DEFAULT_LOG_TIMEOUT).await
+    }
+
+    /// Wait for a log message containing the given string to appear, with a timeout
+    pub async fn await_log_timeout(
+        &self,
+        contains: &str,
+        timeout: std::time::Duration,
+    ) -> Result<()> {
+        let start = std::time::Instant::now();
+        while start.elapsed() < timeout {
+            if self
+                .logs
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|log| log.contains(contains))
+            {
+                return Ok(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        Err(crate::error::Error::Internal {
+            msg: format!(
+                "Timeout waiting for log containing '{}' after {:?}",
+                contains, timeout
+            ),
         })
     }
 
