@@ -488,7 +488,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
     })
 }
 
-fn inner_nvi_service(
+fn inner_nvi_plugin(
     _attr: proc_macro2::TokenStream,
     input: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream> {
@@ -564,7 +564,7 @@ fn inner_nvi_service(
         #output
 
         #[nvi::async_trait::async_trait]
-        impl nvi::NviService for #name {
+        impl nvi::NviPlugin for #name {
             fn name(&self) -> String {
                 #namestr.into()
             }
@@ -619,12 +619,12 @@ fn inner_nvi_service(
 /// Add this attribute to the *impl* block for the `NviService` trait to derive implementations for
 /// the `message` and `notification` methods.
 #[proc_macro_attribute]
-pub fn nvi_service(
+pub fn nvi_plugin(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let input_span = proc_macro2::TokenStream::from(input.clone());
-    match inner_nvi_service(_attr.into(), input_span.clone()) {
+    match inner_nvi_plugin(_attr.into(), input_span.clone()) {
         Ok(x) => x.into(),
         Err(e) => e.into_compile_error().into(),
     }
@@ -763,7 +763,7 @@ mod tests {
                 async fn test_void(&self) {}
             }
         };
-        assert!(inner_nvi_service(quote! {}, s).is_err());
+        assert!(inner_nvi_plugin(quote! {}, s).is_err());
     }
 
     #[test]
@@ -799,7 +799,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_service(quote! {}, s).unwrap())
+                .format_tokens(inner_nvi_plugin(quote! {}, s).unwrap())
                 .unwrap()
         );
     }
@@ -839,7 +839,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_service(quote! {}, s).unwrap())
+                .format_tokens(inner_nvi_plugin(quote! {}, s).unwrap())
                 .unwrap()
         );
     }

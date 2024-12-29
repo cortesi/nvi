@@ -1,5 +1,5 @@
 use nvi::test;
-use nvi_macros::{notify, nvi_service, request};
+use nvi_macros::{notify, nvi_plugin, request};
 use tokio::sync::broadcast;
 use tracing_test::traced_test;
 
@@ -12,7 +12,7 @@ async fn it_derives_messages() {
         tx: broadcast::Sender<()>,
     }
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl T {
         #[request]
         async fn test_method(

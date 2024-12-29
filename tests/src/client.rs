@@ -6,7 +6,7 @@ use nvi::{
     test,
 };
 
-use nvi_macros::{nvi_service, request};
+use nvi_macros::{nvi_plugin, request};
 
 use tokio::sync::broadcast;
 use tracing::trace;
@@ -18,7 +18,7 @@ async fn it_registers_pattern_autocmds() {
     #[derive(Clone)]
     struct T {}
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl T {
         #[request]
         async fn aucmd(&self, c: &mut nvi::Client, evt: AutocmdEvent) -> nvi::error::Result<bool> {
@@ -54,7 +54,7 @@ async fn it_registers_buffer_autocmds() {
     #[derive(Clone)]
     struct T {}
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl T {
         #[request]
         async fn aucmd(&self, c: &mut nvi::Client, evt: AutocmdEvent) -> nvi::error::Result<bool> {
@@ -89,7 +89,7 @@ async fn api_nvim_get_chan_info() {
     #[derive(Clone)]
     struct T {}
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl T {
         async fn connected(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
             let chan = c.nvim.get_chan_info(0).await?;

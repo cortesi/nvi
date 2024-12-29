@@ -19,7 +19,7 @@ use tokio::{
     sync::broadcast,
 };
 
-use crate::{connect_unix, error::Result, NviService};
+use crate::{connect_unix, error::Result, NviPlugin};
 
 /// Builder for NviTest configuration
 pub struct NviTestBuilder {
@@ -52,7 +52,7 @@ impl NviTestBuilder {
     /// Run the test with the configured options
     pub async fn run<T>(self, nvi: T) -> Result<NviTest>
     where
-        T: NviService + Unpin + Sync + 'static,
+        T: NviPlugin + Unpin + Sync + 'static,
     {
         NviTest::new(nvi, self.show_logs, self.log_level).await
     }
@@ -73,7 +73,7 @@ impl NviTest {
     /// and monitor the test instance.
     pub(crate) async fn new<T>(nvi: T, show_logs: bool, log_level: tracing::Level) -> Result<Self>
     where
-        T: NviService + Unpin + Sync + 'static,
+        T: NviPlugin + Unpin + Sync + 'static,
     {
         let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
         let logs_clone = (logs.clone(), show_logs);
@@ -317,7 +317,7 @@ pub async fn wait_for_path(path: &std::path::Path) -> Result<()> {
 /// itself. This is mostly useful for Nvi's internal tests.
 pub async fn run_plugin_with_shutdown<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
 where
-    T: NviService + Unpin + Sync + 'static,
+    T: NviPlugin + Unpin + Sync + 'static,
 {
     let tempdir = tempfile::tempdir()?;
     let socket_path = tempdir.path().join("nvim.socket");

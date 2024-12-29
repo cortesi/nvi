@@ -353,7 +353,7 @@ mod tests {
                    struct TestService {}
 
                    #[async_trait]
-                   impl crate::NviService for TestService {
+                   impl crate::NviPlugin for TestService {
                        fn name(&self) -> String {
                            "TestService".into()
                        }
@@ -398,7 +398,7 @@ mod tests {
         struct TestService {}
 
         #[async_trait]
-        impl crate::NviService for TestService {
+        impl crate::NviPlugin for TestService {
             fn name(&self) -> String {
                 "TestService".into()
             }
@@ -451,7 +451,7 @@ mod tests {
         struct TestService {}
 
         #[async_trait]
-        impl crate::NviService for TestService {
+        impl crate::NviPlugin for TestService {
             fn name(&self) -> String {
                 "TestService".into()
             }

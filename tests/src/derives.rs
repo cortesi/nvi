@@ -14,7 +14,7 @@ async fn it_derives_basic_service() {
         tx: broadcast::Sender<()>,
     }
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl TestService {
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             trace!("connected");
@@ -36,7 +36,7 @@ async fn it_derives_autocmd_handler() {
     #[derive(Clone)]
     struct TestService {}
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl TestService {
         #[autocmd(["User"], patterns=["*.rs"])]
         async fn on_user_event(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {

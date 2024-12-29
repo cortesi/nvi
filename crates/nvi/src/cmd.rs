@@ -6,7 +6,7 @@ use tokio::sync::broadcast;
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
 
-use crate::{error::Result, NviService};
+use crate::{error::Result, NviPlugin};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -29,7 +29,7 @@ enum Commands {
 
 async fn inner_run<T>(service: T) -> Result<()>
 where
-    T: NviService + Unpin + Sync + 'static,
+    T: NviPlugin + Unpin + Sync + 'static,
 {
     let cli = Cli::parse();
     match &cli.command {
@@ -51,7 +51,7 @@ where
 /// Expose the standard Nvi command line interface. Call this from your your `main` function.
 pub async fn run<T>(service: T)
 where
-    T: NviService + Unpin + Sync + 'static,
+    T: NviPlugin + Unpin + Sync + 'static,
 {
     match inner_run(service).await {
         Ok(_) => (),

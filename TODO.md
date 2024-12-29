@@ -12,7 +12,8 @@
 - Standard way to control logging in plugins (tracing?)
     - For development, configure tracing to output to screen or file
     - For production, output to a file or neovim notices
-
+- Autocmds should be created within an autocmd group by default
+    - When we create the group, we'll set "clear" to clear previous autocmds
 
 # Design
 

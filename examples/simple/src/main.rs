@@ -8,7 +8,7 @@ struct Simple {
     n: Arc<Mutex<usize>>,
 }
 
-// The `nvi_service` attribute macro on the impl block generates the `NviService` trait. It
+// The `nvi_plugin` attribute macro on the impl block generates the `NviService` trait. It
 // inspects the the block for methods marked as `#[notify]` or `#[request]` and generates the
 // required structure for them to be invoked from the editor. When the service connects to the
 // editor, it makes a set of global namespace entries to expose the plugin API. In this case, after
@@ -18,7 +18,7 @@ struct Simple {
 // Simple.inc(5)
 // print(Simple.get())
 // ```
-#[nvi_service]
+#[nvi_plugin]
 impl Simple {
     fn new() -> Self {
         Simple {

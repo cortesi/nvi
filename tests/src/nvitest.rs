@@ -1,6 +1,6 @@
 use futures_util::future::FutureExt;
 use nvi::test::NviTest;
-use nvi_macros::nvi_service;
+use nvi_macros::nvi_plugin;
 use std::time::Duration;
 use tracing::info;
 
@@ -9,7 +9,7 @@ async fn test_nvi_test() {
     #[derive(Clone)]
     struct TestService {}
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl TestService {
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             info!("service connected");
@@ -27,7 +27,7 @@ async fn test_concurrent() {
     #[derive(Clone)]
     struct TestService {}
 
-    #[nvi_service]
+    #[nvi_plugin]
     impl TestService {
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             Ok(())

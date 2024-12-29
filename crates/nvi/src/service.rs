@@ -11,13 +11,13 @@ use crate::{client::Client, error::Result, macro_types, nvim::types};
 pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
 /// The `NviService` trait is the way Nvi plugins are defined. Usually this is done with the
-/// `nvi_service` attribute macro, which generates the required methods for the trait.
+/// `nvi_plugin` attribute macro, which generates the required methods for the trait.
 #[allow(unused_variables)]
 #[async_trait]
-pub trait NviService: Clone + Sync + Send + 'static {
+pub trait NviPlugin: Clone + Sync + Send + 'static {
     fn name(&self) -> String;
 
-    /// Introspect the service methods, as derived with the `nvi_service` attribute macro.
+    /// Introspect the service methods, as derived with the `nvi_plugin` attribute macro.
     fn introspect(&self) -> Vec<macro_types::Method> {
         vec![]
     }
@@ -96,24 +96,24 @@ pub trait NviService: Clone + Sync + Send + 'static {
     }
 }
 
-// Service handles a single connection to neovim.
+// Service handles a single RPC connection
 #[derive(Clone)]
-pub(crate) struct ConnectionWrapper<T>
+pub(crate) struct RpcConnection<T>
 where
-    T: NviService,
+    T: NviPlugin,
 {
-    nvi_service: T,
+    plugin: T,
     shutdown_tx: broadcast::Sender<()>,
     channel_id: Arc<Mutex<Option<u64>>>,
 }
 
-impl<T> ConnectionWrapper<T>
+impl<T> RpcConnection<T>
 where
-    T: NviService,
+    T: NviPlugin,
 {
-    pub fn new(shutdown_tx: broadcast::Sender<()>, nvi_service: T) -> Self {
-        ConnectionWrapper {
-            nvi_service,
+    pub fn new(shutdown_tx: broadcast::Sender<()>, plugin: T) -> Self {
+        RpcConnection {
+            plugin,
             shutdown_tx,
             channel_id: Arc::new(Mutex::new(None)),
         }
@@ -122,15 +122,15 @@ where
 
 /// A wrapper service that translates from mrpc to NviService.
 #[async_trait::async_trait]
-impl<T> mrpc::Connection for ConnectionWrapper<T>
+impl<T> mrpc::Connection for RpcConnection<T>
 where
-    T: NviService,
+    T: NviPlugin,
 {
     async fn connected(&self, client: mrpc::RpcSender) -> mrpc::Result<()> {
         let shutdown_tx = self.shutdown_tx.clone();
         let c = Client::new(
             client.clone(),
-            &self.nvi_service.name(),
+            &self.plugin.name(),
             None,
             shutdown_tx.clone(),
         );
@@ -145,11 +145,11 @@ where
 
         let mut c = Client::new(
             client.clone(),
-            &self.nvi_service.name(),
+            &self.plugin.name(),
             *self.channel_id.lock().unwrap(),
             shutdown_tx.clone(),
         );
-        match self.nvi_service.bootstrap(&mut c).await {
+        match self.plugin.bootstrap(&mut c).await {
             Ok(_) => trace!("bootstrap complete"),
             Err(e) => {
                 warn!("bootstrap failed: {:?}", e);
@@ -157,11 +157,11 @@ where
                 return Ok(());
             }
         }
-        let ret = self.nvi_service.connected(&mut c).await;
+        let ret = self.plugin.connected(&mut c).await;
         match ret {
-            Ok(_) => trace!("run() completed"),
+            Ok(_) => trace!("connected() completed"),
             Err(e) => {
-                warn!("run() failed: {:?}", e);
+                warn!("connected() failed: {:?}", e);
                 c.shutdown();
             }
         };
@@ -174,10 +174,10 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
-        let vimservice = self.nvi_service.clone();
+        let nvi_plugin = self.plugin.clone();
         let mut client = Client::new(
             sender,
-            &vimservice.name(),
+            &nvi_plugin.name(),
             *self.channel_id.lock().unwrap(),
             self.shutdown_tx.clone(),
         );
@@ -188,7 +188,7 @@ where
 
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
-        match vimservice.request(&mut client, method, &params).await {
+        match nvi_plugin.request(&mut client, method, &params).await {
             Ok(v) => Ok(v),
             Err(e) => {
                 warn!("nvi request error: {:?}", e);
@@ -217,15 +217,15 @@ where
     ) -> mrpc::Result<()> {
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
-        let vimservice = self.nvi_service.clone();
+        let plugin = self.plugin.clone();
         let mut client = Client::new(
             client,
-            &vimservice.name(),
+            &plugin.name(),
             *self.channel_id.lock().unwrap(),
             self.shutdown_tx.clone(),
         );
 
-        if let Err(e) = vimservice.notify(&mut client, method, &params).await {
+        if let Err(e) = plugin.notify(&mut client, method, &params).await {
             warn!("error handling notification: {:?}", e);
             if let Err(notify_err) = client
                 .notify(

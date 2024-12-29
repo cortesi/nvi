@@ -3,7 +3,7 @@ use tokio::sync::broadcast;
 use tracing::{error, trace};
 
 use crate::error::Result;
-use crate::service::{ConnectionWrapper, NviService};
+use crate::service::{NviPlugin, RpcConnection};
 use mrpc::{Client, ConnectionMakerFn, Server};
 
 pub async fn listen_unix<T, F>(
@@ -12,14 +12,14 @@ pub async fn listen_unix<T, F>(
     make_service: F,
 ) -> Result<()>
 where
-    T: NviService + Clone + Send + Sync + 'static,
+    T: NviPlugin + Clone + Send + Sync + 'static,
     F: Fn() -> T + Send + Sync + 'static,
 {
     let path = path.as_ref();
     let itx = shutdown_tx.clone();
     let maker = ConnectionMakerFn::new(move || {
         let service = make_service();
-        ConnectionWrapper::new(itx.clone(), service)
+        RpcConnection::new(itx.clone(), service)
     });
     let server = Server::from_maker(maker).unix(path).await?;
     let mut shutdown_rx = shutdown_tx.subscribe();
@@ -43,13 +43,13 @@ pub async fn listen_tcp<T, F>(
     make_service: F,
 ) -> Result<()>
 where
-    T: NviService + Clone + Send + Sync + 'static,
+    T: NviPlugin + Clone + Send + Sync + 'static,
     F: Fn() -> T + Send + Sync + 'static,
 {
     let itx = shutdown_tx.clone();
     let maker = ConnectionMakerFn::new(move || {
         let service = make_service();
-        ConnectionWrapper::new(itx.clone(), service)
+        RpcConnection::new(itx.clone(), service)
     });
     let server = Server::from_maker(maker).tcp(&addr.to_string()).await?;
 
@@ -74,9 +74,9 @@ pub async fn connect_unix<T, P>(
 ) -> Result<()>
 where
     P: AsRef<Path>,
-    T: NviService + Clone + Send + Sync + 'static,
+    T: NviPlugin + Clone + Send + Sync + 'static,
 {
-    let wrapped_service = ConnectionWrapper::new(shutdown_tx.clone(), service);
+    let wrapped_service = RpcConnection::new(shutdown_tx.clone(), service);
     let client = Client::connect_unix(path, wrapped_service).await?;
     handle_client(shutdown_tx.subscribe(), client).await
 }
@@ -87,9 +87,9 @@ pub async fn connect_tcp<T>(
     service: T,
 ) -> Result<()>
 where
-    T: NviService + Clone + Send + Sync + 'static,
+    T: NviPlugin + Clone + Send + Sync + 'static,
 {
-    let wrapped_service = ConnectionWrapper::new(shutdown_tx.clone(), service);
+    let wrapped_service = RpcConnection::new(shutdown_tx.clone(), service);
     let client = Client::connect_tcp(&addr.to_string(), wrapped_service).await?;
     handle_client(shutdown_tx.subscribe(), client).await
 }
@@ -117,7 +117,7 @@ async fn handle_client<T: mrpc::Connection + Clone + Send + Sync + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::NviService;
+    use crate::NviPlugin;
     use std::path::PathBuf;
     use tokio::sync::broadcast;
     use tracing_test::traced_test;
@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[async_trait::async_trait]
-    impl NviService for TestService {
+    impl NviPlugin for TestService {
         fn name(&self) -> String {
             "TestService".into()
         }
@@ -166,7 +166,7 @@ mod tests {
             }
 
             #[async_trait::async_trait]
-            impl NviService for SockConnectService {
+            impl NviPlugin for SockConnectService {
                 fn name(&self) -> String {
                     "SockConnectService".into()
                 }
