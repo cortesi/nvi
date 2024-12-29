@@ -69,6 +69,13 @@ impl Client {
             .collect::<Vec<String>>()
             .join(", ");
         let extra_sep = if !arg_list.is_empty() { ", " } else { "" };
+        trace!(
+            "nvi registering {}: {} {} {}",
+            kind,
+            namespace,
+            method,
+            arg_list
+        );
 
         self.nvim
             .exec_lua(

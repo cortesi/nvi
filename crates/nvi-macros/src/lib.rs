@@ -533,7 +533,7 @@ fn inner_nvi_service(
         .collect();
 
     let name = syn::Ident::new(&type_name, proc_macro2::Span::call_site());
-    let namestr = type_name.clone();
+    let namestr = heck::ToSnakeCase::to_snake_case(type_name.as_str());
 
     let methods = generate_methods(&imp);
     let connected_invocations: Vec<proc_macro2::TokenStream> = imp
