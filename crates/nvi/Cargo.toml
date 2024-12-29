@@ -10,7 +10,7 @@ doctest = false
 macro-types = { path = "../macro-types" }
 nvi-macros = { path = "../nvi-macros" }
 #mrpc = { path = "../../../mrpc" }
-mrpc = "0.0.5"
+mrpc = "0.0.6"
 
 tokio = {workspace=true, features=["full"]}
 
