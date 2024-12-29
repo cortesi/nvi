@@ -7,7 +7,7 @@ use tracing::trace;
 
 use crate::{
     error::{Error, Result},
-    nvim_api, types,
+    nvim_api, types, Value,
 };
 
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
@@ -326,6 +326,11 @@ impl Client {
             )
             .await?;
         Ok(ret.as_u64().unwrap())
+    }
+
+    /// Execute a snippet of Lua with no arguments.
+    pub async fn lua(&self, code: &str) -> Result<Value> {
+        self.nvim.exec_lua(code, vec![]).await
     }
 }
 
