@@ -58,9 +58,21 @@ impl From<u64> for Buffer {
 }
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
 pub struct Window(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
+
+impl std::fmt::Debug for Window {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Window({})", u64::from(self.clone()))
+    }
+}
+
+impl std::fmt::Display for Window {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Window({})", u64::from(self.clone()))
+    }
+}
 
 impl Window {
     pub fn current() -> Self {
@@ -99,9 +111,21 @@ impl From<u64> for Window {
 }
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
 pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
+
+impl std::fmt::Debug for TabPage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TabPage({})", u64::from(self.clone()))
+    }
+}
+
+impl std::fmt::Display for TabPage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TabPage({})", u64::from(self.clone()))
+    }
+}
 
 impl TabPage {
     pub fn current() -> Self {
