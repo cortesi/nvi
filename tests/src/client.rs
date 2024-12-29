@@ -82,7 +82,6 @@ async fn it_registers_buffer_autocmds() {
 }
 
 #[tokio::test]
-#[traced_test]
 async fn api_nvim_get_chan_info() {
     #[derive(Clone)]
     struct T {}

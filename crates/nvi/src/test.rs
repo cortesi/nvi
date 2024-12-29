@@ -1,5 +1,7 @@
 //! Utilities for writing tests for Nvi plugins.
 use std::{os::unix::process::CommandExt, process::Stdio, sync::Mutex, time::Duration};
+use tracing::subscriber::DefaultGuard;
+use tracing_subscriber::util::SubscriberInitExt;
 
 /// Default timeout for log assertions
 const DEFAULT_LOG_TIMEOUT: Duration = Duration::from_secs(5);
@@ -25,6 +27,7 @@ pub struct NviTest {
     pub nvim_task: tokio::task::JoinHandle<Result<()>>,
     pub plugin_task: tokio::task::JoinHandle<Result<()>>,
     logs: std::sync::Arc<Mutex<Vec<String>>>,
+    _guard: Option<DefaultGuard>,
 }
 
 impl NviTest {
@@ -37,7 +40,7 @@ impl NviTest {
         let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
         let logs_clone = logs.clone();
 
-        let subscriber = tracing_subscriber::fmt()
+        let guard = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::TRACE)
             .with_writer(move || {
                 let logs = logs_clone.clone();
@@ -62,11 +65,9 @@ impl NviTest {
             .with_thread_names(true)
             .with_target(true)
             .compact()
-            .try_init();
+            .set_default();
 
-        if let Ok(_guard) = subscriber {
-            tracing::info!("Test logging initialized");
-        }
+        tracing::info!("Test logging initialized");
 
         let tempdir = tempfile::tempdir()?;
         let socket_path = tempdir.path().join("nvim.socket");
@@ -97,6 +98,7 @@ impl NviTest {
             nvim_task,
             plugin_task,
             logs,
+            _guard: Some(guard),
         })
     }
 

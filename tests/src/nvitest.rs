@@ -1,6 +1,5 @@
 use nvi::test::NviTest;
 use nvi_macros::nvi_service;
-use tokio::time::Duration;
 use tracing::info;
 
 #[tokio::test]
@@ -20,4 +19,3 @@ async fn test_nvi_test() {
     test.await_log("service connected").await.unwrap();
     test.finish().await.unwrap();
 }
-
