@@ -163,6 +163,38 @@ impl NviTest {
         self.logs.lock().unwrap().clone()
     }
 
+    /// Execute two closures concurrently, returning the result of the first when it completes and
+    /// abandoning the second.
+    pub async fn concurrent<T, A, B>(&self, a: A, b: B) -> Result<T>
+    where
+        T: Send + 'static,
+        A: FnOnce(
+                crate::Client,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>
+            + Send
+            + 'static,
+        B: FnOnce(
+                crate::Client,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send>>
+            + Send
+            + 'static,
+    {
+        let client_a = self.client.clone();
+        let client_b = self.client.clone();
+
+        let handle_a = tokio::spawn(a(client_a));
+        let handle_b = tokio::spawn(b(client_b));
+
+        let result = handle_a.await.map_err(|e| crate::error::Error::Internal {
+            msg: format!("task a failed: {}", e),
+        })??;
+
+        handle_b.abort();
+        Ok(result)
+    }
+
     /// Wait for a log message containing the given string to appear, with a default timeout of 5 seconds
     pub async fn await_log(&self, contains: &str) -> Result<()> {
         self.await_log_timeout(contains, DEFAULT_LOG_TIMEOUT).await
