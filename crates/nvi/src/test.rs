@@ -20,6 +20,28 @@ use tokio::{
 
 use crate::{connect_unix, error::Result, NviService};
 
+/// Builder for NviTest configuration
+#[derive(Default)]
+pub struct NviTestBuilder {
+    show_logs: bool,
+}
+
+impl NviTestBuilder {
+    /// Enable or disable log output to stdout
+    pub fn with_show_logs(mut self, enable: bool) -> Self {
+        self.show_logs = enable;
+        self
+    }
+
+    /// Run the test with the configured options
+    pub async fn run<T>(self, nvi: T) -> Result<NviTest>
+    where
+        T: NviService + Unpin + Sync + 'static,
+    {
+        NviTest::new(nvi, self.show_logs).await
+    }
+}
+
 /// A handle to a running test instance.
 pub struct NviTest {
     pub client: crate::Client,
@@ -33,22 +55,26 @@ pub struct NviTest {
 impl NviTest {
     /// Start a neovim instance and plugin in separate tasks. Returns a handle that can be used to control
     /// and monitor the test instance.
-    pub async fn new<T>(nvi: T) -> Result<Self>
+    pub(crate) async fn new<T>(nvi: T, show_logs: bool) -> Result<Self>
     where
         T: NviService + Unpin + Sync + 'static,
     {
         let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
-        let logs_clone = logs.clone();
+        let logs_clone = (logs.clone(), show_logs);
 
         let guard = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::TRACE)
             .with_writer(move || {
                 let logs = logs_clone.clone();
-                struct Writer(std::sync::Arc<Mutex<Vec<String>>>);
+                struct Writer((std::sync::Arc<Mutex<Vec<String>>>, bool));
                 impl std::io::Write for Writer {
                     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
                         if let Ok(s) = String::from_utf8(buf.to_vec()) {
-                            self.0.lock().unwrap().push(s);
+                            let mut logs = self.0 .0.lock().unwrap();
+                            logs.push(s.clone());
+                            if self.0 .1 {
+                                print!("{}", s);
+                            }
                         }
                         Ok(buf.len())
                     }
@@ -111,6 +137,11 @@ impl NviTest {
             contains,
             logs
         );
+    }
+
+    /// Create a new NviTest builder - the recommended way to create a test instance
+    pub fn builder() -> NviTestBuilder {
+        NviTestBuilder::default()
     }
 
     /// Get a copy of the current logs

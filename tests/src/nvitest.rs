@@ -15,7 +15,7 @@ async fn test_nvi_test() {
         }
     }
 
-    let test = NviTest::new(TestService {}).await.unwrap();
+    let test = NviTest::builder().run(TestService {}).await.unwrap();
     test.await_log("service connected").await.unwrap();
     test.finish().await.unwrap();
 }
