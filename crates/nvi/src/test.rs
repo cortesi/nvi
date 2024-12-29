@@ -63,7 +63,7 @@ impl TestHandle {
 
     /// Send termination signal and await all tasks.
     pub async fn finish(self) -> Result<()> {
-        let _ = self.shutdown_tx.send(());
+        let _ = self.shutdown_tx.send(()).unwrap();
         self.nvim_task
             .await
             .map_err(|e| crate::error::Error::Internal {

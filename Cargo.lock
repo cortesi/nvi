@@ -623,9 +623,9 @@ dependencies = [
 
 [[package]]
 name = "mrpc"
-version = "0.0.4"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee49e657a44cf32f40f8892d0cdaa040b9f3d6d505e900e58f9b522be32864d2"
+checksum = "62f78282af66d3c86383dd0cc37b1bb71397585fe87cbbe45e75438ae37b93fb"
 dependencies = [
  "async-trait",
  "bytes",

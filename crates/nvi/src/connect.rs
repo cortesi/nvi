@@ -78,7 +78,7 @@ where
 {
     let wrapped_service = ConnectionWrapper::new(shutdown_tx.clone(), service);
     let client = Client::connect_unix(path, wrapped_service).await?;
-    handle_client(shutdown_tx, client).await
+    handle_client(shutdown_tx.subscribe(), client).await
 }
 
 pub async fn connect_tcp<T>(
@@ -91,16 +91,18 @@ where
 {
     let wrapped_service = ConnectionWrapper::new(shutdown_tx.clone(), service);
     let client = Client::connect_tcp(&addr.to_string(), wrapped_service).await?;
-    handle_client(shutdown_tx, client).await
+    handle_client(shutdown_tx.subscribe(), client).await
 }
 
 async fn handle_client<T: mrpc::Connection + Clone + Send + Sync + 'static>(
-    shutdown_tx: broadcast::Sender<()>,
-    _client: Client<T>,
+    mut shutdown_rx: broadcast::Receiver<()>,
+    client: Client<T>,
 ) -> Result<()> {
-    let mut shutdown_rx = shutdown_tx.subscribe();
-
     tokio::select! {
+        _ = client.join()  => {
+            trace!("Client connection closed.");
+            Ok(())
+        }
         _ = shutdown_rx.recv() => {
             trace!("Shutdown signal received, closing connection.");
             Ok(())
