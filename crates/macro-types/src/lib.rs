@@ -41,4 +41,5 @@ pub struct Method {
     pub message_type: MethodType,
     pub args: Vec<Arg>,
     pub autocmd: Option<AutoCmd>,
+    pub is_mut: bool,
 }

@@ -17,6 +17,12 @@
 
 # Design
 
+- We can do concurrency much better. 
+    - Any method that takes a &self should be able to be called concurrently
+        - This lets the user manage concurrent changes for long-running methods
+          through e.g. Arc<Mutex<>> attributes if they want
+    - Any method that takes a &mut self should be behind a mutex
+    - bootstrap and connected should take &mut
 
 
 # nvi.nvim
@@ -26,6 +32,7 @@
 - only requirement is a working rust install with cargo
 - uses 'cargo install' to install and update binaries 
     - cargo install upgrades binaries if a newer version is released
+- To do this, we'd derive NviPlugin for Arc<Mutex<Plugin>>
 
 
 

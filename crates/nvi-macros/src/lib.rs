@@ -130,6 +130,97 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
     }
 }
 
+fn parse_autocmd(a: &syn::Attribute) -> Result<Option<AutoCmd>> {
+    if let Meta::List(list) = &a.meta {
+        let mut patterns = vec![];
+        let mut group = None;
+        let mut nested = false;
+        let mut events = vec![];
+
+        let nested_metas = list.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
+        let mut iter = nested_metas.iter();
+
+        // First argument must be an array of events
+        if let Some(Expr::Array(array)) = iter.next() {
+            for event in array.elems.iter() {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(lit), ..
+                }) = event
+                {
+                    events.push(lit.value());
+                } else {
+                    return Err(syn::Error::new(
+                        event.span(),
+                        "event must be a string literal",
+                    ));
+                }
+            }
+        } else {
+            return Err(syn::Error::new(
+                a.span(),
+                "first argument must be an array of event strings",
+            ));
+        }
+
+        if events.is_empty() {
+            return Err(syn::Error::new(
+                a.span(),
+                "autocmd must specify at least one event",
+            ));
+        }
+
+        // Parse optional named arguments
+        for meta in iter {
+            if let Expr::Assign(assign) = meta {
+                if let Expr::Path(path) = &*assign.left {
+                    let ident = path.path.get_ident().unwrap().to_string();
+                    match ident.as_str() {
+                        RPC_AUTOCMD_PATTERNS => {
+                            if let Expr::Array(array) = &*assign.right {
+                                for pattern in array.elems.iter() {
+                                    if let Expr::Lit(ExprLit {
+                                        lit: Lit::Str(lit), ..
+                                    }) = pattern
+                                    {
+                                        patterns.push(lit.value());
+                                    }
+                                }
+                            }
+                        }
+                        RPC_AUTOCMD_GROUP => {
+                            if let Expr::Lit(ExprLit {
+                                lit: Lit::Str(lit), ..
+                            }) = &*assign.right
+                            {
+                                group = Some(lit.value());
+                            }
+                        }
+                        RPC_AUTOCMD_NESTED => {
+                            if let Expr::Lit(ExprLit {
+                                lit: Lit::Bool(lit),
+                                ..
+                            }) = &*assign.right
+                            {
+                                nested = lit.value();
+                            }
+                        }
+                        _ => return Err(syn::Error::new(meta.span(), "invalid autocmd attribute")),
+                    }
+                }
+            }
+        }
+
+        Ok(Some(AutoCmd {
+            events,
+            patterns,
+            group,
+            nested,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
 fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     let mut message_type = None;
     let mut docs: Vec<String> = vec![];
@@ -143,98 +234,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
             message_type = Some(MethodType::Notify);
         } else if a.path().is_ident(RPC_AUTOCMD) {
             message_type = Some(MethodType::Request);
-            if let Meta::List(list) = &a.meta {
-                let mut patterns = vec![];
-                let mut group = None;
-                let mut nested = false;
-                let mut events = vec![];
-
-                let nested_metas =
-                    list.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
-                let mut iter = nested_metas.iter();
-
-                // First argument must be an array of events
-                if let Some(Expr::Array(array)) = iter.next() {
-                    for event in array.elems.iter() {
-                        if let Expr::Lit(ExprLit {
-                            lit: Lit::Str(lit), ..
-                        }) = event
-                        {
-                            events.push(lit.value());
-                        } else {
-                            return Err(syn::Error::new(
-                                event.span(),
-                                "event must be a string literal",
-                            ));
-                        }
-                    }
-                } else {
-                    return Err(syn::Error::new(
-                        a.span(),
-                        "first argument must be an array of event strings",
-                    ));
-                }
-
-                if events.is_empty() {
-                    return Err(syn::Error::new(
-                        a.span(),
-                        "autocmd must specify at least one event",
-                    ));
-                }
-
-                // Parse optional named arguments
-                for meta in iter {
-                    if let Expr::Assign(assign) = meta {
-                        if let Expr::Path(path) = &*assign.left {
-                            let ident = path.path.get_ident().unwrap().to_string();
-                            match ident.as_str() {
-                                RPC_AUTOCMD_PATTERNS => {
-                                    if let Expr::Array(array) = &*assign.right {
-                                        for pattern in array.elems.iter() {
-                                            if let Expr::Lit(ExprLit {
-                                                lit: Lit::Str(lit), ..
-                                            }) = pattern
-                                            {
-                                                patterns.push(lit.value());
-                                            }
-                                        }
-                                    }
-                                }
-                                RPC_AUTOCMD_GROUP => {
-                                    if let Expr::Lit(ExprLit {
-                                        lit: Lit::Str(lit), ..
-                                    }) = &*assign.right
-                                    {
-                                        group = Some(lit.value());
-                                    }
-                                }
-                                RPC_AUTOCMD_NESTED => {
-                                    if let Expr::Lit(ExprLit {
-                                        lit: Lit::Bool(lit),
-                                        ..
-                                    }) = &*assign.right
-                                    {
-                                        nested = lit.value();
-                                    }
-                                }
-                                _ => {
-                                    return Err(syn::Error::new(
-                                        meta.span(),
-                                        "invalid autocmd attribute",
-                                    ))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                autocmd = Some(AutoCmd {
-                    events,
-                    patterns,
-                    group,
-                    nested,
-                });
-            }
+            autocmd = parse_autocmd(a)?;
         } else if a.path().is_ident("doc") {
             match &a.meta {
                 Meta::NameValue(syn::MetaNameValue {
@@ -264,9 +264,12 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     };
 
     let mut args = vec![];
+    let mut is_mut = false;
     for i in &method.sig.inputs {
         match i {
-            syn::FnArg::Receiver(_) => {}
+            syn::FnArg::Receiver(r) => {
+                is_mut = r.mutability.is_some();
+            }
             syn::FnArg::Typed(x) => {
                 let mut arg = Arg::default();
 
@@ -395,6 +398,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         args,
         docs: docs.join("\n"),
         autocmd,
+        is_mut,
     }))
 }
 
@@ -483,6 +487,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
                 message_type: #message_type,
                 args: vec![#(#args),*],
                 autocmd: #autocmd,
+                is_mut: false,
             }
         }
     })
@@ -716,6 +721,7 @@ mod tests {
                         },
                     ],
                     autocmd: None,
+                    is_mut: false,
                 },
                 Method {
                     name: "test_void".into(),
@@ -724,6 +730,7 @@ mod tests {
                     message_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
+                    is_mut: false,
                 },
                 Method {
                     name: "test_usize".into(),
@@ -732,6 +739,7 @@ mod tests {
                     message_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
+                    is_mut: false,
                 },
                 Method {
                     name: "test_resultvoid".into(),
@@ -740,6 +748,7 @@ mod tests {
                     message_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
+                    is_mut: false,
                 },
                 Method {
                     name: "test_notification".into(),
@@ -748,6 +757,7 @@ mod tests {
                     message_type: MethodType::Notify,
                     args: vec![],
                     autocmd: None,
+                    is_mut: false,
                 },
             ],
         };
