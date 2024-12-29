@@ -19,8 +19,8 @@ pub struct Client {
     pub name: String,
     /// The compiled API for Neovim.
     pub nvim: nvim::api::NvimApi,
-    /// The MessagePack-RPC channel ID for this client.
-    pub channel_id: Option<u64>,
+    /// The MessagePack-RPC channel ID for this client. Channel ID 0 is global.
+    pub channel_id: u64,
 
     shutdown_tx: broadcast::Sender<()>,
 }
@@ -29,7 +29,7 @@ impl Client {
     pub fn new(
         rpc_sender: mrpc::RpcSender,
         name: &str,
-        channel_id: Option<u64>,
+        channel_id: u64,
         shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
         Client {
@@ -59,10 +59,6 @@ impl Client {
     where
         P: std::string::ToString,
     {
-        let channel_id = self.channel_id.ok_or_else(|| Error::Internal {
-            msg: "channel_id not set".into(),
-        })?;
-
         let arg_list = params
             .iter()
             .map(|p| p.to_string())
@@ -76,6 +72,7 @@ impl Client {
             method,
             arg_list
         );
+        let channel_id = self.channel_id;
 
         self.nvim
             .exec_lua(

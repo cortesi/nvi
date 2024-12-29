@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
-use crate::{client::Client, error::Result, macro_types, nvim::types};
+use crate::{client::Client, error::Result, macro_types, nvim, nvim::types};
 
 pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
@@ -126,15 +126,13 @@ impl<T> mrpc::Connection for RpcConnection<T>
 where
     T: NviPlugin,
 {
-    async fn connected(&self, client: mrpc::RpcSender) -> mrpc::Result<()> {
+    async fn connected(&self, sender: mrpc::RpcSender) -> mrpc::Result<()> {
         let shutdown_tx = self.shutdown_tx.clone();
-        let c = Client::new(
-            client.clone(),
-            &self.plugin.name(),
-            None,
-            shutdown_tx.clone(),
-        );
-        let ci = c.nvim.get_chan_info(0).await.map_err(|e| {
+
+        let nv = nvim::api::NvimApi {
+            rpc_sender: sender.clone(),
+        };
+        let ci = nv.get_chan_info(0).await.map_err(|e| {
             warn!("error getting channel info: {:?}", e);
             mrpc::RpcError::Service(mrpc::ServiceError {
                 name: "NviServiceError".to_string(),
@@ -144,9 +142,9 @@ where
         self.channel_id.lock().unwrap().replace(ci.id);
 
         let mut c = Client::new(
-            client.clone(),
+            sender.clone(),
             &self.plugin.name(),
-            *self.channel_id.lock().unwrap(),
+            self.channel_id.lock().unwrap().expect("channel id not set"),
             shutdown_tx.clone(),
         );
         match self.plugin.bootstrap(&mut c).await {
@@ -178,7 +176,7 @@ where
         let mut client = Client::new(
             sender,
             &nvi_plugin.name(),
-            *self.channel_id.lock().unwrap(),
+            self.channel_id.lock().unwrap().expect("channel id not set"),
             self.shutdown_tx.clone(),
         );
 
@@ -221,7 +219,7 @@ where
         let mut client = Client::new(
             client,
             &plugin.name(),
-            *self.channel_id.lock().unwrap(),
+            self.channel_id.lock().unwrap().expect("channel id not set"),
             self.shutdown_tx.clone(),
         );
 
