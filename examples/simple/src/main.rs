@@ -1,9 +1,6 @@
 use nvi_macros::*;
 use std::sync::{Arc, Mutex};
 
-// An Nvi service must be `Clone`, so that we can share it between inbound connections (in server
-// mode) and async tasks (everywhere else).
-#[derive(Clone)]
 struct Simple {
     n: Arc<Mutex<usize>>,
 }

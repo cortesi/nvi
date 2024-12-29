@@ -14,7 +14,7 @@ pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 /// `nvi_plugin` attribute macro, which generates the required methods for the trait.
 #[allow(unused_variables)]
 #[async_trait]
-pub trait NviPlugin: Clone + Sync + Send + 'static {
+pub trait NviPlugin: Sync + Send + 'static {
     fn name(&self) -> String;
 
     /// Introspect the service methods, as derived with the `nvi_plugin` attribute macro.
@@ -97,7 +97,6 @@ pub trait NviPlugin: Clone + Sync + Send + 'static {
 }
 
 // RpcConnection handles a single RPC connection
-#[derive(Clone)]
 pub(crate) struct RpcConnection<T>
 where
     T: NviPlugin,
@@ -172,10 +171,9 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
-        let nvi_plugin = self.plugin.clone();
         let mut client = Client::new(
             sender,
-            &nvi_plugin.name(),
+            &self.plugin.name(),
             self.channel_id.lock().unwrap().expect("channel id not set"),
             self.shutdown_tx.clone(),
         );
@@ -186,7 +184,7 @@ where
 
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
-        match nvi_plugin.request(&mut client, method, &params).await {
+        match self.plugin.request(&mut client, method, &params).await {
             Ok(v) => Ok(v),
             Err(e) => {
                 warn!("nvi request error: {:?}", e);
@@ -209,21 +207,20 @@ where
 
     async fn handle_notification(
         &self,
-        client: mrpc::RpcSender,
+        sender: mrpc::RpcSender,
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<()> {
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
-        let plugin = self.plugin.clone();
         let mut client = Client::new(
-            client,
-            &plugin.name(),
+            sender,
+            &self.plugin.name(),
             self.channel_id.lock().unwrap().expect("channel id not set"),
             self.shutdown_tx.clone(),
         );
 
-        if let Err(e) = plugin.notify(&mut client, method, &params).await {
+        if let Err(e) = self.plugin.notify(&mut client, method, &params).await {
             warn!("error handling notification: {:?}", e);
             if let Err(notify_err) = client
                 .notify(

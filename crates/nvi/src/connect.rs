@@ -12,7 +12,7 @@ pub async fn listen_unix<T, F>(
     make_plugin: F,
 ) -> Result<()>
 where
-    T: NviPlugin + Clone + Send + Sync + 'static,
+    T: NviPlugin + Send + Sync + 'static,
     F: Fn() -> T + Send + Sync + 'static,
 {
     let path = path.as_ref();
@@ -40,7 +40,7 @@ pub async fn listen_tcp<T, F>(
     make_plugin: F,
 ) -> Result<()>
 where
-    T: NviPlugin + Clone + Send + Sync + 'static,
+    T: NviPlugin + Send + Sync + 'static,
     F: Fn() -> T + Send + Sync + 'static,
 {
     let itx = shutdown_tx.clone();
@@ -71,7 +71,7 @@ pub async fn connect_unix<T, P>(
 ) -> Result<()>
 where
     P: AsRef<Path>,
-    T: NviPlugin + Clone + Send + Sync + 'static,
+    T: NviPlugin + Send + Sync + 'static,
 {
     let rpc_conn = RpcConnection::new(shutdown_tx.clone(), plugin);
     let client = Client::connect_unix(path, rpc_conn).await?;
@@ -84,14 +84,14 @@ pub async fn connect_tcp<T>(
     plugin: T,
 ) -> Result<()>
 where
-    T: NviPlugin + Clone + Send + Sync + 'static,
+    T: NviPlugin + Send + Sync + 'static,
 {
     let rpc_conn = RpcConnection::new(shutdown_tx.clone(), plugin);
     let client = Client::connect_tcp(&addr.to_string(), rpc_conn).await?;
     handle_client(shutdown_tx.subscribe(), client).await
 }
 
-async fn handle_client<T: mrpc::Connection + Clone + Send + Sync + 'static>(
+async fn handle_client<T: mrpc::Connection + Send + Sync + 'static>(
     mut shutdown_rx: broadcast::Receiver<()>,
     client: Client<T>,
 ) -> Result<()> {

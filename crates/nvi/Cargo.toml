@@ -9,8 +9,8 @@ doctest = false
 [dependencies]
 macro-types = { path = "../macro-types" }
 nvi-macros = { path = "../nvi-macros" }
-#mrpc = { path = "../../../mrpc" }
-mrpc = "0.0.6"
+mrpc = { path = "../../../mrpc" }
+# mrpc = "0.0.6"
 
 tokio = {workspace=true, features=["full"]}
 
