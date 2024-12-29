@@ -96,7 +96,7 @@ pub trait NviPlugin: Clone + Sync + Send + 'static {
     }
 }
 
-// Service handles a single RPC connection
+// RpcConnection handles a single RPC connection
 #[derive(Clone)]
 pub(crate) struct RpcConnection<T>
 where
@@ -120,7 +120,7 @@ where
     }
 }
 
-/// A wrapper service that translates from mrpc to NviService.
+/// A wrapper service that translates from mrpc to NviPlugin.
 #[async_trait::async_trait]
 impl<T> mrpc::Connection for RpcConnection<T>
 where
@@ -200,7 +200,7 @@ where
                     warn!("error sending request error notification: {:?}", notify_err);
                 }
                 Err(mrpc::RpcError::Service(mrpc::ServiceError {
-                    name: "NviServiceError".to_string(),
+                    name: "NviRequestError".to_string(),
                     value: Value::String(format!("{e:?}").into()),
                 }))
             }

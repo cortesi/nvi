@@ -546,7 +546,7 @@ fn inner_nvi_plugin(
     if connected_invocations.len() > 1 {
         return Err(syn::Error::new(
             input.span(),
-            "Only one 'connected' method is allowed per service",
+            "Only one 'connected' method is allowed per plugin",
         ));
     }
 
@@ -616,7 +616,7 @@ fn inner_nvi_plugin(
     .to_token_stream())
 }
 
-/// Add this attribute to the *impl* block for the `NviService` trait to derive implementations for
+/// Add this attribute to the *impl* block for the `NviPlugin` trait to derive implementations for
 /// the `message` and `notification` methods.
 #[proc_macro_attribute]
 pub fn nvi_plugin(
@@ -667,7 +667,7 @@ mod tests {
     #[test]
     fn it_parses_struct() {
         let s = quote! {
-            impl <T>TestService for Test<T> {
+            impl <T>TestPlugin for Test<T> {
                 #[request]
                 /// Some docs
                 fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
@@ -769,7 +769,7 @@ mod tests {
     #[test]
     fn it_renders_service() {
         let s = quote! {
-            impl <T>TestService for Test<T> {
+            impl <T>TestPlugin for Test<T> {
                 #[request]
                 /// Some docs
                 async fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {

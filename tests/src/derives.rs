@@ -10,12 +10,12 @@ use tracing_test::traced_test;
 #[traced_test]
 async fn it_derives_basic_service() {
     #[derive(Clone)]
-    struct TestService {
+    struct TestPlugin {
         tx: broadcast::Sender<()>,
     }
 
     #[nvi_plugin]
-    impl TestService {
+    impl TestPlugin {
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             trace!("connected");
             self.tx.send(()).unwrap();
@@ -24,7 +24,7 @@ async fn it_derives_basic_service() {
     }
 
     let (tx, _) = broadcast::channel(16);
-    test::run_plugin_with_shutdown(TestService { tx: tx.clone() }, tx)
+    test::run_plugin_with_shutdown(TestPlugin { tx: tx.clone() }, tx)
         .await
         .unwrap();
     assert!(logs_contain("connected"));
@@ -34,10 +34,10 @@ async fn it_derives_basic_service() {
 #[traced_test]
 async fn it_derives_autocmd_handler() {
     #[derive(Clone)]
-    struct TestService {}
+    struct TestPlugin {}
 
     #[nvi_plugin]
-    impl TestService {
+    impl TestPlugin {
         #[autocmd(["User"], patterns=["*.rs"])]
         async fn on_user_event(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
             trace!("user event received");
@@ -62,7 +62,7 @@ async fn it_derives_autocmd_handler() {
     }
 
     let (tx, _) = broadcast::channel(16);
-    test::run_plugin_with_shutdown(TestService {}, tx)
+    test::run_plugin_with_shutdown(TestPlugin {}, tx)
         .await
         .unwrap();
     assert!(logs_contain("user event received"));

@@ -7,34 +7,34 @@ use tracing::info;
 #[tokio::test]
 async fn test_nvi_test() {
     #[derive(Clone)]
-    struct TestService {}
+    struct TestPlugin {}
 
     #[nvi_plugin]
-    impl TestService {
+    impl TestPlugin {
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
-            info!("service connected");
+            info!("plugin connected");
             Ok(())
         }
     }
 
-    let test = NviTest::builder().run(TestService {}).await.unwrap();
-    test.await_log("service connected").await.unwrap();
+    let test = NviTest::builder().run(TestPlugin {}).await.unwrap();
+    test.await_log("plugin connected").await.unwrap();
     test.finish().await.unwrap();
 }
 
 #[tokio::test]
 async fn test_concurrent() {
     #[derive(Clone)]
-    struct TestService {}
+    struct TestPlugin {}
 
     #[nvi_plugin]
-    impl TestService {
+    impl TestPlugin {
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             Ok(())
         }
     }
 
-    let test = NviTest::builder().run(TestService {}).await.unwrap();
+    let test = NviTest::builder().run(TestPlugin {}).await.unwrap();
 
     let result = test
         .concurrent(

@@ -9,7 +9,7 @@ use mrpc::{Client, ConnectionMakerFn, Server};
 pub async fn listen_unix<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     path: impl AsRef<Path>,
-    make_service: F,
+    make_plugin: F,
 ) -> Result<()>
 where
     T: NviPlugin + Clone + Send + Sync + 'static,
@@ -17,10 +17,7 @@ where
 {
     let path = path.as_ref();
     let itx = shutdown_tx.clone();
-    let maker = ConnectionMakerFn::new(move || {
-        let service = make_service();
-        RpcConnection::new(itx.clone(), service)
-    });
+    let maker = ConnectionMakerFn::new(move || RpcConnection::new(itx.clone(), make_plugin()));
     let server = Server::from_maker(maker).unix(path).await?;
     let mut shutdown_rx = shutdown_tx.subscribe();
     tokio::select! {
@@ -40,7 +37,7 @@ where
 pub async fn listen_tcp<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     addr: SocketAddr,
-    make_service: F,
+    make_plugin: F,
 ) -> Result<()>
 where
     T: NviPlugin + Clone + Send + Sync + 'static,
@@ -48,8 +45,8 @@ where
 {
     let itx = shutdown_tx.clone();
     let maker = ConnectionMakerFn::new(move || {
-        let service = make_service();
-        RpcConnection::new(itx.clone(), service)
+        let plugin = make_plugin();
+        RpcConnection::new(itx.clone(), plugin)
     });
     let server = Server::from_maker(maker).tcp(&addr.to_string()).await?;
 
@@ -70,27 +67,27 @@ where
 pub async fn connect_unix<T, P>(
     shutdown_tx: broadcast::Sender<()>,
     path: P,
-    service: T,
+    plugin: T,
 ) -> Result<()>
 where
     P: AsRef<Path>,
     T: NviPlugin + Clone + Send + Sync + 'static,
 {
-    let wrapped_service = RpcConnection::new(shutdown_tx.clone(), service);
-    let client = Client::connect_unix(path, wrapped_service).await?;
+    let rpc_conn = RpcConnection::new(shutdown_tx.clone(), plugin);
+    let client = Client::connect_unix(path, rpc_conn).await?;
     handle_client(shutdown_tx.subscribe(), client).await
 }
 
 pub async fn connect_tcp<T>(
     shutdown_tx: broadcast::Sender<()>,
     addr: SocketAddr,
-    service: T,
+    plugin: T,
 ) -> Result<()>
 where
     T: NviPlugin + Clone + Send + Sync + 'static,
 {
-    let wrapped_service = RpcConnection::new(shutdown_tx.clone(), service);
-    let client = Client::connect_tcp(&addr.to_string(), wrapped_service).await?;
+    let rpc_conn = RpcConnection::new(shutdown_tx.clone(), plugin);
+    let client = Client::connect_tcp(&addr.to_string(), rpc_conn).await?;
     handle_client(shutdown_tx.subscribe(), client).await
 }
 
@@ -123,14 +120,14 @@ mod tests {
     use tracing_test::traced_test;
 
     #[derive(Clone)]
-    struct TestService {
+    struct TestPlugin {
         tx: broadcast::Sender<()>,
     }
 
     #[async_trait::async_trait]
-    impl NviPlugin for TestService {
+    impl NviPlugin for TestPlugin {
         fn name(&self) -> String {
-            "TestService".into()
+            "TestPlugin".into()
         }
 
         async fn connected(&self, client: &mut crate::Client) -> crate::error::Result<()> {
@@ -149,7 +146,7 @@ mod tests {
         let tempdir = tempfile::tempdir().unwrap();
         let socket_path = tempdir.path().join("listen.socket");
         let itx = tx.clone();
-        let listener = listen_unix(itx.clone(), socket_path.clone(), move || TestService {
+        let listener = listen_unix(itx.clone(), socket_path.clone(), move || TestPlugin {
             tx: itx.clone(),
         });
         let ls = tokio::spawn(listener);
@@ -161,14 +158,14 @@ mod tests {
             tx: broadcast::Sender<()>,
         ) -> crate::error::Result<()> {
             #[derive(Clone)]
-            struct SockConnectService {
+            struct SockConnectPlugin {
                 socket_path: PathBuf,
             }
 
             #[async_trait::async_trait]
-            impl NviPlugin for SockConnectService {
+            impl NviPlugin for SockConnectPlugin {
                 fn name(&self) -> String {
-                    "SockConnectService".into()
+                    "SockConnectPlugin".into()
                 }
 
                 async fn connected(&self, client: &mut crate::Client) -> crate::error::Result<()> {
@@ -189,7 +186,7 @@ mod tests {
             }
 
             let _handle = crate::test::run_plugin_with_shutdown(
-                SockConnectService { socket_path },
+                SockConnectPlugin { socket_path },
                 tx.clone(),
             )
             .await;
@@ -212,7 +209,7 @@ mod tests {
     async fn it_connects() {
         let (tx, _) = broadcast::channel(16);
         let rtx = tx.clone();
-        let s = TestService { tx };
+        let s = TestPlugin { tx };
         crate::test::run_plugin_with_shutdown(s, rtx).await.unwrap();
     }
 }

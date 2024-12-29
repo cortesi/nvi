@@ -347,12 +347,12 @@ mod tests {
                    let (tx, _) = broadcast::channel(16);
 
                    #[derive(Clone)]
-                   struct TestService {}
+                   struct TestPlugin {}
 
                    #[async_trait]
-                   impl crate::NviPlugin for TestService {
+                   impl crate::NviPlugin for TestPlugin {
                        fn name(&self) -> String {
-                           "TestService".into()
+                           "TestPlugin".into()
                        }
 
                        async fn connected(&self, client: &mut Client) -> Result<()> {
@@ -368,7 +368,7 @@ mod tests {
                        }
                    }
                    let rtx = tx.clone();
-                   test::run_plugin_with_shutdown(TestService {}, rtx)
+                   test::run_plugin_with_shutdown(TestPlugin {}, rtx)
                }
         }
     }
@@ -392,12 +392,12 @@ mod tests {
         let (tx, _) = broadcast::channel(16);
 
         #[derive(Clone)]
-        struct TestService {}
+        struct TestPlugin {}
 
         #[async_trait]
-        impl crate::NviPlugin for TestService {
+        impl crate::NviPlugin for TestPlugin {
             fn name(&self) -> String {
-                "TestService".into()
+                "TestPlugin".into()
             }
 
             async fn connected(&self, client: &mut Client) -> Result<()> {
@@ -434,7 +434,7 @@ mod tests {
         }
 
         let rtx = tx.clone();
-        test::run_plugin_with_shutdown(TestService {}, rtx)
+        test::run_plugin_with_shutdown(TestPlugin {}, rtx)
             .await
             .unwrap();
     }
@@ -445,12 +445,12 @@ mod tests {
         let (tx, _) = broadcast::channel(16);
 
         #[derive(Clone)]
-        struct TestService {}
+        struct TestPlugin {}
 
         #[async_trait]
-        impl crate::NviPlugin for TestService {
+        impl crate::NviPlugin for TestPlugin {
             fn name(&self) -> String {
-                "TestService".into()
+                "TestPlugin".into()
             }
 
             async fn connected(&self, client: &mut Client) -> Result<()> {
@@ -485,7 +485,7 @@ mod tests {
         }
 
         let rtx = tx.clone();
-        test::run_plugin_with_shutdown(TestService {}, rtx)
+        test::run_plugin_with_shutdown(TestPlugin {}, rtx)
             .await
             .unwrap();
     }
