@@ -1,4 +1,4 @@
 #!/bin/sh
 
-cargo run --release --bin protoc -- protoc > ./crates/nvi/src/nvim_api.rs
+cargo run --release --bin protoc -- protoc > ./crates/nvi/src/nvim/api.rs
 

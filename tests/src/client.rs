@@ -1,6 +1,9 @@
 use nvi::{
-    opts, test,
-    types::{AutocmdEvent, Event},
+    nvim::{
+        opts,
+        types::{AutocmdEvent, Event},
+    },
+    test,
 };
 
 use nvi_macros::{nvi_service, request};

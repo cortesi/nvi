@@ -7,7 +7,7 @@ use tracing::trace;
 
 use crate::{
     error::{Error, Result},
-    nvim_api, types, Value,
+    nvim, Value,
 };
 
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
@@ -18,7 +18,7 @@ pub struct Client {
     /// The name of the plugin.
     pub name: String,
     /// The compiled API for Neovim.
-    pub nvim: nvim_api::NvimApi,
+    pub nvim: nvim::api::NvimApi,
     /// The MessagePack-RPC channel ID for this client.
     pub channel_id: Option<u64>,
 
@@ -34,7 +34,7 @@ impl Client {
     ) -> Self {
         Client {
             name: name.into(),
-            nvim: nvim_api::NvimApi { rpc_sender },
+            nvim: nvim::api::NvimApi { rpc_sender },
             shutdown_tx,
             channel_id,
         }
@@ -158,42 +158,42 @@ impl Client {
     }
 
     /// Send an nvim_notify notification, with a specified log level.
-    pub async fn notify(&self, level: types::LogLevel, msg: &str) -> Result<()> {
+    pub async fn notify(&self, level: nvim::types::LogLevel, msg: &str) -> Result<()> {
         self.nvim.notify(msg, level.to_u64(), HashMap::new()).await
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Trace`.
     pub async fn trace(&self, msg: &str) -> Result<()> {
-        self.notify(types::LogLevel::Trace, msg).await
+        self.notify(nvim::types::LogLevel::Trace, msg).await
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Debug`.
     pub async fn debug(&self, msg: &str) -> Result<()> {
-        self.notify(types::LogLevel::Debug, msg).await
+        self.notify(nvim::types::LogLevel::Debug, msg).await
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Info`.
     pub async fn info(&self, msg: &str) -> Result<()> {
-        self.notify(types::LogLevel::Info, msg).await
+        self.notify(nvim::types::LogLevel::Info, msg).await
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Warn`.
     pub async fn warn(&self, msg: &str) -> Result<()> {
-        self.notify(types::LogLevel::Warn, msg).await
+        self.notify(nvim::types::LogLevel::Warn, msg).await
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Error`.
     pub async fn error(&self, msg: &str) -> Result<()> {
-        self.notify(types::LogLevel::Error, msg).await
+        self.notify(nvim::types::LogLevel::Error, msg).await
     }
 
     /// Set an autocmd for a buffer.
     pub async fn autocmd_buffer(
         &self,
-        buffer: types::Buffer,
+        buffer: nvim::types::Buffer,
         rpc_request: &str,
-        events: &[types::Event],
-        group: Option<types::Group>,
+        events: &[nvim::types::Event],
+        group: Option<nvim::types::Group>,
         once: bool,
         nested: bool,
     ) -> Result<u64> {
@@ -260,8 +260,8 @@ impl Client {
         &self,
         patterns: &[String],
         rpc_request: &str,
-        events: &[types::Event],
-        group: Option<types::Group>,
+        events: &[nvim::types::Event],
+        group: Option<nvim::types::Group>,
         once: bool,
         nested: bool,
     ) -> Result<u64> {

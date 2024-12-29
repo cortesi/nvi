@@ -2,7 +2,7 @@
 //! are the final arguments in API functions named `opts`. They are not included in the rendered
 //! protocol description, so we have to write them by hand.
 
-use crate::types;
+use super::types;
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 

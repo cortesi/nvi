@@ -1,3 +1,4 @@
+use nvi::nvim;
 use nvi::test;
 use nvi_macros::*;
 
@@ -45,11 +46,11 @@ async fn it_derives_autocmd_handler() {
         }
 
         async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
-            use nvi::opts::ExecAutocmds;
+            use nvim::opts::ExecAutocmds;
             client
                 .nvim
                 .exec_autocmds(
-                    &[nvi::types::Event::User],
+                    &[nvim::types::Event::User],
                     ExecAutocmds {
                         pattern: Some(vec!["*.rs".to_string()]),
                         ..Default::default()

@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use super::{
     error::{Error, Result},
-    types::Text,
+    nvim::types::Text,
     Client,
 };
 use crate::Value;

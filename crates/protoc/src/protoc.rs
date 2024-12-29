@@ -303,8 +303,8 @@ pub fn protoc() -> Result<()> {
         use serde::Serialize;
 
         use crate::error::{Result};
-        use crate::types::*;
-        use crate::opts;
+        use super::types::*;
+        use super::opts;
 
         #[derive(Clone)]
         /// Generated bindings for Neovim's MessagePack-RPC API.

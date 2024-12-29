@@ -3,7 +3,8 @@ use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{serde_as, Bytes, NoneAsEmptyString};
 
-use crate::{client, error::Result, opts};
+use super::opts;
+use crate::{client, error::Result};
 
 pub const BUFFER_EXT_TYPE: i8 = 0;
 pub const WINDOW_EXT_TYPE: i8 = 1;

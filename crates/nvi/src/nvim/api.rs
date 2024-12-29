@@ -1,8 +1,8 @@
 #![allow(clippy::needless_question_mark)]
 #![allow(clippy::needless_borrow)]
+use super::opts;
+use super::types::*;
 use crate::error::Result;
-use crate::opts;
-use crate::types::*;
 use mrpc::Value;
 use serde::Serialize;
 use serde_rmpv::{from_value, to_value};

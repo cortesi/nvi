@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
-use crate::{client::Client, error::Result, macro_types, types};
+use crate::{client::Client, error::Result, macro_types, nvim::types};
 
 pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
 
