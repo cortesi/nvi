@@ -13,3 +13,4 @@ tracing-test = { version = "0.2.4", features = ["no-env-filter"] }
 serde-rmpv = "0.0.1"
 tracing = "0.1.40"
 async-trait = "0.1.80"
+futures-util = "0.3.30"

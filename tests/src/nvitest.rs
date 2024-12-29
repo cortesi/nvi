@@ -1,3 +1,4 @@
+use futures_util::future::FutureExt;
 use nvi::test::NviTest;
 use nvi_macros::nvi_service;
 use std::time::Duration;
@@ -37,12 +38,13 @@ async fn test_concurrent() {
 
     let result = test
         .concurrent(
-            |_client| Box::pin(async { Ok(42) }),
-            |_client| {
-                Box::pin(async {
+            |_| async { Ok(42) }.boxed(),
+            |_| {
+                async {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     Ok(())
-                })
+                }
+                .boxed()
             },
         )
         .await

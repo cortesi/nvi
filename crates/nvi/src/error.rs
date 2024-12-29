@@ -20,6 +20,8 @@ pub enum Error {
     Internal { msg: String },
     #[error("{0}")]
     User(String),
+    #[error("plugin error: {0}")]
+    Plugin(String),
 }
 
 impl From<serde_rmpv::Error> for Error {

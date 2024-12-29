@@ -15,6 +15,7 @@ mrpc = "0.0.6"
 tokio = {workspace=true, features=["full"]}
 
 futures = "0.3.30"
+futures-util = "0.3.30"
 rmp = "0.8.14"
 rmp-serde = "1.1.2"
 serde-rmpv = "0.0.1"

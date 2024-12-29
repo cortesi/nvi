@@ -1,4 +1,5 @@
 //! Utilities for writing tests for Nvi plugins.
+use futures_util::future::BoxFuture;
 use std::{os::unix::process::CommandExt, process::Stdio, sync::Mutex, time::Duration};
 use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -168,18 +169,8 @@ impl NviTest {
     pub async fn concurrent<T, A, B>(&self, a: A, b: B) -> Result<T>
     where
         T: Send + 'static,
-        A: FnOnce(
-                crate::Client,
-            )
-                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>>
-            + Send
-            + 'static,
-        B: FnOnce(
-                crate::Client,
-            )
-                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send>>
-            + Send
-            + 'static,
+        A: FnOnce(crate::Client) -> BoxFuture<'static, Result<T>> + Send + 'static,
+        B: FnOnce(crate::Client) -> BoxFuture<'static, Result<()>> + Send + 'static,
     {
         let client_a = self.client.clone();
         let client_b = self.client.clone();
