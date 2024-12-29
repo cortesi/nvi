@@ -21,15 +21,30 @@ use tokio::{
 use crate::{connect_unix, error::Result, NviService};
 
 /// Builder for NviTest configuration
-#[derive(Default)]
 pub struct NviTestBuilder {
     show_logs: bool,
+    log_level: tracing::Level,
+}
+
+impl Default for NviTestBuilder {
+    fn default() -> Self {
+        Self {
+            show_logs: false,
+            log_level: tracing::Level::TRACE,
+        }
+    }
 }
 
 impl NviTestBuilder {
     /// Enable or disable log output to stdout
-    pub fn with_show_logs(mut self, enable: bool) -> Self {
-        self.show_logs = enable;
+    pub fn show_logs(mut self) -> Self {
+        self.show_logs = true;
+        self
+    }
+
+    /// Set the log level for the test
+    pub fn log_level(mut self, level: tracing::Level) -> Self {
+        self.log_level = level;
         self
     }
 
@@ -38,7 +53,7 @@ impl NviTestBuilder {
     where
         T: NviService + Unpin + Sync + 'static,
     {
-        NviTest::new(nvi, self.show_logs).await
+        NviTest::new(nvi, self.show_logs, self.log_level).await
     }
 }
 
@@ -55,7 +70,7 @@ pub struct NviTest {
 impl NviTest {
     /// Start a neovim instance and plugin in separate tasks. Returns a handle that can be used to control
     /// and monitor the test instance.
-    pub(crate) async fn new<T>(nvi: T, show_logs: bool) -> Result<Self>
+    pub(crate) async fn new<T>(nvi: T, show_logs: bool, log_level: tracing::Level) -> Result<Self>
     where
         T: NviService + Unpin + Sync + 'static,
     {
@@ -63,7 +78,7 @@ impl NviTest {
         let logs_clone = (logs.clone(), show_logs);
 
         let guard = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::TRACE)
+            .with_max_level(log_level)
             .with_writer(move || {
                 let logs = logs_clone.clone();
                 struct Writer((std::sync::Arc<Mutex<Vec<String>>>, bool));
@@ -92,8 +107,6 @@ impl NviTest {
             .with_target(true)
             .compact()
             .set_default();
-
-        tracing::info!("Test logging initialized");
 
         let tempdir = tempfile::tempdir()?;
         let socket_path = tempdir.path().join("nvim.socket");

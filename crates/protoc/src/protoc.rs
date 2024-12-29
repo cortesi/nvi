@@ -298,7 +298,7 @@ pub fn protoc() -> Result<()> {
         use std::collections::HashMap;
 
         use mrpc::Value;
-        use tracing::{trace, debug};
+        use tracing::trace;
         use serde_rmpv::{from_value, to_value};
         use serde::Serialize;
 
@@ -322,7 +322,6 @@ pub fn protoc() -> Result<()> {
                 trace!("send request: {:?} {:?}", method, params);
                 let ret = self.rpc_sender.send_request(method, params).await;
                 trace!("got response for {:?}: {:?}", method, ret);
-                debug!("request: {:?}, ok", method);
                 ret
             }
 
@@ -333,7 +332,6 @@ pub fn protoc() -> Result<()> {
                 params: &[mrpc::Value],
             ) -> Result<(), mrpc::RpcError> {
                 trace!("send notification: {:?} {:?}", method, params);
-                debug!("notification: {:?}", method);
                 self.rpc_sender.send_notification(method, params).await
             }
 

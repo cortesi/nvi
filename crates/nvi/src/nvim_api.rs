@@ -7,7 +7,7 @@ use mrpc::Value;
 use serde::Serialize;
 use serde_rmpv::{from_value, to_value};
 use std::collections::HashMap;
-use tracing::{debug, trace};
+use tracing::trace;
 #[derive(Clone)]
 #[doc = r" Generated bindings for Neovim's MessagePack-RPC API."]
 pub struct NvimApi {
@@ -23,7 +23,6 @@ impl NvimApi {
         trace!("send request: {:?} {:?}", method, params);
         let ret = self.rpc_sender.send_request(method, params).await;
         trace!("got response for {:?}: {:?}", method, ret);
-        debug!("request: {:?}, ok", method);
         ret
     }
     #[doc = r" Send a raw notification over the MessagePack-RPC protocol."]
@@ -33,7 +32,6 @@ impl NvimApi {
         params: &[mrpc::Value],
     ) -> Result<(), mrpc::RpcError> {
         trace!("send notification: {:?} {:?}", method, params);
-        debug!("notification: {:?}", method);
         self.rpc_sender.send_notification(method, params).await
     }
     #[doc = "\nGet all autocommands that match the corresponding {opts}.\n\nThese examples will get autocommands matching ALL the given criteria:\n- Matches all criteria\n- All commands from one group\n\nNOTE: When multiple patterns or events are provided, it will find all the\nautocommands that match any combination of them.\n"]
@@ -66,7 +64,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nClears all autocommands selected by {opts}. To delete autocmds see\nnvim_del_autocmd().\n"]
+    #[doc = "\nClears all autocommands selected by {opts}. To delete autocmds see\n`nvim_del_autocmd()`.\n"]
     pub async fn clear_autocmds(&self, opts: opts::ClearAutocmds) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -102,7 +100,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nExecute all autocommands for {event} that match the corresponding {opts}\n|autocmd-execute|.\n"]
+    #[doc = "\nExecute all autocommands for {event} that match the corresponding {opts}\n`autocmd-execute`.\n"]
     pub async fn exec_autocmds(&self, event: &[Event], opts: opts::ExecAutocmds) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -464,7 +462,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nExecutes an Ex command.\n\nUnlike nvim_command() this command takes a structured Dict instead of a\nString. This allows for easier construction and manipulation of an Ex\ncommand. This also allows for things such as having spaces inside a\ncommand argument, expanding filenames in a command that otherwise does not\nexpand filenames, etc. Command arguments may also be Number, Boolean or\nString.\n\nThe first argument may also be used instead of count for commands that\nsupport it in order to make their usage simpler. For example, instead of\nvim.cmd.bdelete{ count = 2 }, you may do vim.cmd.bdelete(2).\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
+    #[doc = "\nExecutes an Ex command.\n\nUnlike `nvim_command()` this command takes a structured Dict instead of a\nString. This allows for easier construction and manipulation of an Ex\ncommand. This also allows for things such as having spaces inside a\ncommand argument, expanding filenames in a command that otherwise does not\nexpand filenames, etc. Command arguments may also be Number, Boolean or\nString.\n\nThe first argument may also be used instead of count for commands that\nsupport it in order to make their usage simpler. For example, instead of\n`vim.cmd.bdelete{ count = 2 }`, you may do `vim.cmd.bdelete(2)`.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
     pub async fn cmd(
         &self,
         cmd: HashMap<String, Value>,
@@ -506,7 +504,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCreates a buffer-local command |user-commands|.\n"]
+    #[doc = "\nCreates a buffer-local command `user-commands`.\n"]
     pub async fn buf_create_user_command<T>(
         &self,
         buffer: &Buffer,
@@ -532,7 +530,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nDelete a buffer-local user-defined command.\n\nOnly commands created with |:command-buffer| or\n|nvim_buf_create_user_command()| can be deleted with this function.\n"]
+    #[doc = "\nDelete a buffer-local user-defined command.\n\nOnly commands created with `:command-buffer` or\n`nvim_buf_create_user_command()` can be deleted with this function.\n"]
     pub async fn buf_del_user_command(&self, buffer: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -640,7 +638,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCreates or updates an |extmark|.\n\nBy default a new extmark is created when no id is passed in, but it is\nalso possible to create a new mark by passing in a previously unused id or\nmove an existing mark by passing in its id. The caller must then keep\ntrack of existing and unused ids itself. (Useful over RPC, to avoid\nwaiting for the return value.)\n\nUsing the optional arguments, it is possible to use this to highlight a\nrange of text, and also to associate virtual text to the mark.\n\nIf present, the position defined by end_col and end_row should be\nafter the start position in order for the extmark to cover a range. An\nearlier end position is not an error, but then it behaves like an empty\nrange (no highlighting).\n"]
+    #[doc = "\nCreates or updates an extmark.\n\nBy default a new extmark is created when no id is passed in, but it is\nalso possible to create a new mark by passing in a previously unused id or\nmove an existing mark by passing in its id. The caller must then keep\ntrack of existing and unused ids itself. (Useful over RPC, to avoid\nwaiting for the return value.)\n\nUsing the optional arguments, it is possible to use this to highlight a\nrange of text, and also to associate virtual text to the mark.\n\nIf present, the position defined by end_col and end_row should be\nafter the start position in order for the extmark to cover a range. An\nearlier end position is not an error, but then it behaves like an empty\nrange (no highlighting).\n"]
     pub async fn buf_set_extmark(
         &self,
         buffer: &Buffer,
@@ -665,7 +663,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nRemoves an |extmark|.\n"]
+    #[doc = "\nRemoves an extmark.\n"]
     pub async fn buf_del_extmark(&self, buffer: &Buffer, ns_id: i64, id: i64) -> Result<bool> {
         #[allow(unused_variables)]
         let ret = self
@@ -677,7 +675,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nAdds a highlight to buffer.\n\nUseful for plugins that dynamically generate highlights to a buffer (like\na semantic highlighter or linter). The function adds a single highlight to\na buffer. Unlike matchaddpos() highlights follow changes to line\nnumbering (as lines are inserted/removed above the highlighted line), like\nsigns and marks do.\n\nNamespaces are used for batch deletion/updating of a set of highlights. To\ncreate a namespace, use nvim_create_namespace() which returns a\nnamespace id. Pass it in to this function as ns_id to add highlights to\nthe namespace. All highlights in the same namespace can then be cleared\nwith single call to nvim_buf_clear_namespace(). If the highlight never\nwill be deleted by an API call, pass ns_id = -1.\n\nAs a shorthand, ns_id = 0 can be used to create a new namespace for the\nhighlight, the allocated id is then returned. If hl_group is the empty\nstring no highlight is added, but a new ns_id is still returned. This is\nsupported for backwards compatibility, new code should use\nnvim_create_namespace() to create a new empty namespace.\n"]
+    #[doc = "\nAdds a highlight to buffer.\n\nUseful for plugins that dynamically generate highlights to a buffer (like\na semantic highlighter or linter). The function adds a single highlight to\na buffer. Unlike `matchaddpos()` highlights follow changes to line\nnumbering (as lines are inserted/removed above the highlighted line), like\nsigns and marks do.\n\nNamespaces are used for batch deletion/updating of a set of highlights. To\ncreate a namespace, use `nvim_create_namespace()` which returns a\nnamespace id. Pass it in to this function as ns_id to add highlights to\nthe namespace. All highlights in the same namespace can then be cleared\nwith single call to `nvim_buf_clear_namespace()`. If the highlight never\nwill be deleted by an API call, pass ns_id = -1.\n\nAs a shorthand, ns_id = 0 can be used to create a new namespace for the\nhighlight, the allocated id is then returned. If hl_group is the empty\nstring no highlight is added, but a new ns_id is still returned. This is\nsupported for backwards compatibility, new code should use\n`nvim_create_namespace()` to create a new empty namespace.\n"]
     pub async fn buf_add_highlight(
         &self,
         buffer: &Buffer,
@@ -704,7 +702,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nClears |namespace|d objects (highlights, |extmarks|, virtual text) from a\nregion.\n\nLines are 0-indexed. |api-indexing| To clear the namespace in the entire\nbuffer, specify line_start=0 and line_end=-1.\n"]
+    #[doc = "\nClears namespaced objects (highlights, extmarks, virtual text) from a\nregion.\n\nLines are 0-indexed. `api-indexing` To clear the namespace in the entire\nbuffer, specify line_start=0 and line_end=-1.\n"]
     pub async fn buf_clear_namespace(
         &self,
         buffer: &Buffer,
@@ -1383,7 +1381,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nSend data to channel. For a job, it writes it to the stdin of the\nprocess. For the stdio channel channel-stdio, it writes to Nvim's\nstdout. For an internal terminal instance (nvim_open_term()) it writes\ndirectly to terminal output. See channel-bytes for more information.\n\nThis function writes raw data, not RPC messages. If the channel was\ncreated with rpc=true then the channel expects RPC messages, use\nvim.rpcnotify() and vim.rpcrequest() instead.\n"]
+    #[doc = "\nSend data to channel. For a job, it writes it to the stdin of the\nprocess. For the stdio channel `channel-stdio`, it writes to Nvim's\nstdout. For an internal terminal instance (`nvim_open_term()`) it writes\ndirectly to terminal output. See `channel-bytes` for more information.\n\nThis function writes raw data, not RPC messages. If the channel was\ncreated with rpc=true then the channel expects RPC messages, use\n`vim.rpcnotify()` and `vim.rpcrequest()` instead.\n"]
     pub async fn chan_send(&self, chan: i64, data: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1675,7 +1673,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nExecutes an Ex command.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n\nPrefer nvim_cmd() or nvim_exec2() instead. To modify an Ex command in\na structured way before executing it, modify the result of\nnvim_parse_cmd() then pass it to nvim_cmd().\n"]
+    #[doc = "\nExecutes an Ex command.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n\nPrefer `nvim_cmd()` or `nvim_exec2()` instead. To modify an Ex command in\na structured way before executing it, modify the result of\n`nvim_parse_cmd()` then pass it to `nvim_cmd()`.\n"]
     pub async fn command(&self, command: &str) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
@@ -1700,7 +1698,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nCalls a Vimscript |Dictionary-function| with the given arguments.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
+    #[doc = "\nCalls a Vimscript `Dictionary-function` with the given arguments.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
     pub async fn call_dict_function<T>(
         &self,
         dict: T,
@@ -1766,7 +1764,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nGets window configuration.\n\nThe returned value may be given to |nvim_open_win()|.\n\nrelative is empty for normal windows.\n"]
+    #[doc = "\nGets window configuration.\n\nThe returned value may be given to `nvim_open_win()`.\n\nrelative is empty for normal windows.\n"]
     pub async fn win_get_config(&self, window: &Window) -> Result<WindowConf> {
         #[allow(unused_variables)]
         let ret = self
@@ -1958,7 +1956,7 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
-    #[doc = "\nComputes the number of screen lines occupied by a range of text in a given\nwindow. Works for off-screen text and takes folds into account.\n\nDiff filler or virtual lines above a line are counted as a part of that\nline, unless the line is on start_row and start_vcol is specified.\n\nDiff filler or virtual lines below the last buffer line are counted in the\nresult when end_row is omitted.\n\nLine indexing is similar to |nvim_buf_get_text()|.\n"]
+    #[doc = "\nComputes the number of screen lines occupied by a range of text in a given\nwindow. Works for off-screen text and takes folds into account.\n\nDiff filler or virtual lines above a line are counted as a part of that\nline, unless the line is on start_row and start_vcol is specified.\n\nDiff filler or virtual lines below the last buffer line are counted in the\nresult when end_row is omitted.\n\nLine indexing is similar to `nvim_buf_get_text()`.\n"]
     pub async fn win_text_height(
         &self,
         window: &Window,
