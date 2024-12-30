@@ -3,6 +3,7 @@ mod connect;
 mod service;
 
 pub mod cmd;
+pub mod demo;
 pub mod diagnostics;
 pub mod error;
 pub mod nvim;
