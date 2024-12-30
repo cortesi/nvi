@@ -8,26 +8,76 @@
 /// :help key-notation
 use std::fmt;
 
+#[derive(Debug, PartialEq)]
 pub enum Mod {
-    /// Shift modifier (2)
+    /// Shift modifier
     Shift,
-    /// Control modifier (4)
+    /// Control modifier
     Control,
-    /// Alt/Meta modifier (8)
+    /// Alt/Meta modifier
     Alt,
-    /// Meta modifier when different from Alt (16)
+    /// Meta modifier when different from Alt
     Meta,
-    /// Command (Mac) or Super key (128)
+    /// Command (Mac) or Super key
     Super,
-    /// Mouse double click (32)
+    /// Mouse double click
     DClick,
-    /// Mouse triple click (64)
+    /// Mouse triple click
     TClick,
-    /// Mouse quadruple click (96 = 32 + 64)
+    /// Mouse quadruple click
     QClick,
 }
 
 impl Mod {
+    /// Creates a vector of Mod from a charmod number.
+    pub fn from_charmod(charmod: u8) -> Vec<Mod> {
+        let mut mods = Vec::new();
+
+        if charmod & 2 != 0 {
+            mods.push(Mod::Shift);
+        }
+        if charmod & 4 != 0 {
+            mods.push(Mod::Control);
+        }
+        if charmod & 8 != 0 {
+            mods.push(Mod::Alt);
+        }
+        if charmod & 16 != 0 {
+            mods.push(Mod::Meta);
+        }
+        if charmod & 32 != 0 {
+            mods.push(Mod::DClick);
+        }
+        if charmod & 64 != 0 {
+            mods.push(Mod::TClick);
+        }
+        if charmod & 96 == 96 {
+            mods.push(Mod::QClick);
+        }
+        if charmod & 128 != 0 {
+            mods.push(Mod::Super);
+        }
+
+        mods
+    }
+}
+
+impl Mod {
+    /// Returns the numeric value of the modifier.
+    pub fn num(&self) -> u8 {
+        match self {
+            Mod::Shift => 2,
+            Mod::Control => 4,
+            Mod::Alt => 8,
+            Mod::Meta => 16,
+            Mod::Super => 128,
+            Mod::DClick => 32,
+            Mod::TClick => 64,
+            Mod::QClick => 96,
+        }
+    }
+
+    /// Returns the prefix representation of the modifier.
     fn to_prefix(&self) -> &'static str {
         match self {
             Mod::Shift => "S-",
@@ -238,32 +288,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_simple_char() {
-        let key = KeyPress {
-            modifers: vec![],
-            key: Keys::Char('a'),
-            raw: "a".to_string(),
-        };
-        assert_eq!(format!("{}", key), "a");
+    fn test_mods_from_charmod() {
+        assert_eq!(Mod::from_charmod(0), vec![]);
+        assert_eq!(Mod::from_charmod(2), vec![Mod::Shift]);
+        assert_eq!(Mod::from_charmod(12), vec![Mod::Control, Mod::Alt]);
+        assert_eq!(
+            Mod::from_charmod(96),
+            vec![Mod::DClick, Mod::TClick, Mod::QClick]
+        );
+        assert_eq!(Mod::from_charmod(128), vec![Mod::Super]);
     }
 
     #[test]
-    fn test_uppercase_char() {
-        let key = KeyPress {
-            modifers: vec![],
-            key: Keys::Char('A'),
-            raw: "A".to_string(),
-        };
-        assert_eq!(format!("{}", key), "A");
-    }
+    fn test_key_press_display() {
+        let test_cases = vec![
+            (
+                KeyPress {
+                    modifers: vec![],
+                    key: Keys::Char('a'),
+                    raw: "a".to_string(),
+                },
+                "a",
+            ),
+            (
+                KeyPress {
+                    modifers: vec![],
+                    key: Keys::Char('A'),
+                    raw: "A".to_string(),
+                },
+                "A",
+            ),
+            (
+                KeyPress {
+                    modifers: vec![Mod::Control],
+                    key: Keys::Char('a'),
+                    raw: "<C-a>".to_string(),
+                },
+                "<C-a>",
+            ),
+        ];
 
-    #[test]
-    fn test_ctrl_a() {
-        let key = KeyPress {
-            modifers: vec![Mod::Control],
-            key: Keys::Char('a'),
-            raw: "<C-a>".to_string(),
-        };
-        assert_eq!(format!("{}", key), "<C-a>");
+        for (key, expected) in test_cases {
+            assert_eq!(format!("{}", key), expected);
+        }
     }
 }
