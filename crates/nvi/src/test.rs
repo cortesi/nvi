@@ -4,9 +4,6 @@ use std::{os::unix::process::CommandExt, process::Stdio, sync::Mutex, time::Dura
 use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
 
-/// Default timeout for log assertions
-const DEFAULT_LOG_TIMEOUT: Duration = Duration::from_secs(5);
-
 use mrpc;
 use nix::{
     sys::signal::{killpg, Signal},
@@ -20,6 +17,9 @@ use tokio::{
 };
 
 use crate::{connect_unix, error::Result, NviPlugin};
+
+/// Default timeout for log assertions
+const DEFAULT_LOG_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Builder for NviTest configuration
 pub struct NviTestBuilder {
@@ -50,11 +50,11 @@ impl NviTestBuilder {
     }
 
     /// Run the test with the configured options
-    pub async fn run<T>(self, nvi: T) -> Result<NviTest>
+    pub async fn run<T>(self, plugin: T) -> Result<NviTest>
     where
         T: NviPlugin + Unpin + Sync + 'static,
     {
-        NviTest::new(nvi, self.show_logs, self.log_level).await
+        NviTest::new(plugin, self.show_logs, self.log_level).await
     }
 }
 

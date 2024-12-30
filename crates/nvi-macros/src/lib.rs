@@ -435,6 +435,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
     imp.methods.iter().map(|m| {
         let name = &m.name;
         let docs = &m.docs;
+        let is_mut = m.is_mut;
         let message_type = match m.message_type {
             MethodType::Request => quote! { nvi::macro_types::MethodType::Request },
             MethodType::Notify => quote! { nvi::macro_types::MethodType::Notify },
@@ -487,7 +488,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
                 message_type: #message_type,
                 args: vec![#(#args),*],
                 autocmd: #autocmd,
-                is_mut: false,
+                is_mut: #is_mut,
             }
         }
     })
@@ -661,9 +662,7 @@ fn inner_nvi_plugin(
 
             #[inline]
             fn introspect(&self) -> Vec<nvi::macro_types::Method> {
-                vec![
-                    #(#methods),*
-                ]
+                vec![#(#methods),*]
             }
         }
     }
@@ -728,13 +727,13 @@ mod tests {
                     Ok(format!("{}:{}", a, b))
                 }
                 #[request]
-                fn test_void(&self, client: &mut nvi::Client) {}
+                fn test_void(&mut self, client: &mut nvi::Client) {}
                 #[request]
                 fn test_usize(&self, client: &mut nvi::Client) -> usize {}
                 #[request]
                 fn test_resultvoid(&self, client: &mut nvi::Client) -> Result<()> {}
                 #[notify]
-                fn test_notification(&self, client: &mut nvi::Client) -> Result<()> {}
+                fn test_notification(&mut self, client: &mut nvi::Client) -> Result<()> {}
 
                 fn skip(&self, client: &mut nvi::Client) {
                     println!("skipping");
@@ -779,7 +778,7 @@ mod tests {
                     message_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
-                    is_mut: false,
+                    is_mut: true,
                 },
                 Method {
                     name: "test_usize".into(),
@@ -806,7 +805,7 @@ mod tests {
                     message_type: MethodType::Notify,
                     args: vec![],
                     autocmd: None,
-                    is_mut: false,
+                    is_mut: true,
                 },
             ],
         };
@@ -1078,5 +1077,29 @@ mod tests {
                 nested: true,
             })
         );
+    }
+
+    #[test]
+    fn it_handles_mutability() {
+        let s = quote! {
+            impl Test {
+                #[request]
+                async fn immut_method(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+
+                #[request]
+                async fn mut_method(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let (_, ret) = parse_impl(&s).unwrap();
+        assert_eq!(
+            ret.methods[0].is_mut, false,
+            "immut_method should not be mut"
+        );
+        assert_eq!(ret.methods[1].is_mut, true, "mut_method should be mut");
     }
 }
