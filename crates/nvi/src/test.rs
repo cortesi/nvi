@@ -16,12 +16,7 @@ use tokio::{
     sync::broadcast,
 };
 
-use crate::{
-    connect_unix,
-    error::Result,
-    service::{Status, STATUS_MESSAGE},
-    NviPlugin,
-};
+use crate::{connect_unix, error::Result, NviPlugin};
 
 /// Default timeout for log assertions
 const DEFAULT_TEST_TIMEOUT: Duration = Duration::from_secs(5);

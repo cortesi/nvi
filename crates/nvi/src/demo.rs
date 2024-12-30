@@ -1,7 +1,6 @@
 //! Functions for managing plugin demo functionality.
 
-use std::os::unix::process::CommandExt;
-use std::process::{Command as StdCommand, Stdio};
+use std::process::Command as StdCommand;
 use std::time::Duration;
 
 use crate::error::Result;
@@ -27,12 +26,9 @@ pub struct Demos {
 async fn start_nvim(socket_path: &std::path::Path) -> Result<tokio::process::Child> {
     let mut oscmd = StdCommand::new("nvim");
     oscmd
-        .process_group(0)
         .arg("--clean")
         .arg("--listen")
-        .arg(socket_path.to_string_lossy().to_string())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .arg(socket_path.to_string_lossy().to_string());
 
     let child = Command::from(oscmd).spawn()?;
     wait_for_path(socket_path).await?;
@@ -93,6 +89,7 @@ impl Demos {
 
         let (shutdown_tx, _) = broadcast::channel(1);
         let neovim_task = start_nvim(&socket_path).await?;
+        let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
         let client = crate::Client::new(rpc_client.sender, "demo", 0, shutdown_tx.clone());
@@ -101,20 +98,33 @@ impl Demos {
         let plugin_name = plugin.name();
         let plugin_task = tokio::spawn(connect_unix(plugin_shutdown, socket_path.clone(), plugin));
 
-        client.await_plugin(&plugin_name, TIMEOUT).await?;
+        let mut demo_result = client.await_plugin(&plugin_name, TIMEOUT).await;
 
-        let f = self
-            .functions
-            .get(demo_name)
-            .ok_or_else(|| crate::error::Error::Plugin(format!("no such demo: {}", demo_name)))?;
-        f(&client).await?;
+        if demo_result.is_ok() {
+            let f = self.functions.get(demo_name).ok_or_else(|| {
+                crate::error::Error::Plugin(format!("no such demo: {}", demo_name))
+            })?;
+            demo_result = f(&client).await;
+        }
 
-        shutdown_tx.send(()).ok();
-        plugin_task
-            .await
+        let (plugin_result, neovim_result) = tokio::join!(plugin_task, neovim_handle);
+
+        let plugin_result = plugin_result
             .map_err(|e| crate::error::Error::Internal {
                 msg: format!("plugin task failed: {}", e),
-            })??;
+            })
+            .and_then(|r| r);
+
+        let _ = neovim_result.map_err(|e| crate::error::Error::Internal {
+            msg: format!("neovim task failed: {}", e),
+        });
+
+        if let Err(e) = demo_result {
+            eprintln!("Demo error: {}", e);
+        }
+        if let Err(e) = plugin_result {
+            eprintln!("Plugin error: {}", e);
+        }
 
         Ok(())
     }
