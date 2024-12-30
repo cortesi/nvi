@@ -1,5 +1,5 @@
 use nvi::{
-    nvim::{self, opts, types::Event},
+    nvim::{opts, types::Event},
     test,
 };
 
@@ -74,4 +74,3 @@ async fn it_derives_autocmd_handler() {
     nvit.assert_log("received");
     nvit.finish().await.unwrap();
 }
-

@@ -527,6 +527,15 @@ fn inner_nvi_plugin(
         .methods
         .iter()
         .filter(|x| x.message_type == MethodType::Request)
+        .filter(|x| !x.is_mut)
+        .map(request_invocation)
+        .collect();
+
+    let request_invocations_mut: Vec<proc_macro2::TokenStream> = imp
+        .methods
+        .iter()
+        .filter(|x| x.message_type == MethodType::Request)
+        .filter(|x| x.is_mut)
         .map(request_invocation)
         .collect();
 
@@ -534,6 +543,15 @@ fn inner_nvi_plugin(
         .methods
         .iter()
         .filter(|x| x.message_type == MethodType::Notify)
+        .filter(|x| !x.is_mut)
+        .map(notify_invocation)
+        .collect();
+
+    let notify_invocations_mut: Vec<proc_macro2::TokenStream> = imp
+        .methods
+        .iter()
+        .filter(|x| x.message_type == MethodType::Notify)
+        .filter(|x| x.is_mut)
         .map(notify_invocation)
         .collect();
 
@@ -595,6 +613,22 @@ fn inner_nvi_plugin(
                 )
             }
 
+            async fn request_mut(
+                &mut self,
+                client: &mut nvi::Client,
+                method: &str,
+                params: &[nvi::Value],
+            ) -> nvi::error::Result<nvi::Value, nvi::Value> {
+                Ok(
+                    match method {
+                        #(#request_invocations_mut),*
+                        _ => {
+                            nvi::error::Result::Err(nvi::Value::from(format!("Unknown method: {}", method)))?
+                        }
+                    }
+                )
+            }
+
             async fn notify(
                 &self,
                 client: &mut nvi::Client,
@@ -603,6 +637,21 @@ fn inner_nvi_plugin(
             ) -> nvi::error::Result<()> {
                 match method {
                     #(#notify_invocations),*
+                    _ => {
+                        Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {}", method) })?
+                    }
+                }
+                Ok(())
+            }
+
+            async fn notify_mut(
+                &mut self,
+                client: &mut nvi::Client,
+                method: &str,
+                params: &[nvi::Value],
+            ) -> nvi::error::Result<()> {
+                match method {
+                    #(#notify_invocations_mut),*
                     _ => {
                         Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {}", method) })?
                     }

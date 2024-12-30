@@ -89,6 +89,30 @@ pub trait NviPlugin: Sync + Send + 'static {
         Err(Value::Nil)
     }
 
+    /// Handle a generic notification from the remote service, with a mutable receiver. Typcially,
+    /// this method will be derived with the `nvim_service` annotation.
+    async fn notify_mut(
+        &mut self,
+        client: &mut Client,
+        method: &str,
+        params: &[Value],
+    ) -> Result<()> {
+        warn!("unhandled notification: {:?}", method);
+        Ok(())
+    }
+
+    /// Handle a generic request from the remote service, with a mutable receiver. Typcially, this
+    /// method will be derived with the `nvim_service` annotation.
+    async fn request_mut(
+        &mut self,
+        client: &mut Client,
+        method: &str,
+        params: &[Value],
+    ) -> Result<Value, Value> {
+        warn!("unhandled request: {:?}", method);
+        Err(Value::Nil)
+    }
+
     /// This method is run on first connecting to the remote service. A loop may be run here that
     /// persists for the life of the connection.
     async fn connected(&mut self, client: &mut Client) -> Result<()> {
@@ -104,6 +128,7 @@ where
     plugin: tokio::sync::RwLock<T>,
     shutdown_tx: broadcast::Sender<()>,
     channel_id: Arc<Mutex<Option<u64>>>,
+    methods: std::collections::HashMap<String, bool>,
 }
 
 impl<T> RpcConnection<T>
@@ -111,11 +136,73 @@ where
     T: NviPlugin,
 {
     pub fn new(shutdown_tx: broadcast::Sender<()>, plugin: T) -> Self {
+        let method_mutability = plugin
+            .introspect()
+            .into_iter()
+            .map(|m| (m.name, m.is_mut))
+            .collect();
+
         RpcConnection {
             plugin: tokio::sync::RwLock::new(plugin),
             shutdown_tx,
             channel_id: Arc::new(Mutex::new(None)),
+            methods: method_mutability,
         }
+    }
+
+    fn make_client(&self, plugin_name: &str, sender: mrpc::RpcSender) -> Client {
+        Client::new(
+            sender,
+            plugin_name,
+            self.channel_id.lock().unwrap().expect("channel id not set"),
+            self.shutdown_tx.clone(),
+        )
+    }
+
+    async fn handle_notification_error(
+        &self,
+        method: &str,
+        e: crate::error::Error,
+        sender: mrpc::RpcSender,
+    ) -> mrpc::Result<()> {
+        warn!("error handling notification: {:?}", e);
+        let client = self.make_client(&self.plugin.read().await.name(), sender);
+        if let Err(notify_err) = client
+            .notify(
+                types::LogLevel::Warn,
+                &format!("nvi notify error: {method} - {e:?}"),
+            )
+            .await
+        {
+            warn!("error sending notify error notification: {:?}", notify_err);
+        }
+        Err(mrpc::RpcError::Service(mrpc::ServiceError {
+            name: "NviNotifyError".to_string(),
+            value: Value::String(format!("{e:?}").into()),
+        }))
+    }
+
+    async fn handle_request_error(
+        &self,
+        method: &str,
+        e: Value,
+        sender: mrpc::RpcSender,
+    ) -> mrpc::Result<Value> {
+        warn!("error handling request: {:?}", e);
+        let client = self.make_client(&self.plugin.read().await.name(), sender);
+        if let Err(notify_err) = client
+            .notify(
+                types::LogLevel::Warn,
+                &format!("nvi request error: {method} - {e:?}"),
+            )
+            .await
+        {
+            warn!("error sending request error notification: {:?}", notify_err);
+        }
+        Err(mrpc::RpcError::Service(mrpc::ServiceError {
+            name: "NviRequestError".to_string(),
+            value: Value::String(format!("{e:?}").into()),
+        }))
     }
 }
 
@@ -126,8 +213,6 @@ where
     T: NviPlugin,
 {
     async fn connected(&self, sender: mrpc::RpcSender) -> mrpc::Result<()> {
-        let shutdown_tx = self.shutdown_tx.clone();
-
         let nv = nvim::api::NvimApi {
             rpc_sender: sender.clone(),
         };
@@ -141,26 +226,21 @@ where
         })?;
         self.channel_id.lock().unwrap().replace(ci.id);
 
-        let mut c = Client::new(
-            sender.clone(),
-            &plugin.name(),
-            self.channel_id.lock().unwrap().expect("channel id not set"),
-            shutdown_tx.clone(),
-        );
-        match plugin.bootstrap(&mut c).await {
+        let mut client = self.make_client(&plugin.name(), sender);
+        match plugin.bootstrap(&mut client).await {
             Ok(_) => trace!("bootstrap complete"),
             Err(e) => {
                 warn!("bootstrap failed: {:?}", e);
-                c.shutdown();
+                client.shutdown();
                 return Ok(());
             }
         }
-        let ret = plugin.connected(&mut c).await;
+        let ret = plugin.connected(&mut client).await;
         match ret {
             Ok(_) => trace!("connected() completed"),
             Err(e) => {
                 warn!("connected() failed: {:?}", e);
-                c.shutdown();
+                client.shutdown();
             }
         };
         Ok(())
@@ -172,38 +252,27 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
-        let plugin = self.plugin.read().await;
-        let mut client = Client::new(
-            sender,
-            &plugin.name(),
-            self.channel_id.lock().unwrap().expect("channel id not set"),
-            self.shutdown_tx.clone(),
-        );
-
         if method == PING_MESSAGE {
             return Ok(Value::Boolean(true));
         }
 
         debug!("recv request: {:?}", method);
         trace!("recv request data: {:?} {:?}", method, params);
-        match plugin.request(&mut client, method, &params).await {
+
+        let is_mut = self.methods.get(method).copied().unwrap_or(false);
+        let result = if is_mut {
+            let mut plugin = self.plugin.write().await;
+            let mut client = self.make_client(&plugin.name(), sender.clone());
+            plugin.request_mut(&mut client, method, &params).await
+        } else {
+            let plugin = self.plugin.read().await;
+            let mut client = self.make_client(&plugin.name(), sender.clone());
+            plugin.request(&mut client, method, &params).await
+        };
+
+        match result {
             Ok(v) => Ok(v),
-            Err(e) => {
-                warn!("nvi request error: {:?}", e);
-                if let Err(notify_err) = client
-                    .notify(
-                        types::LogLevel::Warn,
-                        &format!("nvi request error: {method} - {e:?}"),
-                    )
-                    .await
-                {
-                    warn!("error sending request error notification: {:?}", notify_err);
-                }
-                Err(mrpc::RpcError::Service(mrpc::ServiceError {
-                    name: "NviRequestError".to_string(),
-                    value: Value::String(format!("{e:?}").into()),
-                }))
-            }
+            Err(e) => self.handle_request_error(method, e, sender).await,
         }
     }
 
@@ -213,34 +282,23 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<()> {
-        println!("NOT");
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
-        let plugin = self.plugin.read().await;
-        let mut client = Client::new(
-            sender,
-            &plugin.name(),
-            self.channel_id.lock().unwrap().expect("channel id not set"),
-            self.shutdown_tx.clone(),
-        );
 
-        if let Err(e) = plugin.notify(&mut client, method, &params).await {
-            warn!("error handling notification: {:?}", e);
-            if let Err(notify_err) = client
-                .notify(
-                    types::LogLevel::Warn,
-                    &format!("nvi notify error: {method} - {e:?}"),
-                )
-                .await
-            {
-                warn!("error sending notify error notification: {:?}", notify_err);
-            }
-            return Err(mrpc::RpcError::Service(mrpc::ServiceError {
-                name: "NviNotifyError".to_string(),
-                value: Value::String(format!("{e:?}").into()),
-            }));
+        let is_mut = self.methods.get(method).copied().unwrap_or(false);
+        let result = if is_mut {
+            let mut plugin = self.plugin.write().await;
+            let mut client = self.make_client(&plugin.name(), sender.clone());
+            plugin.notify_mut(&mut client, method, &params).await
+        } else {
+            let plugin = self.plugin.read().await;
+            let mut client = self.make_client(&plugin.name(), sender.clone());
+            plugin.notify(&mut client, method, &params).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) => self.handle_notification_error(method, e, sender).await,
         }
-
-        Ok(())
     }
 }
