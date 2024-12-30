@@ -53,3 +53,20 @@ impl Demos {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_demos() {
+        let mut d = Demos::new();
+        assert!(d.list().is_empty());
+
+        d.add("two", |_| Ok(()));
+        d.add("one", |_| Ok(()));
+
+        let lst = d.list();
+        assert_eq!(lst, vec!["one", "two"]);
+    }
+}

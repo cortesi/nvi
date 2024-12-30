@@ -27,6 +27,11 @@ enum Commands {
     },
     /// List available demos
     Demos,
+    /// Run a specific demo
+    RunDemo {
+        /// Name of the demo to run
+        name: String,
+    },
 }
 
 async fn inner_run<T>(service: T, demos: Option<Demos>) -> Result<()>
@@ -60,6 +65,14 @@ where
                 println!("No demos available.");
             }
             Ok(())
+        }
+        Commands::RunDemo { name } => {
+            if let Some(demos) = demos {
+                demos.run(name, service).await
+            } else {
+                eprintln!("No demos available.");
+                Ok(())
+            }
         }
     }
 }
