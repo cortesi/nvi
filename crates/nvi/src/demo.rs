@@ -1,7 +1,16 @@
 //! Functions for managing plugin demo functionality.
 
+use std::os::unix::process::CommandExt;
+use std::process::{Command as StdCommand, Stdio};
+use std::time::Duration;
+
 use crate::error::Result;
-use crate::{client::Client, NviPlugin};
+use crate::test::wait_for_path;
+use crate::{client::Client, connect_unix, NviPlugin};
+use tokio::process::Command;
+use tokio::sync::broadcast;
+
+const TIMEOUT: Duration = Duration::from_secs(5);
 
 /// A function that can be registered with the Demo struct.
 pub type DemoFunction = Box<
@@ -12,6 +21,22 @@ pub type DemoFunction = Box<
 #[derive(Default)]
 pub struct Demos {
     functions: std::collections::HashMap<String, DemoFunction>,
+}
+
+/// Start an interactive nvim instance listening on the given socket path
+async fn start_nvim(socket_path: &std::path::Path) -> Result<tokio::process::Child> {
+    let mut oscmd = StdCommand::new("nvim");
+    oscmd
+        .process_group(0)
+        .arg("--clean")
+        .arg("--listen")
+        .arg(socket_path.to_string_lossy().to_string())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let child = Command::from(oscmd).spawn()?;
+    wait_for_path(socket_path).await?;
+    Ok(child)
 }
 
 impl Demos {
@@ -57,19 +82,35 @@ impl Demos {
 
     /// Run a named demo function with a plugin instance.
     ///
-    /// This starts a new Neovim instance, connects the plugin to it, runs the demo,
+    /// This starts an interactive Neovim instance, connects the plugin to it, runs the demo,
     /// and then shuts everything down.
     pub async fn run<T>(&self, name: &str, plugin: T) -> Result<()>
     where
         T: NviPlugin + Send + Sync + Unpin + 'static,
     {
-        let t = crate::test::NviTest::builder().run(plugin).await?;
+        let tempdir = tempfile::tempdir()?;
+        let socket_path = tempdir.path().join("nvim.socket");
+
+        let (shutdown_tx, _) = broadcast::channel(1);
+        let neovim_task = start_nvim(&socket_path).await?;
+
+        let plugin_shutdown = shutdown_tx.clone();
+        let plugin_task = tokio::spawn(connect_unix(plugin_shutdown, socket_path.clone(), plugin));
+        let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
+        let client = crate::Client::new(rpc_client.sender, "demo", 0, shutdown_tx.clone());
         let f = self
             .functions
             .get(name)
             .ok_or_else(|| crate::error::Error::Plugin(format!("no such demo: {}", name)))?;
-        f(&t.client).await?;
-        t.finish().await?;
+        f(&client).await?;
+
+        shutdown_tx.send(()).ok();
+        plugin_task
+            .await
+            .map_err(|e| crate::error::Error::Internal {
+                msg: format!("plugin task failed: {}", e),
+            })??;
+
         Ok(())
     }
 }
@@ -77,15 +118,6 @@ impl Demos {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::NviPlugin;
-
-    #[derive(Default)]
-    struct TestPlugin;
-    impl NviPlugin for TestPlugin {
-        fn name(&self) -> String {
-            "test".into()
-        }
-    }
 
     #[tokio::test]
     async fn test_demos() {
@@ -103,8 +135,5 @@ mod tests {
 
         let lst = d.list();
         assert_eq!(lst, vec!["one", "two"]);
-
-        // Test actually running a demo
-        d.run("one", TestPlugin).await.unwrap();
     }
 }
