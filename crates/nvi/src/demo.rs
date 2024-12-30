@@ -84,7 +84,7 @@ impl Demos {
     ///
     /// This starts an interactive Neovim instance, connects the plugin to it, runs the demo,
     /// and then shuts everything down.
-    pub async fn run<T>(&self, name: &str, plugin: T) -> Result<()>
+    pub async fn run<T>(&self, demo_name: &str, plugin: T) -> Result<()>
     where
         T: NviPlugin + Send + Sync + Unpin + 'static,
     {
@@ -94,14 +94,19 @@ impl Demos {
         let (shutdown_tx, _) = broadcast::channel(1);
         let neovim_task = start_nvim(&socket_path).await?;
 
-        let plugin_shutdown = shutdown_tx.clone();
-        let plugin_task = tokio::spawn(connect_unix(plugin_shutdown, socket_path.clone(), plugin));
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
         let client = crate::Client::new(rpc_client.sender, "demo", 0, shutdown_tx.clone());
+
+        let plugin_shutdown = shutdown_tx.clone();
+        let plugin_name = plugin.name();
+        let plugin_task = tokio::spawn(connect_unix(plugin_shutdown, socket_path.clone(), plugin));
+
+        client.await_plugin(&plugin_name, TIMEOUT).await?;
+
         let f = self
             .functions
-            .get(name)
-            .ok_or_else(|| crate::error::Error::Plugin(format!("no such demo: {}", name)))?;
+            .get(demo_name)
+            .ok_or_else(|| crate::error::Error::Plugin(format!("no such demo: {}", demo_name)))?;
         f(&client).await?;
 
         shutdown_tx.send(()).ok();
