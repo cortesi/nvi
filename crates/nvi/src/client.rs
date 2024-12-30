@@ -329,6 +329,34 @@ impl Client {
     pub async fn lua(&self, code: &str) -> Result<Value> {
         self.nvim.exec_lua(code, vec![]).await
     }
+
+    /// Wait for a plugin to reach running state.
+    pub async fn await_plugin(&self, name: &str, timeout: std::time::Duration) -> Result<()> {
+        let start = std::time::Instant::now();
+        loop {
+            if start.elapsed() > timeout {
+                return Err(crate::error::Error::Internal {
+                    msg: format!("Plugin failed to reach running state after {:?}", timeout),
+                });
+            }
+            let val = self
+                .lua(&format!(
+                    "return {}.{}()",
+                    name,
+                    crate::service::STATUS_MESSAGE
+                ))
+                .await;
+            if let Ok(val) = val {
+                if let Some(val) = val.as_str() {
+                    if val == crate::service::Status::Running.to_string() {
+                        break;
+                    }
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

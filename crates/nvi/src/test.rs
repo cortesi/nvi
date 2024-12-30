@@ -146,28 +146,7 @@ impl NviTest {
         // Channel ID 0 is the global channel
         let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
 
-        let start = std::time::Instant::now();
-        loop {
-            if start.elapsed() > DEFAULT_TEST_TIMEOUT {
-                return Err(crate::error::Error::Internal {
-                    msg: format!(
-                        "Plugin failed to reach running state after {:?}",
-                        DEFAULT_TEST_TIMEOUT
-                    ),
-                });
-            }
-            let val = client
-                .lua(&format!("return {}.{}()", name, STATUS_MESSAGE))
-                .await;
-            if let Ok(val) = val {
-                if let Some(val) = val.as_str() {
-                    if val == Status::Running.to_string() {
-                        break;
-                    }
-                }
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
+        client.await_plugin(&name, DEFAULT_TEST_TIMEOUT).await?;
 
         Ok(Self {
             client,
