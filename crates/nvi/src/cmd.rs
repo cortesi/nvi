@@ -6,7 +6,7 @@ use tokio::sync::broadcast;
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
 
-use crate::{error::Result, NviPlugin};
+use crate::{demo::Demos, error::Result, NviPlugin};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -25,9 +25,11 @@ enum Commands {
         #[command(flatten)]
         verbose: Verbosity<InfoLevel>,
     },
+    /// List available demos
+    Demos,
 }
 
-async fn inner_run<T>(service: T) -> Result<()>
+async fn inner_run<T>(service: T, demos: Option<Demos>) -> Result<()>
 where
     T: NviPlugin + Unpin + Sync + 'static,
 {
@@ -42,22 +44,30 @@ where
                 .with(verbose.log_level_filter().as_trace())
                 .init();
             let (tx, _rx) = broadcast::channel(16);
-            crate::connect_unix(tx, addr.clone(), service).await?;
+            crate::connect_unix(tx, addr.clone(), service).await
+        }
+        Commands::Demos => {
+            if let Some(demos) = demos {
+                let demos = demos.list();
+                if demos.is_empty() {
+                    println!("No demos available.");
+                } else {
+                    for name in demos {
+                        println!("{}", name);
+                    }
+                }
+            } else {
+                println!("No demos available.");
+            }
+            Ok(())
         }
     }
-    Ok(())
 }
 
-/// Expose the standard Nvi command line interface. Call this from your your `main` function.
-pub async fn run<T>(service: T)
+/// A variant of run() that takes a demos collection.
+pub async fn run<T>(service: T, demos: Option<Demos>) -> Result<()>
 where
     T: NviPlugin + Unpin + Sync + 'static,
 {
-    match inner_run(service).await {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("error: {}", e);
-            std::process::exit(1);
-        }
-    }
+    inner_run(service, demos).await
 }
