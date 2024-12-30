@@ -1,12 +1,14 @@
-//
-/// Our strategy is to use:
-///
-/// - getchar to get a character
-/// - use getcharmod to get the modifiers
-///
-/// See:
-/// :help key-notation
-use std::fmt;
+//! Our strategy is to use:
+//!
+//! - getchar to get a character
+//! - use getcharmod to get the modifiers
+//!
+//! See:
+//! :help key-notation
+
+use std::{fmt, result::Result};
+
+use crate::{error::Error, Client, Value};
 
 #[derive(Debug, PartialEq)]
 pub enum Mod {
@@ -91,6 +93,8 @@ impl Mod {
     }
 }
 
+// See:
+//      :help key-notation
 pub enum Keys {
     // Special keys
     Nul,
@@ -283,7 +287,79 @@ impl fmt::Display for KeyPress {
     }
 }
 
-#[cfg(test)]
+impl KeyPress {
+    /// Constructs a KeyPress object from a given Lua string.
+    fn from_lua_with_mods(modifiers: Vec<Mod>, value: &str) -> Result<Self, Error> {
+        let raw = value.to_string();
+        // Decode the value here, which should be in the format of <mod-key>
+        // or just a single character without modifiers.
+        if raw.starts_with('<') && raw.ends_with('>') {
+            let parts: Vec<&str> = raw
+                .trim_start_matches('<')
+                .trim_end_matches('>')
+                .split('-')
+                .collect();
+            if let Some((&key, _)) = parts.split_last() {
+                let key = match key {
+                    "Enter" => Keys::Enter,
+                    "Space" => Keys::Space,
+                    "Esc" => Keys::Esc,
+                    key if key.len() == 1 => Keys::Char(key.chars().next().unwrap()),
+                    _ => return Err(Error::User(format!("Unknown key: {}", key))),
+                };
+
+                return Ok(KeyPress {
+                    modifers: modifiers,
+                    key,
+                    raw,
+                });
+            }
+        } else if raw.len() == 1 {
+            return Ok(KeyPress {
+                modifers: Vec::new(),
+                key: Keys::Char(raw.chars().next().unwrap()),
+                raw,
+            });
+        }
+        Err(Error::User(format!("Failed to parse keypress: {}", raw)))
+    }
+}
+
+/// Execute a Lua snippet with the client and get a keypress.
+pub async fn get_keypress(client: &mut Client) -> Result<KeyPress, Error> {
+    let lua_code = r#"
+        -- Retrieve the keypress and its modifiers
+        local char = vim.fn.getcharstr()
+        local charmod = vim.fn.getcharmod()
+        return {charmod, char}
+    "#;
+
+    match client.lua(lua_code).await? {
+        Value::Array(arr) if arr.len() == 2 => {
+            if let (Value::Integer(charmod), Value::String(s)) = (&arr[0], &arr[1]) {
+                let modifiers = if let Some(ch) = charmod.as_u64() {
+                    Mod::from_charmod(ch as u8)
+                } else {
+                    return Err(Error::User(
+                        "Failed to interpret charmod as u64".to_string(),
+                    ));
+                };
+                KeyPress::from_lua_with_mods(
+                    modifiers,
+                    s.as_str().expect("Lua string conversion failed"),
+                )
+            } else {
+                Err(Error::User(
+                    "Unexpected types in Lua return value".to_string(),
+                ))
+            }
+        }
+        _ => Err(Error::User(
+            "Unexpected return type from lua execution".to_string(),
+        )),
+    }
+}
+
 mod tests {
     use super::*;
 
