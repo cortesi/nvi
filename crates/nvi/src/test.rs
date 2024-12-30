@@ -16,10 +16,15 @@ use tokio::{
     sync::broadcast,
 };
 
-use crate::{connect_unix, error::Result, NviPlugin};
+use crate::{
+    connect_unix,
+    error::Result,
+    service::{Status, STATUS_MESSAGE},
+    NviPlugin,
+};
 
 /// Default timeout for log assertions
-const DEFAULT_LOG_TIMEOUT: Duration = Duration::from_secs(5);
+const DEFAULT_TEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Builder for NviTest configuration
 pub struct NviTestBuilder {
@@ -49,7 +54,8 @@ impl NviTestBuilder {
         self
     }
 
-    /// Run the test with the configured options
+    /// Run the test with the configured options. After this method returns, the plugin is
+    /// guaranteed to have completed it's connected() method and be in a running state.
     pub async fn run<T>(self, plugin: T) -> Result<NviTest>
     where
         T: NviPlugin + Unpin + Sync + 'static,
@@ -61,22 +67,28 @@ impl NviTestBuilder {
 /// A handle to a running test instance.
 pub struct NviTest {
     pub client: crate::Client,
-    pub shutdown_tx: broadcast::Sender<()>,
-    pub nvim_task: tokio::task::JoinHandle<Result<()>>,
-    pub plugin_task: tokio::task::JoinHandle<Result<()>>,
+    shutdown_tx: broadcast::Sender<()>,
+    nvim_task: tokio::task::JoinHandle<Result<()>>,
+    plugin_task: tokio::task::JoinHandle<Result<()>>,
     logs: std::sync::Arc<Mutex<Vec<String>>>,
     _guard: Option<DefaultGuard>,
 }
 
 impl NviTest {
     /// Start a neovim instance and plugin in separate tasks. Returns a handle that can be used to control
-    /// and monitor the test instance.
-    pub(crate) async fn new<T>(nvi: T, show_logs: bool, log_level: tracing::Level) -> Result<Self>
+    /// and monitor the test instance. After this method returns, the plugin is guaranteed to have
+    /// completed it's connected() method and be in a running state.
+    pub(crate) async fn new<T>(
+        plugin: T,
+        show_logs: bool,
+        log_level: tracing::Level,
+    ) -> Result<Self>
     where
         T: NviPlugin + Unpin + Sync + 'static,
     {
         let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
         let logs_clone = (logs.clone(), show_logs);
+        let name = plugin.name();
 
         let guard = tracing_subscriber::fmt()
             .with_max_level(log_level)
@@ -127,12 +139,35 @@ impl NviTest {
         // Start plugin task
         let sp = socket_path.clone();
         let service_shutdown = shutdown_tx.clone();
-        let plugin_task = tokio::spawn(connect_unix(service_shutdown, sp, nvi));
+        let plugin_task = tokio::spawn(connect_unix(service_shutdown, sp, plugin));
 
         // Connect to nvim and create a client
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
         // Channel ID 0 is the global channel
         let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
+
+        let start = std::time::Instant::now();
+        loop {
+            if start.elapsed() > DEFAULT_TEST_TIMEOUT {
+                return Err(crate::error::Error::Internal {
+                    msg: format!(
+                        "Plugin failed to reach running state after {:?}",
+                        DEFAULT_TEST_TIMEOUT
+                    ),
+                });
+            }
+            let val = client
+                .lua(&format!("return {}.{}()", name, STATUS_MESSAGE))
+                .await;
+            if let Ok(val) = val {
+                if let Some(val) = val.as_str() {
+                    if val == Status::Running.to_string() {
+                        break;
+                    }
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
 
         Ok(Self {
             client,
@@ -189,7 +224,7 @@ impl NviTest {
 
     /// Wait for a log message containing the given string to appear, with a default timeout of 5 seconds
     pub async fn await_log(&self, contains: &str) -> Result<()> {
-        self.await_log_timeout(contains, DEFAULT_LOG_TIMEOUT).await
+        self.await_log_timeout(contains, DEFAULT_TEST_TIMEOUT).await
     }
 
     /// Wait for a log message containing the given string to appear, with a timeout

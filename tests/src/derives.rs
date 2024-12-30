@@ -48,7 +48,6 @@ async fn it_derives_autocmd_handler() {
         }
 
         async fn connected(&self, _client: &mut nvi::Client) -> nvi::error::Result<()> {
-            debug!("started");
             Ok(())
         }
     }
@@ -59,8 +58,6 @@ async fn it_derives_autocmd_handler() {
         .run(TestPlugin {})
         .await
         .unwrap();
-
-    nvit.await_log("started").await.unwrap();
 
     nvit.client
         .nvim
@@ -109,7 +106,6 @@ async fn it_derives_combined_handlers() {
         }
 
         async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
-            debug!("connected");
             Ok(())
         }
     }
@@ -123,8 +119,5 @@ async fn it_derives_combined_handlers() {
         .await
         .unwrap();
 
-    nvit.await_log("connected").await.unwrap();
-
     nvit.finish().await.unwrap();
 }
-

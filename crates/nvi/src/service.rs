@@ -8,7 +8,15 @@ use tracing::{debug, trace, warn};
 
 use crate::{client::Client, error::Result, macro_types, nvim, nvim::types};
 
-pub(crate) const PING_MESSAGE: &str = "__nvi_ping";
+pub(crate) const STATUS_MESSAGE: &str = "__nvi_status";
+
+#[derive(Debug, Clone, Copy, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+pub(crate) enum Status {
+    Stopped,
+    Connected,
+    Running,
+}
 
 /// The `NviService` trait is the way Nvi plugins are defined. Usually this is done with the
 /// `nvi_plugin` attribute macro, which generates the required methods for the trait.
@@ -67,6 +75,9 @@ pub trait NviPlugin: Sync + Send + 'static {
                 macro_types::MethodType::Connected => (), // Nothing to register for connected methods
             }
         }
+        client
+            .register_rpcrequest::<String>(&self.name(), STATUS_MESSAGE, &[])
+            .await?;
         Ok(())
     }
 
@@ -129,6 +140,7 @@ where
     shutdown_tx: broadcast::Sender<()>,
     channel_id: Arc<Mutex<Option<u64>>>,
     methods: std::collections::HashMap<String, bool>,
+    status: Arc<Mutex<Status>>,
 }
 
 impl<T> RpcConnection<T>
@@ -147,6 +159,7 @@ where
             shutdown_tx,
             channel_id: Arc::new(Mutex::new(None)),
             methods: method_mutability,
+            status: Arc::new(Mutex::new(Status::Stopped)),
         }
     }
 
@@ -213,6 +226,7 @@ where
     T: NviPlugin,
 {
     async fn connected(&self, sender: mrpc::RpcSender) -> mrpc::Result<()> {
+        *self.status.lock().unwrap() = Status::Connected;
         let nv = nvim::api::NvimApi {
             rpc_sender: sender.clone(),
         };
@@ -243,6 +257,7 @@ where
                 client.shutdown();
             }
         };
+        *self.status.lock().unwrap() = Status::Running;
         Ok(())
     }
 
@@ -252,8 +267,8 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<Value> {
-        if method == PING_MESSAGE {
-            return Ok(Value::Boolean(true));
+        if method == STATUS_MESSAGE {
+            return Ok(self.status.lock().unwrap().to_string().into());
         }
 
         debug!("recv request: {:?}", method);

@@ -335,7 +335,6 @@ impl Client {
 mod tests {
     use async_trait::async_trait;
     use tokio::sync::broadcast;
-    use tracing::debug;
     use tracing::warn;
     use tracing_test::traced_test;
 
@@ -404,7 +403,6 @@ mod tests {
                     .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
                     .unwrap();
-                debug!("test_module connected");
                 Ok(())
             }
 
@@ -431,8 +429,6 @@ mod tests {
             .run(TestPlugin {})
             .await
             .unwrap();
-
-        nvit.await_log("test_module connected").await.unwrap();
 
         let v = nvit
             .client

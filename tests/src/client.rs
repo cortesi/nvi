@@ -32,7 +32,6 @@ async fn it_registers_buffer_autocmds() {
                 .await?;
             c.autocmd_buffer(0.into(), "aucmd", &[Event::User], None, false, false)
                 .await?;
-            debug!("started");
             Ok(())
         }
     }
@@ -43,8 +42,6 @@ async fn it_registers_buffer_autocmds() {
         .run(T {})
         .await
         .unwrap();
-
-    nvit.await_log("started").await.unwrap();
 
     nvit.client
         .nvim
