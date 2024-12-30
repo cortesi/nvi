@@ -8,6 +8,7 @@ pub mod diagnostics;
 pub mod error;
 pub mod nvim;
 pub mod test;
+pub mod ui;
 
 pub use connect::*;
 pub use macro_types;
