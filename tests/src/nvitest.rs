@@ -11,7 +11,7 @@ async fn test_nvi_test() {
 
     #[nvi_plugin]
     impl TestPlugin {
-        async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             info!("plugin connected");
             Ok(())
         }

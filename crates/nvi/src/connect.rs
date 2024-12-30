@@ -130,7 +130,7 @@ mod tests {
             "TestPlugin".into()
         }
 
-        async fn connected(&self, client: &mut crate::Client) -> crate::error::Result<()> {
+        async fn connected(&mut self, client: &mut crate::Client) -> crate::error::Result<()> {
             self.tx.send(()).unwrap();
             client.shutdown();
             Ok(())
@@ -168,7 +168,7 @@ mod tests {
                     "SockConnectPlugin".into()
                 }
 
-                async fn connected(&self, client: &mut crate::Client) -> crate::error::Result<()> {
+                async fn connected(&mut self, client: &mut crate::Client) -> crate::error::Result<()> {
                     trace!("client connected, sending sockconnect request");
                     client
                         .nvim

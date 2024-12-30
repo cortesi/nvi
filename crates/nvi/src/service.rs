@@ -91,7 +91,7 @@ pub trait NviPlugin: Sync + Send + 'static {
 
     /// This method is run on first connecting to the remote service. A loop may be run here that
     /// persists for the life of the connection.
-    async fn connected(&self, client: &mut Client) -> Result<()> {
+    async fn connected(&mut self, client: &mut Client) -> Result<()> {
         Ok(())
     }
 }
@@ -128,10 +128,10 @@ where
     async fn connected(&self, sender: mrpc::RpcSender) -> mrpc::Result<()> {
         let shutdown_tx = self.shutdown_tx.clone();
 
-        let plugin = self.plugin.read().await;
         let nv = nvim::api::NvimApi {
             rpc_sender: sender.clone(),
         };
+        let mut plugin = self.plugin.write().await;
         let ci = nv.get_chan_info(0).await.map_err(|e| {
             warn!("error getting channel info: {:?}", e);
             mrpc::RpcError::Service(mrpc::ServiceError {
@@ -213,6 +213,7 @@ where
         method: &str,
         params: Vec<Value>,
     ) -> mrpc::Result<()> {
+        println!("NOT");
         debug!("recv notification: {:?}", method);
         trace!("recv notification data: {:?} {:?}", method, params);
         let plugin = self.plugin.read().await;

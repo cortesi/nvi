@@ -335,6 +335,7 @@ impl Client {
 mod tests {
     use async_trait::async_trait;
     use tokio::sync::broadcast;
+    use tracing::debug;
     use tracing::warn;
     use tracing_test::traced_test;
 
@@ -355,7 +356,7 @@ mod tests {
                            "TestPlugin".into()
                        }
 
-                       async fn connected(&self, client: &mut Client) -> Result<()> {
+                         async fn connected(&mut self, client: &mut Client) -> Result<()> {
                            $(qtest!{@inner $s})+
                            match ret(client).await {
                                Ok(_) => (),
@@ -389,8 +390,6 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn it_registers_request() {
-        let (tx, _) = broadcast::channel(16);
-
         #[derive(Clone)]
         struct TestPlugin {}
 
@@ -400,19 +399,12 @@ mod tests {
                 "TestPlugin".into()
             }
 
-            async fn connected(&self, client: &mut Client) -> Result<()> {
+            async fn connected(&mut self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcrequest("test_module", "test_fn", &["foo"])
                     .await
                     .unwrap();
-
-                let v = client
-                    .nvim
-                    .exec_lua("return test_module.test_fn(5)", vec![])
-                    .await
-                    .unwrap();
-                assert_eq!(v, Value::from(5));
-                client.shutdown();
+                debug!("test_module connected");
                 Ok(())
             }
 
@@ -433,10 +425,22 @@ mod tests {
             }
         }
 
-        let rtx = tx.clone();
-        test::run_plugin_with_shutdown(TestPlugin {}, rtx)
+        let nvit = test::NviTest::builder()
+            .show_logs()
+            .log_level(tracing::Level::DEBUG)
+            .run(TestPlugin {})
             .await
             .unwrap();
+
+        nvit.await_log("test_module connected").await.unwrap();
+
+        let v = nvit
+            .client
+            .lua("return test_module.test_fn(5)")
+            .await
+            .unwrap();
+        assert_eq!(v, Value::from(5));
+        nvit.finish().await.unwrap();
     }
 
     #[tokio::test]
@@ -453,7 +457,7 @@ mod tests {
                 "TestPlugin".into()
             }
 
-            async fn connected(&self, client: &mut Client) -> Result<()> {
+            async fn connected(&mut self, client: &mut Client) -> Result<()> {
                 client
                     .register_rpcnotify("test_module", "test_fn", &["foo"])
                     .await
@@ -490,3 +494,4 @@ mod tests {
             .unwrap();
     }
 }
+

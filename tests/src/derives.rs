@@ -1,9 +1,12 @@
-use nvi::nvim;
-use nvi::test;
+use nvi::{
+    nvim::{self, opts, types::Event},
+    test,
+};
+
 use nvi_macros::*;
 
 use tokio::sync::broadcast;
-use tracing::trace;
+use tracing::{debug, trace};
 use tracing_test::traced_test;
 
 #[tokio::test]
@@ -16,7 +19,7 @@ async fn it_derives_basic_service() {
 
     #[nvi_plugin]
     impl TestPlugin {
-        async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             trace!("connected");
             self.tx.send(()).unwrap();
             Ok(())
@@ -39,31 +42,36 @@ async fn it_derives_autocmd_handler() {
     #[nvi_plugin]
     impl TestPlugin {
         #[autocmd(["User"], patterns=["*.rs"])]
-        async fn on_user_event(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
-            trace!("user event received");
-            client.shutdown();
+        async fn on_user_event(&self, _client: &mut nvi::Client) -> nvi::error::Result<()> {
+            debug!("received");
             Ok(())
         }
 
-        async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
-            use nvim::opts::ExecAutocmds;
-            client
-                .nvim
-                .exec_autocmds(
-                    &[nvim::types::Event::User],
-                    ExecAutocmds {
-                        pattern: Some(vec!["*.rs".to_string()]),
-                        ..Default::default()
-                    },
-                )
-                .await?;
+        async fn connected(&self, _client: &mut nvi::Client) -> nvi::error::Result<()> {
+            debug!("started");
             Ok(())
         }
     }
 
-    let (tx, _) = broadcast::channel(16);
-    test::run_plugin_with_shutdown(TestPlugin {}, tx)
+    let nvit = test::NviTest::builder()
+        .show_logs()
+        .log_level(tracing::Level::DEBUG)
+        .run(TestPlugin {})
         .await
         .unwrap();
-    assert!(logs_contain("user event received"));
+
+    nvit.await_log("started").await.unwrap();
+
+    nvit.client
+        .nvim
+        .exec_autocmds(
+            &[Event::User],
+            opts::ExecAutocmds::default().pattern(vec!["*.rs".into()]),
+        )
+        .await
+        .unwrap();
+
+    nvit.assert_log("received");
+    nvit.finish().await.unwrap();
 }
+

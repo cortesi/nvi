@@ -574,7 +574,7 @@ fn inner_nvi_plugin(
                 #namestr.into()
             }
 
-            async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+            async fn connected(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
                 #connected
                 Ok(())
             }

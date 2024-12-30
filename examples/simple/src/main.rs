@@ -58,7 +58,7 @@ impl Simple {
 
     // If the impl block has a method called `connected`, it will be called after connection to the
     // editor.
-    async fn connected(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+    async fn connected(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
         client.info("simple plugin connected").await?;
         Ok(())
     }
