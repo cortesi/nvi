@@ -362,6 +362,7 @@ pub async fn get_keypress(client: &mut Client) -> Result<KeyPress, Error> {
 
 mod tests {
     use super::*;
+    use crate::test::NviTest;
 
     #[test]
     fn test_mods_from_charmod() {
@@ -408,4 +409,29 @@ mod tests {
             assert_eq!(format!("{}", key), expected);
         }
     }
+
+    #[tokio::test]
+    async fn test_input() {
+        let test = NviTest::builder()
+            .log_level(tracing::Level::DEBUG)
+            .run()
+            .await
+            .unwrap();
+
+        let mut client1 = test.client.clone();
+        let client2 = test.client.clone();
+
+        let handle = tokio::spawn(async move {
+            println!("START");
+            let key = get_keypress(&mut client1).await.unwrap();
+            println!("key");
+            assert_eq!(format!("{}", key), "a");
+        });
+
+        client2.nvim.feedkeys("a", "n", true).await.unwrap();
+        handle.await.unwrap();
+
+        test.finish().await.unwrap();
+    }
 }
+

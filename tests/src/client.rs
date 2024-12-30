@@ -39,7 +39,8 @@ async fn it_registers_buffer_autocmds() {
     let nvit = test::NviTest::builder()
         .show_logs()
         .log_level(tracing::Level::DEBUG)
-        .run(T {})
+        .with_plugin(T {})
+        .run()
         .await
         .unwrap();
 

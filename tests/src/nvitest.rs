@@ -17,8 +17,25 @@ async fn test_nvi_test() {
         }
     }
 
-    let test = NviTest::builder().run(TestPlugin {}).await.unwrap();
+    let test = NviTest::builder()
+        .with_plugin(TestPlugin {})
+        .run()
+        .await
+        .unwrap();
     test.await_log("plugin connected").await.unwrap();
+    test.finish().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_without_plugin() {
+    let test = NviTest::builder()
+        .log_level(tracing::Level::DEBUG)
+        .run()
+        .await
+        .unwrap();
+
+    // Verify we can still interact with nvim
+    test.client.nvim.command("echo 'test'").await.unwrap();
     test.finish().await.unwrap();
 }
 
@@ -34,7 +51,11 @@ async fn test_concurrent() {
         }
     }
 
-    let test = NviTest::builder().run(TestPlugin {}).await.unwrap();
+    let test = NviTest::builder()
+        .with_plugin(TestPlugin {})
+        .run()
+        .await
+        .unwrap();
 
     let result = test
         .concurrent(

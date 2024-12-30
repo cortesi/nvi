@@ -454,7 +454,8 @@ mod tests {
         let nvit = test::NviTest::builder()
             .show_logs()
             .log_level(tracing::Level::DEBUG)
-            .run(TestPlugin {})
+            .with_plugin(TestPlugin {})
+            .run()
             .await
             .unwrap();
 

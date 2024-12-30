@@ -55,7 +55,8 @@ async fn it_derives_autocmd_handler() {
     let nvit = test::NviTest::builder()
         .show_logs()
         .log_level(tracing::Level::DEBUG)
-        .run(TestPlugin {})
+        .with_plugin(TestPlugin {})
+        .run()
         .await
         .unwrap();
 
@@ -113,9 +114,10 @@ async fn it_derives_combined_handlers() {
     let nvit = test::NviTest::builder()
         .show_logs()
         .log_level(tracing::Level::DEBUG)
-        .run(TestPlugin {
+        .with_plugin(TestPlugin {
             count: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
         })
+        .run()
         .await
         .unwrap();
 

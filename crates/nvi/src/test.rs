@@ -1,9 +1,7 @@
 //! Utilities for writing tests for Nvi plugins.
-use futures_util::future::BoxFuture;
 use std::{os::unix::process::CommandExt, process::Stdio, sync::Mutex, time::Duration};
-use tracing::subscriber::DefaultGuard;
-use tracing_subscriber::util::SubscriberInitExt;
 
+use futures_util::future::BoxFuture;
 use mrpc;
 use nix::{
     sys::signal::{killpg, Signal},
@@ -15,6 +13,8 @@ use tokio::{
     select,
     sync::broadcast,
 };
+use tracing::subscriber::DefaultGuard;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::{connect_unix, error::Result, NviPlugin};
 
@@ -22,9 +22,10 @@ use crate::{connect_unix, error::Result, NviPlugin};
 const DEFAULT_TEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Builder for NviTest configuration
-pub struct NviTestBuilder {
+pub struct NviTestBuilder<T = ()> {
     show_logs: bool,
     log_level: tracing::Level,
+    plugin: Option<T>,
 }
 
 impl Default for NviTestBuilder {
@@ -32,11 +33,12 @@ impl Default for NviTestBuilder {
         Self {
             show_logs: false,
             log_level: tracing::Level::TRACE,
+            plugin: None,
         }
     }
 }
 
-impl NviTestBuilder {
+impl<T> NviTestBuilder<T> {
     /// Enable or disable log output to stdout
     pub fn show_logs(mut self) -> Self {
         self.show_logs = true;
@@ -49,13 +51,33 @@ impl NviTestBuilder {
         self
     }
 
-    /// Run the test with the configured options. After this method returns, the plugin is
-    /// guaranteed to have completed it's connected() method and be in a running state.
-    pub async fn run<T>(self, plugin: T) -> Result<NviTest>
+    /// Add a plugin to the test instance
+    pub fn with_plugin<P>(self, plugin: P) -> NviTestBuilder<P>
     where
-        T: NviPlugin + Unpin + Sync + 'static,
+        P: NviPlugin + Unpin + Sync + 'static,
     {
-        NviTest::new(plugin, self.show_logs, self.log_level).await
+        NviTestBuilder {
+            show_logs: self.show_logs,
+            log_level: self.log_level,
+            plugin: Some(plugin),
+        }
+    }
+}
+
+impl NviTestBuilder<()> {
+    /// Run the test with no plugin
+    pub async fn run(self) -> Result<NviTest> {
+        NviTest::new_without_plugin(self.show_logs, self.log_level).await
+    }
+}
+
+impl<T> NviTestBuilder<T>
+where
+    T: NviPlugin + Unpin + Sync + 'static,
+{
+    /// Run the test with the configured plugin
+    pub async fn run(self) -> Result<NviTest> {
+        NviTest::new(self.plugin, self.show_logs, self.log_level).await
     }
 }
 
@@ -73,17 +95,120 @@ impl NviTest {
     /// Start a neovim instance and plugin in separate tasks. Returns a handle that can be used to control
     /// and monitor the test instance. After this method returns, the plugin is guaranteed to have
     /// completed it's connected() method and be in a running state.
+    pub(crate) async fn new_without_plugin(
+        show_logs: bool,
+        log_level: tracing::Level,
+    ) -> Result<Self> {
+        let (logs, guard) = Self::setup_tracing(show_logs, log_level);
+
+        let tempdir = tempfile::tempdir()?;
+        let socket_path = tempdir.path().join("nvim.socket");
+        let (shutdown_tx, _) = broadcast::channel(1);
+
+        let sp = socket_path.clone();
+        let srx = shutdown_tx.subscribe();
+        let nvim_task = tokio::spawn(async move { start_nvim(srx, sp).await });
+
+        wait_for_path(&socket_path).await?;
+
+        let plugin_task = tokio::spawn(async { Ok(()) });
+
+        let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
+        let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
+
+        Ok(Self {
+            client,
+            shutdown_tx,
+            nvim_task,
+            plugin_task,
+            logs,
+            _guard: Some(guard),
+        })
+    }
+
     pub(crate) async fn new<T>(
-        plugin: T,
+        plugin: Option<T>,
         show_logs: bool,
         log_level: tracing::Level,
     ) -> Result<Self>
     where
         T: NviPlugin + Unpin + Sync + 'static,
     {
+        let (logs, guard) = Self::setup_tracing(show_logs, log_level);
+
+        let tempdir = tempfile::tempdir()?;
+        let socket_path = tempdir.path().join("nvim.socket");
+
+        // Create shutdown channel
+        let (shutdown_tx, _) = broadcast::channel(1);
+
+        // Start neovim task
+        let sp = socket_path.clone();
+        let srx = shutdown_tx.subscribe();
+        let nvim_task = tokio::spawn(async move { start_nvim(srx, sp).await });
+
+        // Wait for the socket to appear
+        wait_for_path(&socket_path).await?;
+
+        // Start plugin task
+        let sp = socket_path.clone();
+        let service_shutdown = shutdown_tx.clone();
+        let (plugin_task, plugin_name) = if let Some(plugin) = plugin {
+            let name = plugin.name();
+            (
+                tokio::spawn(connect_unix(service_shutdown, sp, plugin)),
+                Some(name),
+            )
+        } else {
+            (tokio::spawn(async { Ok(()) }), None)
+        };
+
+        // Connect to nvim and create a client
+        let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
+        // Channel ID 0 is the global channel
+        let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
+
+        if let Some(name) = plugin_name {
+            client.await_plugin(&name, DEFAULT_TEST_TIMEOUT).await?;
+        }
+
+        Ok(Self {
+            client,
+            shutdown_tx,
+            nvim_task,
+            plugin_task,
+            logs,
+            _guard: Some(guard),
+        })
+    }
+
+    /// Assert that a log message containing the given string exists
+    pub fn assert_log(&self, contains: &str) {
+        let logs = self.logs.lock().unwrap();
+        assert!(
+            logs.iter().any(|log| log.contains(contains)),
+            "Log containing '{}' not found in logs: {:?}",
+            contains,
+            logs
+        );
+    }
+
+    /// Create a new NviTest builder - the recommended way to create a test instance
+    pub fn builder() -> NviTestBuilder {
+        NviTestBuilder::default()
+    }
+
+    /// Get a copy of the current logs
+    pub fn logs(&self) -> Vec<String> {
+        self.logs.lock().unwrap().clone()
+    }
+
+    fn setup_tracing(
+        show_logs: bool,
+        log_level: tracing::Level,
+    ) -> (std::sync::Arc<Mutex<Vec<String>>>, DefaultGuard) {
         let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
         let logs_clone = (logs.clone(), show_logs);
-        let name = plugin.name();
 
         let guard = tracing_subscriber::fmt()
             .with_max_level(log_level)
@@ -117,61 +242,7 @@ impl NviTest {
             .compact()
             .set_default();
 
-        let tempdir = tempfile::tempdir()?;
-        let socket_path = tempdir.path().join("nvim.socket");
-
-        // Create shutdown channel
-        let (shutdown_tx, _) = broadcast::channel(1);
-
-        // Start neovim task
-        let sp = socket_path.clone();
-        let srx = shutdown_tx.subscribe();
-        let nvim_task = tokio::spawn(async move { start_nvim(srx, sp).await });
-
-        // Wait for the socket to appear
-        wait_for_path(&socket_path).await?;
-
-        // Start plugin task
-        let sp = socket_path.clone();
-        let service_shutdown = shutdown_tx.clone();
-        let plugin_task = tokio::spawn(connect_unix(service_shutdown, sp, plugin));
-
-        // Connect to nvim and create a client
-        let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
-        // Channel ID 0 is the global channel
-        let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
-
-        client.await_plugin(&name, DEFAULT_TEST_TIMEOUT).await?;
-
-        Ok(Self {
-            client,
-            shutdown_tx,
-            nvim_task,
-            plugin_task,
-            logs,
-            _guard: Some(guard),
-        })
-    }
-
-    /// Assert that a log message containing the given string exists
-    pub fn assert_log(&self, contains: &str) {
-        let logs = self.logs.lock().unwrap();
-        assert!(
-            logs.iter().any(|log| log.contains(contains)),
-            "Log containing '{}' not found in logs: {:?}",
-            contains,
-            logs
-        );
-    }
-
-    /// Create a new NviTest builder - the recommended way to create a test instance
-    pub fn builder() -> NviTestBuilder {
-        NviTestBuilder::default()
-    }
-
-    /// Get a copy of the current logs
-    pub fn logs(&self) -> Vec<String> {
-        self.logs.lock().unwrap().clone()
+        (logs, guard)
     }
 
     /// Execute two closures concurrently, returning the result of the first when it completes and
