@@ -126,6 +126,8 @@ impl Demos {
             eprintln!("Plugin error: {}", e);
         }
 
+        // Reset terminal state
+        let _ = StdCommand::new("reset").status();
         Ok(())
     }
 }
