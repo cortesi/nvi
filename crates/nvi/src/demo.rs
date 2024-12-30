@@ -29,14 +29,30 @@ impl Demos {
         names
     }
 
+    /// Helper to create a demo function that automatically handles client cloning.
+    pub fn demo_fn<F, Fut>(
+        f: F,
+    ) -> impl Fn(&Client) -> futures::future::BoxFuture<'static, Result<()>>
+    where
+        F: Fn(Client) -> Fut + 'static,
+        Fut: futures::Future<Output = Result<()>> + Send + 'static,
+    {
+        move |client| {
+            let client = client.clone();
+            Box::pin(f(client))
+        }
+    }
+
     /// Adds a named function to the demo collection.
+    ///
+    /// The function receives a cloned Client instance, so it can be moved into an async block.
     pub fn add<F, Fut>(&mut self, name: impl Into<String>, f: F)
     where
-        F: Fn(&Client) -> Fut + 'static,
+        F: Fn(Client) -> Fut + 'static,
         Fut: futures::Future<Output = Result<()>> + Send + 'static,
     {
         self.functions
-            .insert(name.into(), Box::new(move |client| Box::pin(f(client))));
+            .insert(name.into(), Box::new(Self::demo_fn(f)));
     }
 
     /// Run a named demo function with a plugin instance.
@@ -76,19 +92,13 @@ mod tests {
         let mut d = Demos::new();
         assert!(d.list().is_empty());
 
-        d.add("two", |c| {
-            let c = c.clone();
-            async move {
-                c.lua("print('demo two')").await?;
-                Ok(())
-            }
+        d.add("two", |c| async move {
+            c.lua("print('demo two')").await?;
+            Ok(())
         });
-        d.add("one", |c| {
-            let c = c.clone();
-            async move {
-                c.lua("print('demo one')").await?;
-                Ok(())
-            }
+        d.add("one", |c| async move {
+            c.lua("print('demo one')").await?;
+            Ok(())
         });
 
         let lst = d.list();
