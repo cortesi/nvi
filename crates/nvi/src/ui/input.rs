@@ -7,6 +7,7 @@
 //! :help key-notation
 
 use std::fmt;
+use strum::Display;
 
 use crate::{error::Error, error::Result, lua, Client, Value};
 
@@ -95,7 +96,7 @@ impl Mod {
 
 // See:
 //      :help key-notation
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, strum::Display)]
 pub enum Keys {
     // Special keys
     Nul,
@@ -327,6 +328,7 @@ impl KeyPress {
                     "Enter" => Keys::Enter,
                     "Space" => Keys::Space,
                     "Esc" => Keys::Esc,
+                    "Left" => Keys::Left,
                     key if key.len() == 1 => Keys::Char(key.chars().next().unwrap()),
                     _ => return Err(Error::User(format!("Unknown key: {}", key))),
                 };
@@ -346,7 +348,7 @@ impl KeyPress {
             }
             .normalise());
         }
-        Err(Error::User(format!("Failed to parse keypress: {}", raw)))
+        Err(Error::User(format!("Failed to parse keypress: {:?}", raw)))
     }
 }
 
@@ -362,7 +364,7 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
     match client.lua(lua_code).await? {
         Value::Array(arr) if arr.len() == 2 => {
             println!("Got: {:?}", arr);
-            if let (Value::Integer(charmod), Value::String(s)) = (&arr[0], &arr[1]) {
+            if let Value::Integer(charmod) = &arr[0] {
                 let modifiers = if let Some(ch) = charmod.as_u64() {
                     Mod::from_charmod(ch as u8)
                 } else {
@@ -370,10 +372,34 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
                         "Failed to interpret charmod as u64".to_string(),
                     ));
                 };
-                KeyPress::from_lua_with_mods(
-                    modifiers,
-                    s.as_str().expect("Lua string conversion failed"),
-                )
+
+                match &arr[1] {
+                    Value::String(s) => KeyPress::from_lua_with_mods(
+                        modifiers,
+                        s.as_str().expect("Lua string conversion failed"),
+                    ),
+                    Value::Binary(bytes) => {
+                        // For binary data, we need to use vim.fn.keytrans to get the key notation
+                        // Pass the raw bytes directly to keytrans
+                        let lua_keytrans = format!(
+                            "return vim.fn.keytrans('{}')",
+                            bytes
+                                .iter()
+                                .map(|&b| format!("\\x{:02x}", b))
+                                .collect::<String>()
+                        );
+                        match client.lua(&lua_keytrans).await? {
+                            Value::String(s) => KeyPress::from_lua_with_mods(
+                                modifiers,
+                                s.as_str().expect("Lua string conversion failed"),
+                            ),
+                            _ => Err(Error::User("keytrans did not return a string".to_string())),
+                        }
+                    }
+                    _ => Err(Error::User(
+                        "Unexpected type for keypress value".to_string(),
+                    )),
+                }
             } else {
                 Err(Error::User(
                     "Unexpected types in Lua return value".to_string(),
@@ -459,7 +485,7 @@ mod tests {
             (r"\<S-b>", "B"),
             (r"\<C-A>", "<C-A>"),
             (r"\<C-a>", "<C-A>"),
-            (r"\<A-C-a>", "<C-A>"),
+            (r"\<M-Left>", "<M-Left>"),
         ];
         let test = NviTest::builder()
             .log_level(tracing::Level::DEBUG)
@@ -487,3 +513,4 @@ mod tests {
         test.finish().await.unwrap();
     }
 }
+
