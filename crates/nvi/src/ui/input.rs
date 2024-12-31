@@ -10,7 +10,7 @@ use std::{fmt, result::Result};
 
 use crate::{error::Error, Client, Value};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Mod {
     /// Shift modifier
     Shift,
@@ -95,6 +95,7 @@ impl Mod {
 
 // See:
 //      :help key-notation
+#[derive(Debug, PartialEq, Clone)]
 pub enum Keys {
     // Special keys
     Nul,
@@ -262,6 +263,7 @@ impl Keys {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct KeyPress {
     pub modifers: Vec<Mod>,
     pub key: Keys,
@@ -288,6 +290,21 @@ impl fmt::Display for KeyPress {
 }
 
 impl KeyPress {
+    /// Normalizes control characters into their corresponding KeyPress representation
+    fn normalise(&self) -> KeyPress {
+        if let Keys::Char(c) = self.key {
+            // Check if it's a control character (ASCII 1-26)
+            if c as u32 <= 26 {
+                return KeyPress {
+                    modifers: vec![Mod::Control],
+                    key: Keys::Char((c as u8 + b'A' - 1) as char),
+                    raw: self.raw.clone(),
+                };
+            }
+        }
+        self.clone()
+    }
+
     /// Constructs a KeyPress object from a given Lua string.
     fn from_lua_with_mods(modifiers: Vec<Mod>, value: &str) -> Result<Self, Error> {
         let raw = value.to_string();
@@ -312,21 +329,23 @@ impl KeyPress {
                     modifers: modifiers,
                     key,
                     raw,
-                });
+                }
+                .normalise());
             }
         } else if raw.len() == 1 {
             return Ok(KeyPress {
                 modifers: Vec::new(),
                 key: Keys::Char(raw.chars().next().unwrap()),
                 raw,
-            });
+            }
+            .normalise());
         }
         Err(Error::User(format!("Failed to parse keypress: {}", raw)))
     }
 }
 
 /// Execute a Lua snippet with the client and get a keypress.
-pub async fn get_keypress(client: &mut Client) -> Result<KeyPress, Error> {
+pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
     let lua_code = r#"
         -- Retrieve the keypress and its modifiers
         local char = vim.fn.getcharstr()
@@ -360,6 +379,7 @@ pub async fn get_keypress(client: &mut Client) -> Result<KeyPress, Error> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test::NviTest;
@@ -412,26 +432,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_input() {
+        let test_cases = vec![("a", "a"), ("A", "A"), ("<S-b>", "B"), ("<C-A>", "<C-A>")];
         let test = NviTest::builder()
             .log_level(tracing::Level::DEBUG)
             .run()
             .await
             .unwrap();
 
-        let mut client1 = test.client.clone();
-        let client2 = test.client.clone();
+        for (input, expected) in test_cases {
+            let client1 = test.client.clone();
+            let client2 = client1.clone();
+            let test_input = input.to_string();
+            let handle = tokio::spawn(async move {
+                loop {
+                    let key = client2
+                        .nvim
+                        .replace_termcodes(&test_input, true, false, true)
+                        .await
+                        .unwrap();
+                    client2.nvim.feedkeys(&key, "t", true).await.unwrap();
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                }
+            });
+            let key = get_keypress(&client1).await.unwrap();
+            println!("Got key: {:?}", key);
+            handle.abort();
+            let _ = handle.await;
 
-        let handle = tokio::spawn(async move {
-            println!("START");
-            let key = get_keypress(&mut client1).await.unwrap();
-            println!("key");
-            assert_eq!(format!("{}", key), "a");
-        });
-
-        client2.nvim.feedkeys("a", "n", true).await.unwrap();
-        handle.await.unwrap();
-
+            assert_eq!(format!("{}", key), expected);
+        }
         test.finish().await.unwrap();
     }
 }
-
