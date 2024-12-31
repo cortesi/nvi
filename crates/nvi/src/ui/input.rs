@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use crate::{error::Error, error::Result, Client, Value};
+use crate::{error::Error, error::Result, lua, Client, Value};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Mod {
@@ -361,6 +361,7 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
 
     match client.lua(lua_code).await? {
         Value::Array(arr) if arr.len() == 2 => {
+            println!("Got: {:?}", arr);
             if let (Value::Integer(charmod), Value::String(s)) = (&arr[0], &arr[1]) {
                 let modifiers = if let Some(ch) = charmod.as_u64() {
                     Mod::from_charmod(ch as u8)
@@ -390,7 +391,7 @@ pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
         r#"
             vim.fn.feedkeys(vim.api.nvim_eval("\"{}\""))
         "#,
-        keys,
+        lua::escape_str(keys),
     );
     println!("Executing lua code: {}", lua_code);
     match client.lua(&lua_code).await {
@@ -455,10 +456,10 @@ mod tests {
         let test_cases = vec![
             ("a", "a"),
             ("A", "A"),
-            // (r"\<S-b>", "B"),
-            // ("\\<C-A>", "<C-A>"),
-            // ("\\<C-a>", "<C-A>"),
-            // ("\\<A-C-a>", "<C-A>"),
+            (r"\<S-b>", "B"),
+            (r"\<C-A>", "<C-A>"),
+            (r"\<C-a>", "<C-A>"),
+            (r"\<A-C-a>", "<C-A>"),
         ];
         let test = NviTest::builder()
             .log_level(tracing::Level::DEBUG)

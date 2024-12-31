@@ -28,7 +28,6 @@
 - To do this, we'd derive NviPlugin for Arc<Mutex<Plugin>>
 
 
-
 # Demo projects
 
 - nvi-stacks
@@ -51,3 +50,12 @@
     - useful both for interactive testing by developers and for users
     - bundle demos along with the compiled plugin
     - non-interactive demos for docs?
+
+
+# Bugs
+
+- We have a set of bugs for certain functions that return Strings. Technically,
+  we can get invalid bytes that are not UTF-8, and the Value type can express
+  this. However, in our API we always return a String, which will panics in the
+  face of invalid bytes. We COULD return a MaybeString, but that puts burden on
+  all callers. Let's ponder.

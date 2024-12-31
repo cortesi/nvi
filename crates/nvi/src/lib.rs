@@ -6,6 +6,7 @@ pub mod cmd;
 pub mod demo;
 pub mod diagnostics;
 pub mod error;
+pub mod lua;
 pub mod nvim;
 pub mod test;
 pub mod ui;
