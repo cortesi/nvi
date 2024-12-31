@@ -42,6 +42,7 @@ use std::fmt::{self, Write};
 
 use crate::{error::Error, error::Result, lua, Client, Value};
 
+/// A modifier key.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Mod {
     /// Shift modifier
@@ -125,8 +126,7 @@ impl Mod {
     }
 }
 
-// See:
-//      :help key-notation
+/// A non-modifier key.
 #[derive(Debug, PartialEq, Clone, strum::Display, strum::EnumString)]
 #[strum(ascii_case_insensitive)]
 pub enum Keys {
@@ -235,13 +235,11 @@ impl Keys {
     }
 }
 
+/// A key press event, including a modifier and a key.
 #[derive(Debug, PartialEq, Clone)]
 pub struct KeyPress {
     pub modifers: Vec<Mod>,
     pub key: Keys,
-
-    /// The string representation as returned by nvim
-    pub raw: String,
 }
 
 impl fmt::Display for KeyPress {
@@ -272,14 +270,12 @@ impl KeyPress {
             (Keys::Char(c), _) if *c as u32 <= 26 => KeyPress {
                 modifers: vec![Mod::Control],
                 key: Keys::Char((*c as u8 + b'A' - 1) as char),
-                raw: self.raw.clone(),
             },
             // Lowercase control combination
             (Keys::Char(c), mods) if mods.contains(&Mod::Control) && c.is_ascii_lowercase() => {
                 KeyPress {
                     modifers: self.modifers.clone(),
                     key: Keys::Char(c.to_ascii_uppercase()),
-                    raw: self.raw.clone(),
                 }
             }
             _ => self.clone(),
@@ -307,7 +303,6 @@ impl KeyPress {
                 return Ok(KeyPress {
                     modifers: modifiers,
                     key,
-                    raw,
                 }
                 .normalise());
             }
@@ -315,7 +310,6 @@ impl KeyPress {
             return Ok(KeyPress {
                 modifers: Vec::new(),
                 key: Keys::Char(raw.chars().next().unwrap()),
-                raw,
             }
             .normalise());
         }
@@ -449,7 +443,6 @@ mod tests {
                 KeyPress {
                     modifers: vec![],
                     key: Keys::Char('a'),
-                    raw: "a".to_string(),
                 },
                 "a",
             ),
@@ -457,7 +450,6 @@ mod tests {
                 KeyPress {
                     modifers: vec![],
                     key: Keys::Char('A'),
-                    raw: "A".to_string(),
                 },
                 "A",
             ),
@@ -465,7 +457,6 @@ mod tests {
                 KeyPress {
                     modifers: vec![Mod::Control],
                     key: Keys::Char('a'),
-                    raw: "<C-a>".to_string(),
                 },
                 "<C-a>",
             ),

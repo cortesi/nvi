@@ -1,7 +1,7 @@
 
 # Questions
 
-- Extract an nvi-ui library?
+- Should input be in ui, or at the root?
 
 
 # Features
