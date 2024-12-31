@@ -96,7 +96,8 @@ impl Mod {
 
 // See:
 //      :help key-notation
-#[derive(Debug, PartialEq, Clone, strum::Display)]
+#[derive(Debug, PartialEq, Clone, strum::Display, strum::EnumString)]
+#[strum(ascii_case_insensitive)]
 pub enum Keys {
     // Special keys
     Nul,
@@ -186,81 +187,20 @@ pub enum Keys {
 }
 
 impl Keys {
+    /// Returns the official VIM name of the key.
     fn name(&self) -> String {
-        match self {
-            Keys::Nul => "Nul".to_string(),
-            Keys::BS => "BS".to_string(),
-            Keys::Tab => "Tab".to_string(),
-            Keys::NL => "NL".to_string(),
-            Keys::CR => "CR".to_string(),
-            Keys::Return => "Return".to_string(),
-            Keys::Enter => "Enter".to_string(),
-            Keys::Esc => "Esc".to_string(),
-            Keys::Space => "Space".to_string(),
-            Keys::Lt => "lt".to_string(),
-            Keys::Bslash => "Bslash".to_string(),
-            Keys::Bar => "Bar".to_string(),
-            Keys::Del => "Del".to_string(),
-            Keys::CSI => "CSI".to_string(),
-            Keys::EOL => "EOL".to_string(),
-            Keys::Ignore => "Ignore".to_string(),
-            Keys::NOP => "NOP".to_string(),
-            Keys::Up => "Up".to_string(),
-            Keys::Down => "Down".to_string(),
-            Keys::Left => "Left".to_string(),
-            Keys::Right => "Right".to_string(),
-            Keys::F1 => "F1".to_string(),
-            Keys::F2 => "F2".to_string(),
-            Keys::F3 => "F3".to_string(),
-            Keys::F4 => "F4".to_string(),
-            Keys::F5 => "F5".to_string(),
-            Keys::F6 => "F6".to_string(),
-            Keys::F7 => "F7".to_string(),
-            Keys::F8 => "F8".to_string(),
-            Keys::F9 => "F9".to_string(),
-            Keys::F10 => "F10".to_string(),
-            Keys::F11 => "F11".to_string(),
-            Keys::F12 => "F12".to_string(),
-            Keys::Help => "Help".to_string(),
-            Keys::Undo => "Undo".to_string(),
-            Keys::Insert => "Insert".to_string(),
-            Keys::Home => "Home".to_string(),
-            Keys::End => "End".to_string(),
-            Keys::PageUp => "PageUp".to_string(),
-            Keys::PageDown => "PageDown".to_string(),
-            Keys::KUp => "kUp".to_string(),
-            Keys::KDown => "kDown".to_string(),
-            Keys::KLeft => "kLeft".to_string(),
-            Keys::KRight => "kRight".to_string(),
-            Keys::KHome => "kHome".to_string(),
-            Keys::KEnd => "kEnd".to_string(),
-            Keys::KOrigin => "kOrigin".to_string(),
-            Keys::KPageUp => "kPageUp".to_string(),
-            Keys::KPageDown => "kPageDown".to_string(),
-            Keys::KDel => "kDel".to_string(),
-            Keys::KPlus => "kPlus".to_string(),
-            Keys::KMinus => "kMinus".to_string(),
-            Keys::KMultiply => "kMultiply".to_string(),
-            Keys::KDivide => "kDivide".to_string(),
-            Keys::KPoint => "kPoint".to_string(),
-            Keys::KComma => "kComma".to_string(),
-            Keys::KEqual => "kEqual".to_string(),
-            Keys::KEnter => "kEnter".to_string(),
-            Keys::K0 => "k0".to_string(),
-            Keys::K1 => "k1".to_string(),
-            Keys::K2 => "k2".to_string(),
-            Keys::K3 => "k3".to_string(),
-            Keys::K4 => "k4".to_string(),
-            Keys::K5 => "k5".to_string(),
-            Keys::K6 => "k6".to_string(),
-            Keys::K7 => "k7".to_string(),
-            Keys::K8 => "k8".to_string(),
-            Keys::K9 => "k9".to_string(),
-            Keys::LeftMouse => "LeftMouse".to_string(),
-            Keys::RightMouse => "RightMouse".to_string(),
-            Keys::MiddleMouse => "MiddleMouse".to_string(),
-            Keys::Char(c) => c.to_string(),
+        let s = self.to_string();
+        if s.len() > 1 && s.starts_with('K') {
+            format!("k{}", &s[1..])
+        } else {
+            s
         }
+    }
+
+    /// Parse a key name into a Keys variant.
+    pub fn from_name(name: &str) -> Result<Self, Error> {
+        name.parse::<Keys>()
+            .map_err(|e| Error::User(format!("Invalid key name: {}", name)))
     }
 }
 
@@ -285,7 +225,10 @@ impl fmt::Display for KeyPress {
             for modifier in &self.modifers {
                 write!(f, "{}", modifier.to_prefix())?;
             }
-            write!(f, "{}>", self.key.name())
+            match &self.key {
+                Keys::Char(c) => write!(f, "{}>", c),
+                _ => write!(f, "{}>", self.key.name()),
+            }
         }
     }
 }
@@ -444,6 +387,35 @@ mod tests {
     }
 
     #[test]
+    fn test_key_name_roundtrip() {
+        let test_cases = vec![
+            "Tab",
+            "Enter",
+            "Esc",
+            "Space",
+            "Up",
+            "Down",
+            "Left",
+            "Right",
+            "F1",
+            "F12",
+            "Home",
+            "End",
+            "PageUp",
+            "KUp",
+            "KDown",
+            "K0",
+            "K9",
+            "LeftMouse",
+        ];
+
+        for name in test_cases {
+            let key = Keys::from_name(name).unwrap();
+            assert_eq!(key.name().to_lowercase(), name.to_lowercase());
+        }
+    }
+
+    #[test]
     fn test_key_press_display() {
         let test_cases = vec![
             (
@@ -513,4 +485,3 @@ mod tests {
         test.finish().await.unwrap();
     }
 }
-
