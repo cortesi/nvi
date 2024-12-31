@@ -1,7 +1,39 @@
-//! Our strategy is to use:
+//! This module does the surprisingly complicated job of bringing type safety and order to the
+//! chaos of Vim keypresses.
 //!
-//! - getchar to get a character
-//! - use getcharmod to get the modifiers
+//! - We have a standard structure for reprsenting key presses - a key and a set of modifiers.
+//! - Our standard structure has a uniform string representation that mirrors Vim's key notation.
+//! - We go to considerable lengths to make sure that functions for reading and writing input are
+//!   symmetric - that is,if you write keypresses with feedkeys, you can be sure to get them back
+//!   in the same format with getchar (modulo normalization).
+//! - We normalize control characters into their corresponding KeyPress representation, e.g.
+//!   Control-A is represented as <C-A>, not as \x01.
+//! - We normalize the case of control characters, so that <C-a> is the same as <C-A>.
+//!
+//! The string format for keypresses is:
+//!
+//! - <key>
+//! - <modifier-key>
+//!
+//! The following modifiers are supported:
+//!
+//! - C: Control
+//! - S: Shift
+//! - M: Alt/Meta
+//! - T: Meta
+//! - D: Super
+//!
+//! For mouse events, the format is:
+//!
+//! - <LeftMouse>
+//! - <RightMouse>
+//! - <MiddleMouse>
+//!
+//! With modifiers:
+//!
+//! - DClick: Double click
+//! - TClick: Triple click
+//! - QClick: Quadruple click
 //!
 //! See:
 //! :help key-notation
@@ -291,10 +323,9 @@ impl KeyPress {
     }
 }
 
-/// Execute a Lua snippet with the client and get a keypress.
+/// Get a single keypress from the client.
 pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
     let lua_code = r#"
-        -- Retrieve the keypress and its modifiers
         local char = vim.fn.getcharstr()
         local charmod = vim.fn.getcharmod()
         return {charmod, char}
@@ -302,7 +333,6 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
 
     match client.lua(lua_code).await? {
         Value::Array(arr) if arr.len() == 2 => {
-            println!("Got: {:?}", arr);
             if let Value::Integer(charmod) = &arr[0] {
                 let modifiers = if let Some(ch) = charmod.as_u64() {
                     Mod::from_charmod(ch as u8)
@@ -351,6 +381,8 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
     }
 }
 
+/// Feed a string of keys to the client. Special keys should be escaped in
+/// the standard vim way, e.g: "\<C-a>" for Control-A. Valid modifiers are:
 pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
     let lua_code = format!(
         r#"
@@ -358,7 +390,6 @@ pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
         "#,
         lua::escape_str(keys),
     );
-    println!("Executing lua code: {}", lua_code);
     match client.lua(&lua_code).await {
         Ok(_) => Ok(()),
         Err(e) => Err(Error::User(format!("Failed to feedkeys: {}", e))),
@@ -451,6 +482,7 @@ mod tests {
             ("a", "a"),
             ("A", "A"),
             (r"\<S-b>", "B"),
+            (r"\<S-B>", "B"),
             (r"\<C-A>", "<C-A>"),
             (r"\<C-a>", "<C-A>"),
             (r"\<M-Left>", "<M-Left>"),
