@@ -6,8 +6,7 @@
 //! See:
 //! :help key-notation
 
-use std::fmt;
-use strum::Display;
+use std::fmt::{self, Write};
 
 use crate::{error::Error, error::Result, lua, Client, Value};
 
@@ -200,7 +199,7 @@ impl Keys {
     /// Parse a key name into a Keys variant.
     pub fn from_name(name: &str) -> Result<Self, Error> {
         name.parse::<Keys>()
-            .map_err(|e| Error::User(format!("Invalid key name: {}", name)))
+            .map_err(|_| Error::User(format!("Invalid key name: {}", name)))
     }
 }
 
@@ -267,13 +266,10 @@ impl KeyPress {
                 .split('-')
                 .collect();
             if let Some((&key, _)) = parts.split_last() {
-                let key = match key {
-                    "Enter" => Keys::Enter,
-                    "Space" => Keys::Space,
-                    "Esc" => Keys::Esc,
-                    "Left" => Keys::Left,
-                    key if key.len() == 1 => Keys::Char(key.chars().next().unwrap()),
-                    _ => return Err(Error::User(format!("Unknown key: {}", key))),
+                let key = if key.len() == 1 {
+                    Keys::Char(key.chars().next().unwrap())
+                } else {
+                    Keys::from_name(key)?
                 };
 
                 return Ok(KeyPress {
@@ -326,10 +322,10 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
                         // Pass the raw bytes directly to keytrans
                         let lua_keytrans = format!(
                             "return vim.fn.keytrans('{}')",
-                            bytes
-                                .iter()
-                                .map(|&b| format!("\\x{:02x}", b))
-                                .collect::<String>()
+                            bytes.iter().fold(String::new(), |mut acc, &b| {
+                                let _ = write!(acc, "\\x{:02x}", b);
+                                acc
+                            })
                         );
                         match client.lua(&lua_keytrans).await? {
                             Value::String(s) => KeyPress::from_lua_with_mods(
