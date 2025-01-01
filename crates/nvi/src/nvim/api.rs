@@ -263,7 +263,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets a buffer-scoped (b:) variable.\n"]
-    pub async fn buf_get_var(&self, buffer: &Buffer, name: &str) -> Result<Value> {
+    pub async fn buf_get_var<T>(&self, buffer: &Buffer, name: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_get_var", &[to_value(&buffer)?, to_value(&name)?])
@@ -742,11 +745,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets the value of an option. The behavior of this function matches that of\n|:set|: the local value of an option is returned if it exists; otherwise,\nthe global value is returned. Local values always correspond to the\ncurrent buffer or window, unless buf or win is set in {opts}.\n"]
-    pub async fn get_option_value(
-        &self,
-        name: &str,
-        opts: HashMap<String, Value>,
-    ) -> Result<Value> {
+    pub async fn get_option_value<T>(&self, name: &str, opts: HashMap<String, Value>) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -810,7 +812,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets a tab-scoped (t:) variable\n"]
-    pub async fn tabpage_get_var(&self, tabpage: &TabPage, name: &str) -> Result<Value> {
+    pub async fn tabpage_get_var<T>(&self, tabpage: &TabPage, name: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1134,7 +1139,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nExecute Lua code. Parameters (if any) are available as ... inside the\nchunk. The chunk can return a value.\n\nOnly statements are executed. To evaluate an expression, prefix it with\nreturn: return my_function(...)\n"]
-    pub async fn exec_lua(&self, code: &str, args: Vec<Value>) -> Result<Value> {
+    pub async fn exec_lua<T>(&self, code: &str, args: Vec<Value>) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_exec_lua", &[to_value(&code)?, to_value(&args)?])
@@ -1143,12 +1151,15 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nNotify the user with a message.\n\nRelays the call to vim.notify . By default forwards your message in the\necho area but can be overridden to trigger desktop notifications.\n"]
-    pub async fn notify(
+    pub async fn notify<T>(
         &self,
         msg: &str,
         log_level: u64,
         opts: HashMap<String, Value>,
-    ) -> Result<()> {
+    ) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(
@@ -1220,7 +1231,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets a global (g:) variable.\n"]
-    pub async fn get_var(&self, name: &str) -> Result<Value> {
+    pub async fn get_var<T>(&self, name: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_var", &[to_value(&name)?])
@@ -1250,7 +1264,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets a v: variable.\n"]
-    pub async fn get_vvar(&self, name: &str) -> Result<Value> {
+    pub async fn get_vvar<T>(&self, name: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_vvar", &[to_value(&name)?])
@@ -1477,7 +1494,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nSets the current editor state from the given |context| map.\n"]
-    pub async fn load_context(&self, dict: HashMap<String, Value>) -> Result<Value> {
+    pub async fn load_context<T>(&self, dict: HashMap<String, Value>) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_load_context", &[to_value(&dict)?])
@@ -1598,7 +1618,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets info describing process pid.\n"]
-    pub async fn get_proc(&self, pid: i64) -> Result<Value> {
+    pub async fn get_proc<T>(&self, pid: i64) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_get_proc", &[to_value(&pid)?])
@@ -1683,14 +1706,20 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nEvaluates a Vimscript expression. Dicts and Lists are recursively\nexpanded.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
-    pub async fn eval(&self, expr: &str) -> Result<Value> {
+    pub async fn eval<T>(&self, expr: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self.raw_request("nvim_eval", &[to_value(&expr)?]).await?;
         #[allow(clippy::needless_question_mark)]
         Ok(from_value(&ret)?)
     }
     #[doc = "\nCalls a Vimscript function with the given arguments.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
-    pub async fn call_function(&self, func: &str, args: Vec<Value>) -> Result<Value> {
+    pub async fn call_function<T>(&self, func: &str, args: Vec<Value>) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_call_function", &[to_value(&func)?, to_value(&args)?])
@@ -1699,14 +1728,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nCalls a Vimscript `Dictionary-function` with the given arguments.\n\nOn execution error: fails with Vimscript error, updates v:errmsg.\n"]
-    pub async fn call_dict_function<T>(
-        &self,
-        dict: T,
-        func: &str,
-        args: Vec<Value>,
-    ) -> Result<Value>
+    pub async fn call_dict_function<T, U>(&self, dict: T, func: &str, args: Vec<Value>) -> Result<U>
     where
         T: Serialize,
+        U: serde::de::DeserializeOwned,
     {
         #[allow(unused_variables)]
         let ret = self
@@ -1858,7 +1883,10 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nGets a window-scoped (w:) variable\n"]
-    pub async fn win_get_var(&self, window: &Window, name: &str) -> Result<Value> {
+    pub async fn win_get_var<T>(&self, window: &Window, name: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_var", &[to_value(&window)?, to_value(&name)?])

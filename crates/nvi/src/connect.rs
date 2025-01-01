@@ -175,7 +175,7 @@ mod tests {
                     trace!("client connected, sending sockconnect request");
                     client
                         .nvim
-                        .exec_lua(
+                        .exec_lua::<crate::Value>(
                             &format!(
                                 "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
                                 self.socket_path.as_os_str().to_string_lossy()

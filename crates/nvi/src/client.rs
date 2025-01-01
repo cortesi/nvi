@@ -42,8 +42,8 @@ impl Client {
 
     /// Get the current working directory from Neovim.
     pub async fn getcwd(&self) -> Result<PathBuf> {
-        let r = self.nvim.exec_lua("return vim.fn.getcwd()", vec![]).await?;
-        Ok(r.as_str().unwrap().into())
+        let r: String = self.nvim.exec_lua("return vim.fn.getcwd()", vec![]).await?;
+        Ok(r.as_str().into())
     }
 
     /// Register an RPC method in Neovim. This creates a Lua function under the specified namespace
@@ -227,7 +227,7 @@ impl Client {
         let namespace = &self.name;
         // We execute a Lua function here because we need to specify a callback function for the
         // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
-        let ret = self
+        let ret: u64 = self
             .nvim
             .exec_lua(
                 &format!(
@@ -249,7 +249,7 @@ impl Client {
                 vec![],
             )
             .await?;
-        Ok(ret.as_u64().unwrap())
+        Ok(ret)
     }
 
     /// Set an autocmd for a set of patterns.
@@ -300,7 +300,7 @@ impl Client {
         let namespace = &self.name;
         // We execute a Lua function here because we need to specify a callback function for the
         // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
-        let ret = self
+        let ret: u64 = self
             .nvim
             .exec_lua(
                 &format!(
@@ -322,7 +322,7 @@ impl Client {
                 vec![],
             )
             .await?;
-        Ok(ret.as_u64().unwrap())
+        Ok(ret)
     }
 
     /// Execute a snippet of Lua with no arguments.
@@ -488,7 +488,7 @@ mod tests {
                     .await
                     .unwrap();
 
-                client
+                let _: Value = client
                     .nvim
                     .exec_lua("return test_module.test_fn(5)", vec![])
                     .await

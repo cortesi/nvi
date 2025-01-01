@@ -233,18 +233,14 @@ impl PaneBuilder {
             conf = conf.relative(types::Relative::Editor);
 
             // Get the editor dimensions using &o_columns and &o_lines
-            let editor_width = client
+            let editor_width: u64 = client
                 .nvim
                 .get_option_value("columns", Default::default())
-                .await?
-                .as_u64()
-                .unwrap();
-            let editor_height = client
+                .await?;
+            let editor_height: u64 = client
                 .nvim
                 .get_option_value("lines", Default::default())
-                .await?
-                .as_u64()
-                .unwrap();
+                .await?;
 
             // Get our own dimensions
             let width = conf.width.unwrap_or(content.size().0 as u64);

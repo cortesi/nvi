@@ -238,26 +238,47 @@ fn generate_function(f: api::Function) -> TokenStream {
         args.push(arg);
     }
 
-    let generics = match meta_count {
-        0 => quote! {},
-        1 => quote! { <T> },
-        2 => quote! { <T, U> },
-        3 => quote! { <T, U, V> },
-        _ => panic!("unreachable"),
+    // Start with the meta vars from arguments
+    let mut generic_params = vec![];
+    let mut where_bounds = vec![];
+
+    // Add serialize bounds for meta variables from arguments
+    for i in 0..meta_count {
+        let param = Ident::new(vec!["T", "U", "V"][i as usize], Span::call_site());
+        generic_params.push(param.clone());
+        where_bounds.push(quote! { #param: Serialize });
+    }
+
+    // If the return type is Value, add a generic type parameter with DeserializeOwned bound
+    let ret_type = if matches!(f.return_type, api::Type::Object | api::Type::Dictionary) {
+        let ret_param = Ident::new(
+            if meta_count == 0 {
+                "T"
+            } else {
+                vec!["U", "V", "W"][meta_count as usize - 1]
+            },
+            Span::call_site(),
+        );
+        generic_params.push(ret_param.clone());
+        where_bounds.push(quote! { #ret_param: serde::de::DeserializeOwned });
+        quote! { #ret_param }
+    } else {
+        overrides::get_return_override(name).unwrap_or_else(|| mk_return_type(&f.return_type))
     };
 
-    let where_clause = match meta_count {
-        0 => quote! {},
-        1 => quote! { where T: Serialize },
-        2 => quote! { where T: Serialize, U: Serialize },
-        3 => quote! { where T: Serialize, U: Serialize, V: Serialize },
-        _ => panic!("unreachable"),
+    let generics = if !generic_params.is_empty() {
+        quote! { <#(#generic_params),*> }
+    } else {
+        quote! {}
+    };
+
+    let where_clause = if !where_bounds.is_empty() {
+        quote! { where #(#where_bounds),* }
+    } else {
+        quote! {}
     };
 
     let arg_vals: Vec<TokenStream> = f.parameters.iter().map(mk_arg_value).collect();
-
-    let ret_type =
-        overrides::get_return_override(name).unwrap_or_else(|| mk_return_type(&f.return_type));
 
     let fn_def = if let Some(doc) = docs {
         quote! {

@@ -402,7 +402,7 @@ pub async fn diagnostic_config<T>(
 ) -> Result<()> {
     let namespace = namespace.unwrap_or(-1);
     c.nvim
-        .exec_lua(
+        .exec_lua::<Value>(
             "vim.diagnostic.config(...)",
             vec![
                 serde_rmpv::to_value(&opts)?,
@@ -434,12 +434,7 @@ where
             "return vim.diagnostic.get(...)",
             vec![serde_rmpv::to_value(&bufnr)?, serde_rmpv::to_value(&opts)?],
         )
-        .await?
-        .as_array()
-        .ok_or_else(|| Error::User("Expected array".into()))?
-        .iter()
-        .map(|v| serde_rmpv::from_value::<Diagnostic>(v).unwrap())
-        .collect::<Vec<_>>();
+        .await?;
     Ok(result)
 }
 
