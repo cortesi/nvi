@@ -1,8 +1,6 @@
 
 # Questions
 
-- Should input be in ui, or at the root?
-
 
 # Features
 

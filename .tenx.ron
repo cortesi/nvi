@@ -1,0 +1,9 @@
+(
+    retry_limit: 30,
+    context: (
+        ruskel: ["nvi"]
+    ),
+    checks: (
+        enable: ["cargo-clippy"]
+    )
+)
