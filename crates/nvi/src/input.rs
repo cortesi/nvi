@@ -40,7 +40,7 @@
 
 use std::fmt::{self, Write};
 
-use crate::{error::Error, error::Result, lua, Client, Value};
+use crate::{error::Error, error::Result, lua, lua_exec, Client, Value};
 
 /// A modifier key.
 #[derive(Debug, PartialEq, Clone)]
@@ -325,7 +325,7 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
         return {charmod, char}
     "#;
 
-    match client.lua(lua_code).await? {
+    match lua_exec!(client, lua_code).await? {
         Value::Array(arr) if arr.len() == 2 => {
             if let Value::Integer(charmod) = &arr[0] {
                 let modifiers = if let Some(ch) = charmod.as_u64() {
@@ -351,7 +351,7 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
                                 acc
                             })
                         );
-                        match client.lua(&lua_keytrans).await? {
+                        match lua!(client, &lua_keytrans).await? {
                             Value::String(s) => KeyPress::from_lua_with_mods(
                                 modifiers,
                                 s.as_str().expect("Lua string conversion failed"),
@@ -384,7 +384,7 @@ pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
         "#,
         lua::escape_str(keys),
     );
-    match client.lua(&lua_code).await {
+    match lua_exec!(client, &lua_code).await {
         Ok(_) => Ok(()),
         Err(e) => Err(Error::User(format!("Failed to feedkeys: {}", e))),
     }

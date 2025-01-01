@@ -7,34 +7,8 @@ use tracing::trace;
 
 use crate::{
     error::{Error, Result},
-    nvim, Value,
+    lua, lua_exec, nvim,
 };
-
-/// Execute Lua code with arguments
-#[macro_export]
-macro_rules! lua {
-    ($client:expr, $code:expr, $($arg:expr),* $(,)?) => {
-        $client.nvim.exec_lua(
-            $code,
-            vec![
-                $(serde_rmpv::to_value(&$arg)?),*
-            ],
-        )
-    };
-}
-
-/// Execute Lua code with arguments, always return a Value
-#[macro_export]
-macro_rules! lua_exec {
-    ($client:expr, $code:expr, $($arg:expr),* $(,)?) => {
-        $client.nvim.exec_lua::<Value>(
-            $code,
-            vec![
-                $(serde_rmpv::to_value(&$arg)?),*
-            ],
-        )
-    };
-}
 
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
 /// It exposes the full auto-generated API for Neovim on its `nvim` field, and provides a set of
@@ -68,8 +42,7 @@ impl Client {
 
     /// Get the current working directory from Neovim.
     pub async fn getcwd(&self) -> Result<PathBuf> {
-        let r: String = self.nvim.exec_lua("return vim.fn.getcwd()", vec![]).await?;
-        Ok(r.as_str().into())
+        lua!(self, "return vim.fn.getcwd()",).await
     }
 
     /// Register an RPC method in Neovim. This creates a Lua function under the specified namespace
@@ -100,21 +73,20 @@ impl Client {
         );
         let channel_id = self.channel_id;
 
-        self.nvim
-            .exec_lua(
-                &format!(
-                    "
-                        if not _G.{namespace} then
-                            _G.{namespace} = {{}}
-                        end
-                        _G.{namespace}.{method} = function({arg_list})
-                            return vim.{kind}({channel_id}, '{method}'{extra_sep} {arg_list})
-                        end
-                    "
-                ),
-                vec![],
-            )
-            .await?;
+        lua_exec!(
+            self,
+            &format!(
+                "
+                    if not _G.{namespace} then
+                        _G.{namespace} = {{}}
+                    end
+                    _G.{namespace}.{method} = function({arg_list})
+                        return vim.{kind}({channel_id}, '{method}'{extra_sep} {arg_list})
+                    end
+                "
+            ),
+        )
+        .await?;
         Ok(())
     }
 
@@ -351,11 +323,6 @@ impl Client {
         Ok(ret)
     }
 
-    /// Execute a snippet of Lua with no arguments.
-    pub async fn lua(&self, code: &str) -> Result<Value> {
-        self.nvim.exec_lua(code, vec![]).await
-    }
-
     /// Wait for a plugin to reach running state.
     pub async fn await_plugin(&self, name: &str, timeout: std::time::Duration) -> Result<()> {
         let start = std::time::Instant::now();
@@ -365,13 +332,11 @@ impl Client {
                     msg: format!("Plugin failed to reach running state after {:?}", timeout),
                 });
             }
-            let val = self
-                .lua(&format!(
-                    "return {}.{}()",
-                    name,
-                    crate::service::STATUS_MESSAGE
-                ))
-                .await;
+            let val = lua_exec!(
+                self,
+                &format!("return {}.{}()", name, crate::service::STATUS_MESSAGE)
+            )
+            .await;
             if let Ok(val) = val {
                 if let Some(val) = val.as_str() {
                     if val == crate::service::Status::Running.to_string() {
@@ -485,12 +450,10 @@ mod tests {
             .await
             .unwrap();
 
-        let v = nvit
-            .client
-            .lua("return test_module.test_fn(5)")
+        let v: u64 = lua!(nvit.client, "return test_module.test_fn(5)")
             .await
             .unwrap();
-        assert_eq!(v, Value::from(5));
+        assert_eq!(v, 5);
         nvit.finish().await.unwrap();
     }
 

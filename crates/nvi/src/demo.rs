@@ -135,6 +135,7 @@ impl Demos {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lua_exec;
 
     #[tokio::test]
     async fn test_demos() {
@@ -142,11 +143,11 @@ mod tests {
         assert!(d.list().is_empty());
 
         d.add("two", |c| async move {
-            c.lua("print('demo two')").await?;
+            lua_exec!(c, "print('demo two')").await?;
             Ok(())
         });
         d.add("one", |c| async move {
-            c.lua("print('demo one')").await?;
+            lua_exec!(c, "print('demo one')").await?;
             Ok(())
         });
 

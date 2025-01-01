@@ -12,8 +12,8 @@ use super::{
     nvim::types::Text,
     Client,
 };
-use crate::lua_exec;
 use crate::Value;
+use crate::{lua, lua_exec};
 
 /// Options for getting diagnostics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -402,15 +402,7 @@ pub async fn diagnostic_config<T>(
     namespace: Option<i64>,
 ) -> Result<()> {
     let namespace = namespace.unwrap_or(-1);
-    c.nvim
-        .exec_lua::<Value>(
-            "vim.diagnostic.config(...)",
-            vec![
-                serde_rmpv::to_value(&opts)?,
-                serde_rmpv::to_value(&namespace)?,
-            ],
-        )
-        .await?;
+    lua_exec!(c, "vim.diagnostic.config(...)", opts, namespace).await?;
     Ok(())
 }
 
@@ -429,13 +421,7 @@ where
     T: Into<u64>,
 {
     let bufnr: Option<u64> = bufnr.map(Into::into);
-    let result: Vec<Diagnostic> = c
-        .nvim
-        .exec_lua(
-            "return vim.diagnostic.get(...)",
-            vec![serde_rmpv::to_value(&bufnr)?, serde_rmpv::to_value(&opts)?],
-        )
-        .await?;
+    let result: Vec<Diagnostic> = lua!(c, "return vim.diagnostic.get(...)", bufnr, opts).await?;
     Ok(result)
 }
 
@@ -469,17 +455,15 @@ where
     T: Into<u64>,
 {
     let bufnr: Option<u64> = bufnr.map(Into::into);
-    c.nvim
-        .exec_lua(
-            "vim.diagnostic.show(...)",
-            vec![
-                serde_rmpv::to_value(&namespace)?,
-                serde_rmpv::to_value(&bufnr)?,
-                serde_rmpv::to_value(&diagnostics)?,
-                serde_rmpv::to_value(&opts)?,
-            ],
-        )
-        .await?;
+    lua_exec!(
+        c,
+        "vim.diagnostic.show(...)",
+        namespace,
+        bufnr,
+        diagnostics,
+        opts
+    )
+    .await?;
     Ok(())
 }
 
@@ -490,24 +474,7 @@ pub async fn diagnostic_get_next(
     c: &mut Client,
     opts: Option<JumpOpts>,
 ) -> Result<Option<Diagnostic>> {
-    let result: Value = c
-        .nvim
-        .exec_lua(
-            "return vim.diagnostic.get_next(...)",
-            vec![serde_rmpv::to_value(&opts)?],
-        )
-        .await?;
-
-    match &result {
-        Value::Nil => Ok(None),
-        Value::Map(_) => {
-            let diagnostic: Diagnostic = serde_rmpv::from_value(&result)?;
-            Ok(Some(diagnostic))
-        }
-        _ => Err(Error::User(
-            "Unexpected return type from diagnostic_get_next".to_string(),
-        )),
-    }
+    lua!(c, "return vim.diagnostic.get_next(...)", opts).await
 }
 
 /// Get the previous diagnostic closest to the cursor position.
@@ -519,24 +486,7 @@ pub async fn diagnostic_get_prev(
     c: &mut Client,
     opts: Option<JumpOpts>,
 ) -> Result<Option<Diagnostic>> {
-    let result: Value = c
-        .nvim
-        .exec_lua(
-            "return vim.diagnostic.get_prev(...)",
-            vec![serde_rmpv::to_value(&opts)?],
-        )
-        .await?;
-
-    match &result {
-        Value::Nil => Ok(None),
-        Value::Map(_) => {
-            let diagnostic: Diagnostic = serde_rmpv::from_value(&result)?;
-            Ok(Some(diagnostic))
-        }
-        _ => Err(Error::User(
-            "Unexpected return type from diagnostic_get_prev".to_string(),
-        )),
-    }
+    lua!(c, "return vim.diagnostic.get_prev(...)", opts).await
 }
 
 /// Show diagnostics in a floating window.
@@ -548,13 +498,7 @@ pub async fn diagnostic_open_float(
     c: &mut Client,
     opts: Option<FloatOpts>,
 ) -> Result<(Option<u64>, Option<u64>)> {
-    let result: Value = c
-        .nvim
-        .exec_lua(
-            "return vim.diagnostic.open_float(...)",
-            vec![serde_rmpv::to_value(&opts)?],
-        )
-        .await?;
+    let result: Value = lua_exec!(c, "return vim.diagnostic.open_float(...)", opts).await?;
 
     match &result {
         Value::Array(arr) if arr.len() == 2 => {
@@ -585,12 +529,7 @@ pub async fn diagnostic_open_float(
 ///
 /// * `opts` - Options for setting the location list.
 pub async fn diagnostic_setloclist(c: &mut Client, opts: SetLoclistOpts) -> Result<()> {
-    c.nvim
-        .exec_lua(
-            "vim.diagnostic.setloclist(...)",
-            vec![serde_rmpv::to_value(&opts)?],
-        )
-        .await?;
+    lua_exec!(c, "vim.diagnostic.setloclist(...)", opts).await?;
     Ok(())
 }
 
@@ -598,12 +537,7 @@ pub async fn diagnostic_setloclist(c: &mut Client, opts: SetLoclistOpts) -> Resu
 ///
 /// * `opts` - Options for setting the quickfix list.
 pub async fn diagnostic_setqflist(c: &mut Client, opts: SetQfListOpts) -> Result<()> {
-    c.nvim
-        .exec_lua(
-            "vim.diagnostic.setqflist(...)",
-            vec![serde_rmpv::to_value(&opts)?],
-        )
-        .await?;
+    lua_exec!(c, "vim.diagnostic.setqflist(...)", opts).await?;
     Ok(())
 }
 
@@ -624,17 +558,15 @@ where
     T: Into<u64>,
 {
     let bufnr: u64 = bufnr.into();
-    c.nvim
-        .exec_lua(
-            "vim.diagnostic.set(...)",
-            vec![
-                serde_rmpv::to_value(&namespace)?,
-                serde_rmpv::to_value(&bufnr)?,
-                serde_rmpv::to_value(&diagnostics)?,
-                serde_rmpv::to_value(&opts)?,
-            ],
-        )
-        .await?;
+    lua_exec!(
+        c,
+        "vim.diagnostic.set(...)",
+        namespace,
+        bufnr,
+        diagnostics,
+        opts
+    )
+    .await?;
     Ok(())
 }
 
@@ -643,12 +575,7 @@ where
 /// * `namespace` - The diagnostic namespace to reset.
 /// * `bufnr` - Buffer number to reset diagnostics for.
 pub async fn diagnostic_reset(c: &mut Client, namespace: i64, bufnr: u64) -> Result<()> {
-    c.nvim
-        .exec_lua(
-            "vim.diagnostic.reset(...)",
-            vec![namespace.into(), bufnr.into()],
-        )
-        .await?;
+    lua_exec!(c, "vim.diagnostic.reset(...)", namespace, bufnr).await?;
     Ok(())
 }
 

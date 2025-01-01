@@ -114,6 +114,7 @@ async fn handle_client<T: mrpc::Connection + Send + Sync + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lua_exec;
     use crate::NviPlugin;
     use std::path::PathBuf;
     use tokio::sync::broadcast;
@@ -173,17 +174,12 @@ mod tests {
                     client: &mut crate::Client,
                 ) -> crate::error::Result<()> {
                     trace!("client connected, sending sockconnect request");
-                    client
-                        .nvim
-                        .exec_lua::<crate::Value>(
-                            &format!(
-                                "vim.fn.sockconnect('pipe', '{}',  {{rpc = true}});",
-                                self.socket_path.as_os_str().to_string_lossy()
-                            ),
-                            vec![],
-                        )
-                        .await
-                        .unwrap();
+                    let _ = lua_exec!(
+                        client,
+                        "vim.fn.sockconnect('pipe', ...,  {{rpc = true}});",
+                        self.socket_path.as_os_str().to_string_lossy()
+                    )
+                    .await?;
                     Ok(())
                 }
             }

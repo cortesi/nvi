@@ -1,3 +1,35 @@
+/// Execute Lua code with optional arguments
+#[macro_export]
+macro_rules! lua {
+    ($client:expr, $code:expr) => {
+        $client.nvim.exec_lua($code, vec![])
+    };
+    ($client:expr, $code:expr, $($arg:expr),* $(,)?) => {
+        $client.nvim.exec_lua(
+            $code,
+            vec![
+                $(serde_rmpv::to_value(&$arg)?),*
+            ],
+        )
+    };
+}
+
+/// Execute Lua code with optional arguments, always return a Value
+#[macro_export]
+macro_rules! lua_exec {
+    ($client:expr, $code:expr) => {
+        $client.nvim.exec_lua::<$crate::Value>($code, vec![])
+    };
+    ($client:expr, $code:expr, $($arg:expr),* $(,)?) => {
+        $client.nvim.exec_lua::<$crate::Value>(
+            $code,
+            vec![
+                $(serde_rmpv::to_value(&$arg)?),*
+            ],
+        )
+    };
+}
+
 /// Escapes a string according to Lua string literal conventions.
 /// This escapes special characters like newlines (\n), quotes ('),
 /// double quotes ("), and backslashes (\).

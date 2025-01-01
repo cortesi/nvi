@@ -4,5 +4,6 @@
         ruskel: ["nvi"]
     ),
     checks: (
+        enable: ["cargo-clippy"]
     )
 )
