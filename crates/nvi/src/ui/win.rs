@@ -130,6 +130,7 @@ pub struct PaneBuilder {
     height: Option<u64>,
     window_conf: Option<WindowConf>,
     win_pos: Option<(types::Window, Pos, u64)>,
+    editor_pos: Option<(Pos, u64)>,
 }
 
 impl PaneBuilder {
@@ -141,6 +142,7 @@ impl PaneBuilder {
             height: None,
             window_conf: None,
             win_pos: None,
+            editor_pos: None,
         }
     }
 
@@ -171,6 +173,12 @@ impl PaneBuilder {
     /// Positions the pane relative to another window.
     pub fn with_win_pos(mut self, win: types::Window, pos: Pos, padding: u64) -> Self {
         self.win_pos = Some((win, pos, padding));
+        self
+    }
+
+    /// Positions the pane relative to the editor window.
+    pub fn with_editor_pos(mut self, pos: Pos, padding: u64) -> Self {
+        self.editor_pos = Some((pos, padding));
         self
     }
 
@@ -219,6 +227,30 @@ impl PaneBuilder {
             let height = conf.height.unwrap_or(content.size().1 as u64);
 
             let (row, col) = pos.win_pos((win_width, win_height), (width, height), padding);
+
+            conf = conf.row(row).col(col);
+        } else if let Some((pos, padding)) = self.editor_pos {
+            conf = conf.relative(types::Relative::Editor);
+
+            // Get the editor dimensions using &o_columns and &o_lines
+            let editor_width = client
+                .nvim
+                .get_option_value("columns", Default::default())
+                .await?
+                .as_u64()
+                .unwrap();
+            let editor_height = client
+                .nvim
+                .get_option_value("lines", Default::default())
+                .await?
+                .as_u64()
+                .unwrap();
+
+            // Get our own dimensions
+            let width = conf.width.unwrap_or(content.size().0 as u64);
+            let height = conf.height.unwrap_or(content.size().1 as u64);
+
+            let (row, col) = pos.win_pos((editor_width, editor_height), (width, height), padding);
 
             conf = conf.row(row).col(col);
         } else {
