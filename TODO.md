@@ -12,6 +12,9 @@
     - For production, output to a file or neovim notices
 - Autocmds should be created within an autocmd group by default
     - When we create the group, we'll set "clear" to clear previous autocmds
+- Better execution of lua, with positional replacement of arguments. We could do
+  this by using select(offset, ...) to get the arguments, and then assigning
+  them to variables to use in the user's code. nvi_1, nvi_2, etc.
 
 # Design
 
