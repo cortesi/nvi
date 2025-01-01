@@ -10,6 +10,32 @@ use crate::{
     nvim, Value,
 };
 
+/// Execute Lua code with arguments
+#[macro_export]
+macro_rules! lua {
+    ($client:expr, $code:expr, $($arg:expr),* $(,)?) => {
+        $client.nvim.exec_lua(
+            $code,
+            vec![
+                $(serde_rmpv::to_value(&$arg)?),*
+            ],
+        )
+    };
+}
+
+/// Execute Lua code with arguments, always return a Value
+#[macro_export]
+macro_rules! lua_exec {
+    ($client:expr, $code:expr, $($arg:expr),* $(,)?) => {
+        $client.nvim.exec_lua::<Value>(
+            $code,
+            vec![
+                $(serde_rmpv::to_value(&$arg)?),*
+            ],
+        )
+    };
+}
+
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
 /// It exposes the full auto-generated API for Neovim on its `nvim` field, and provides a set of
 /// higher-level methods directly on the `Client` object.

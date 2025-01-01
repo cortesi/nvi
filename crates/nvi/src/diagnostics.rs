@@ -12,6 +12,7 @@ use super::{
     nvim::types::Text,
     Client,
 };
+use crate::lua_exec;
 use crate::Value;
 
 /// Options for getting diagnostics.
@@ -447,15 +448,7 @@ pub async fn diagnostic_hide(
     namespace: Option<i64>,
     bufnr: Option<u64>,
 ) -> Result<()> {
-    c.nvim
-        .exec_lua(
-            "vim.diagnostic.hide(...)",
-            vec![
-                serde_rmpv::to_value(&namespace)?,
-                serde_rmpv::to_value(&bufnr)?,
-            ],
-        )
-        .await?;
+    lua_exec!(c, r#"vim.diagnostic.hide(...)"#, namespace, bufnr).await?;
     Ok(())
 }
 
