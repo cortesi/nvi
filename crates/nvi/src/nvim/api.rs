@@ -388,11 +388,7 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nDeletes the buffer. See |:bwipeout|\n"]
-    pub async fn buf_delete(
-        &self,
-        buffer: &Buffer,
-        opts: HashMap<String, Value>,
-    ) -> Result<opts::BufDelete> {
+    pub async fn buf_delete(&self, buffer: &Buffer, opts: opts::BufDelete) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_buf_delete", &[to_value(&buffer)?, to_value(&opts)?])

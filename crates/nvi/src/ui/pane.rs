@@ -92,8 +92,6 @@ pub struct Pane {
     pub buffer: types::Buffer,
     pub border: Option<types::Border>,
     pub content: Content,
-    pub width: Option<u64>,
-    pub height: Option<u64>,
     client: Client,
 }
 
@@ -101,15 +99,6 @@ impl Pane {
     /// Creates a new pane builder.
     pub fn builder() -> PaneBuilder {
         PaneBuilder::new()
-    }
-
-    /// Returns the dimensions of the pane as (width, height).
-    /// If width or height is not explicitly set, uses the content dimensions.
-    pub fn size(&self) -> (u64, u64) {
-        let (content_width, content_height) = self.content.size();
-        let width = self.width.unwrap_or(content_width as u64);
-        let height = self.height.unwrap_or(content_height as u64);
-        (width, height)
     }
 
     /// Destroys the window and buffer, consuming the pane.
@@ -126,8 +115,6 @@ impl Pane {
 /// Builder for constructing a Pane.
 pub struct PaneBuilder {
     border: Option<types::Border>,
-    width: Option<u64>,
-    height: Option<u64>,
     window_conf: Option<WindowConf>,
     win_pos: Option<(types::Window, Pos, u64)>,
     editor_pos: Option<(Pos, u64)>,
@@ -138,8 +125,6 @@ impl PaneBuilder {
     fn new() -> Self {
         Self {
             border: None,
-            width: None,
-            height: None,
             window_conf: None,
             win_pos: None,
             editor_pos: None,
@@ -155,18 +140,6 @@ impl PaneBuilder {
     /// Sets the border style for the pane.
     pub fn with_border(mut self, border: types::Border) -> Self {
         self.border = Some(border);
-        self
-    }
-
-    /// Sets the width of the pane.
-    pub fn with_width(mut self, width: u64) -> Self {
-        self.width = Some(width);
-        self
-    }
-
-    /// Sets the height of the pane.
-    pub fn with_height(mut self, height: u64) -> Self {
-        self.height = Some(height);
         self
     }
 
@@ -207,12 +180,11 @@ impl PaneBuilder {
         if let Some(ref border) = self.border {
             conf = conf.border(border.clone());
         }
-        if let Some(width) = self.width {
-            conf = conf.width(width);
-        }
-        if let Some(height) = self.height {
-            conf = conf.height(height);
-        }
+
+        let width = conf.width.unwrap_or(content.size().0 as u64);
+        let height = conf.height.unwrap_or(content.size().1 as u64);
+        conf.width = Some(width);
+        conf.height = Some(height);
 
         // Handle window positioning if specified
         if let Some((win, pos, padding)) = self.win_pos {
@@ -221,10 +193,6 @@ impl PaneBuilder {
             let win_height = client.nvim.win_get_height(&win).await? as u64;
 
             conf = conf.relative(types::Relative::Win).win(win);
-
-            // Get our own dimensions
-            let width = conf.width.unwrap_or(content.size().0 as u64);
-            let height = conf.height.unwrap_or(content.size().1 as u64);
 
             let (row, col) = pos.win_pos((win_width, win_height), (width, height), padding);
 
@@ -242,10 +210,6 @@ impl PaneBuilder {
                 .get_option_value("lines", Default::default())
                 .await?;
 
-            // Get our own dimensions
-            let width = conf.width.unwrap_or(content.size().0 as u64);
-            let height = conf.height.unwrap_or(content.size().1 as u64);
-
             let (row, col) = pos.win_pos((editor_width, editor_height), (width, height), padding);
 
             conf = conf.row(row).col(col);
@@ -254,14 +218,11 @@ impl PaneBuilder {
         }
 
         let window = client.nvim.open_win(&buffer, true, conf).await?;
-
         Ok(Pane {
             window,
             buffer,
             border: self.border,
             content,
-            width: self.width,
-            height: self.height,
             client: client.clone(),
         })
     }
@@ -276,6 +237,7 @@ impl Default for PaneBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::NviTest;
 
     /// A test case for window positioning
     struct WinPosCase {
@@ -397,22 +359,21 @@ mod tests {
         }
     }
 
-    // #[tokio::test]
-    // async fn test_pane_creation() {
-    //     let test = NviTest::builder().run().await.unwrap();
-    //     let content = Content::new(vec!["test".to_string()]);
-    //
-    //     let pane = Pane::builder()
-    //         .with_width(10)
-    //         .with_height(1)
-    //         .build(&test.client, content)
-    //         .await
-    //         .unwrap();
-    //
-    //     assert!(test.client.nvim.win_is_valid(&pane.window).await.unwrap());
-    //     assert!(test.client.nvim.buf_is_valid(&pane.buffer).await.unwrap());
-    //
-    //     pane.destroy().await.unwrap();
-    //     test.finish().await.unwrap();
-    // }
+    #[tokio::test]
+    async fn test_pane_creation() {
+        let test = NviTest::builder().run().await.unwrap();
+        let content = Content::new(vec!["test".to_string()]);
+
+        let pane = Pane::builder()
+            .with_editor_pos(Pos::Center, 0)
+            .build(&test.client, content)
+            .await
+            .unwrap();
+
+        assert!(test.client.nvim.win_is_valid(&pane.window).await.unwrap());
+        assert!(test.client.nvim.buf_is_valid(&pane.buffer).await.unwrap());
+
+        pane.destroy().await.unwrap();
+        test.finish().await.unwrap();
+    }
 }

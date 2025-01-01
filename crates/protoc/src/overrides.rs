@@ -21,8 +21,17 @@ pub struct Override {
 pub fn get_override(name: &str) -> Option<Override> {
     Some(match name {
         "nvim_buf_delete" => Override {
-            args: vec![],
-            ret: Some(quote! { opts::BufDelete }),
+            args: vec![
+                Arg {
+                    name: "buf".into(),
+                    typ: quote! { Buffer },
+                },
+                Arg {
+                    name: "opts".into(),
+                    typ: quote! { opts::BufDelete },
+                },
+            ],
+            ret: None,
         },
         "nvim_clear_autocmds" => Override {
             args: vec![Arg {
