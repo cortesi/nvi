@@ -561,9 +561,9 @@ pub struct WindowConf {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bufpos: Option<(u64, u64)>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub row: Option<u64>,
+    pub row: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub col: Option<u64>,
+    pub col: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub focusable: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
