@@ -1,4 +1,3 @@
-use nvi::error::Result;
 use nvi::highlights;
 use nvi::nvi_macros::*;
 
@@ -63,8 +62,8 @@ impl Simple {
         Ok(())
     }
 
-    fn highlights(&self) -> Result<highlights::Highlights> {
-        Ok(highlights::Highlights::default())
+    fn highlights(&self) -> highlights::Highlights {
+        highlights::Highlights::default()
     }
 }
 

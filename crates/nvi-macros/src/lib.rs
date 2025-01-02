@@ -398,18 +398,15 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     "highlights method must not take any arguments",
                 ));
             }
-            if let Return::Result(s) = &ret {
-                if !s.ends_with("Highlights") {
+            match &ret {
+                Return::Result(s) if s.ends_with("Highlights") => (),
+                Return::Type(s) if s.ends_with("Highlights") => (),
+                _ => {
                     return Err(syn::Error::new(
                         method.span(),
-                        "highlights method must return Result<Highlights>",
-                    ));
+                        "highlights method must return either Highlights or Result<Highlights>",
+                    ))
                 }
-            } else {
-                return Err(syn::Error::new(
-                    method.span(),
-                    "highlights method must return Result<Highlights>",
-                ));
             }
         }
         _ => {}
@@ -593,15 +590,20 @@ fn inner_nvi_plugin(
         .map(|x| connected_invocation(x, name.clone()))
         .unwrap_or_else(|| quote! {});
 
-    // Handle the highlights method - if user implements highlights(), we use it,
-    // otherwise return default highlights
-    let highlights = if imp
+    // Handle the highlights method
+    let highlights = if let Some(m) = imp
         .methods
         .iter()
-        .any(|x| x.message_type == MethodType::Highlights)
+        .find(|x| x.message_type == MethodType::Highlights)
     {
-        quote! { self.highlights() }
+        // User can return either Highlights or Result<Highlights>
+        match &m.ret {
+            Return::Result(_) => quote! { self.highlights() },
+            Return::Type(_) => quote! { Ok(self.highlights()) },
+            _ => unreachable!("highlights validation should prevent this"),
+        }
     } else {
+        // Default implementation
         quote! { Ok(nvi::highlights::Highlights::default()) }
     };
 
@@ -890,7 +892,7 @@ mod tests {
 
     #[test]
     fn it_validates_highlights_method() {
-        // Invalid return type (not a Result)
+        // Valid direct return type
         let s = quote! {
             impl Test {
                 fn highlights(&self) -> nvi::highlights::Highlights {
@@ -899,8 +901,34 @@ mod tests {
             }
         };
         assert!(
+            parse_impl(&s).is_ok(),
+            "Should accept direct Highlights return type"
+        );
+
+        // Valid Result return type
+        let s = quote! {
+            impl Test {
+                fn highlights(&self) -> Result<nvi::highlights::Highlights> {
+                    Ok(nvi::highlights::Highlights::default())
+                }
+            }
+        };
+        assert!(
+            parse_impl(&s).is_ok(),
+            "Should accept Result<Highlights> return type"
+        );
+
+        // Invalid direct return type
+        let s = quote! {
+            impl Test {
+                fn highlights(&self) -> String {
+                    "invalid".into()
+                }
+            }
+        };
+        assert!(
             parse_impl(&s).is_err(),
-            "Should reject non-Result return type"
+            "Should reject invalid direct return type"
         );
 
         // Invalid Result type
