@@ -88,6 +88,13 @@ pub fn get_override(name: &str) -> Option<Override> {
             }],
             ret: None,
         },
+        "nvim_set_hl" => Override {
+            args: vec![Arg {
+                name: "val".into(),
+                typ: quote! { opts::SetHl },
+            }],
+            ret: None,
+        },
         "nvim_set_option_value" => Override {
             args: vec![Arg {
                 name: "opts".into(),

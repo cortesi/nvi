@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_rmpv::{from_value, to_value};
 use std::collections::HashMap;
 use tracing::trace;
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[doc = r" Generated bindings for Neovim's MessagePack-RPC API."]
 pub struct NvimApi {
     pub(crate) rpc_sender: mrpc::RpcSender,
@@ -1027,7 +1027,7 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     #[doc = "\nSets a highlight group.\n\nNote: Unlike the :highlight command which can update a highlight group,\nthis function completely replaces the definition. For example:\nnvim_set_hl(0, Visual, {}) will clear the highlight group 'Visual'.\n\nNote: The fg and bg keys also accept the string values fg or bg\nwhich act as aliases to the corresponding foreground and background\nvalues of the Normal group. If the Normal group has not been defined,\nusing these values results in an error.\n\nNote: If link is used in combination with other attributes; only the\nlink will take effect (see |:hi-link|).\n"]
-    pub async fn set_hl(&self, ns_id: i64, name: &str, val: HashMap<String, Value>) -> Result<()> {
+    pub async fn set_hl(&self, ns_id: i64, name: &str, val: opts::SetHl) -> Result<()> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request(

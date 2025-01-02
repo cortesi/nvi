@@ -327,7 +327,7 @@ pub fn protoc() -> Result<()> {
         use super::types::*;
         use super::opts;
 
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         /// Generated bindings for Neovim's MessagePack-RPC API.
         pub struct NvimApi {
             pub(crate) rpc_sender: mrpc::RpcSender,

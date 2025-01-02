@@ -20,6 +20,7 @@
 # API
 
 - Take opts by reference in nvi_api.
+- Nicer way to do equality checks against KeyPress
 
 
 # Design

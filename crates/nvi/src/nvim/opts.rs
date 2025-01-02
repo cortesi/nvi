@@ -6,6 +6,75 @@ use super::types;
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 
+/// Options for setting highlights
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
+#[setters(strip_option)]
+pub struct SetHl {
+    /// Color name or "#RRGGBB" hex color string for foreground
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fg: Option<String>,
+    /// Color name or "#RRGGBB" hex color string for background
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bg: Option<String>,
+    /// Color name or "#RRGGBB" hex color string for special highlighting
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sp: Option<String>,
+    /// Transparency level, integer between 0 and 100
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blend: Option<i64>,
+    /// Bold text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    /// Standout text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standout: Option<bool>,
+    /// Underlined text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underline: Option<bool>,
+    /// Undercurled text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub undercurl: Option<bool>,
+    /// Double underlined text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underdouble: Option<bool>,
+    /// Dotted underlined text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underdotted: Option<bool>,
+    /// Dashed underlined text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underdashed: Option<bool>,
+    /// Strikethrough text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strikethrough: Option<bool>,
+    /// Italic text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub italic: Option<bool>,
+    /// Reverse text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reverse: Option<bool>,
+    /// Don't combine with other highlights
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nocombine: Option<bool>,
+    /// Name of another highlight group to link to
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    /// Don't override existing definition
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<bool>,
+    /// Sets foreground of cterm color
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ctermfg: Option<String>,
+    /// Sets background of cterm color
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ctermbg: Option<String>,
+    /// cterm attribute map
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cterm: Option<String>,
+    /// Force update when highlight group exists
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force: Option<bool>,
+}
+
 /// Options for `nvim_buf_delete` method
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option)]

@@ -219,12 +219,17 @@ pub enum Keys {
 
 impl Keys {
     /// Returns the official VIM name of the key.
-    fn name(&self) -> String {
-        let s = self.to_string();
-        if s.len() > 1 && s.starts_with('K') {
-            format!("k{}", &s[1..])
-        } else {
-            s
+    pub fn name(&self) -> String {
+        match self {
+            Keys::Char(c) => c.to_string(),
+            other => {
+                let s = other.to_string();
+                if s.len() > 1 && s.starts_with('K') {
+                    format!("k{}", &s[1..])
+                } else {
+                    s
+                }
+            }
         }
     }
 

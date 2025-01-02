@@ -60,6 +60,7 @@ impl Pos {
 }
 
 /// Content to be displayed in a window pane.
+#[derive(Clone, Debug)]
 pub struct Content {
     pub(crate) lines: Vec<String>,
 }
@@ -77,6 +78,31 @@ impl Content {
         Self { lines }
     }
 
+    /// Creates a content area of specified width and height with text centered in both dimensions.
+    pub fn center(width: usize, height: usize, text: &str) -> Self {
+        let text_lines: Vec<&str> = text.lines().collect();
+        let text_height = text_lines.len();
+
+        // Calculate vertical padding
+        let v_padding = (height.saturating_sub(text_height)) / 2;
+        let mut lines = vec![" ".repeat(width); height];
+
+        // Insert text lines in the center
+        for (i, text_line) in text_lines.into_iter().enumerate() {
+            if v_padding + i >= height {
+                break;
+            }
+            // Calculate horizontal padding for this line
+            let h_padding = (width.saturating_sub(text_line.len())) / 2;
+            if h_padding + text_line.len() <= width {
+                let target_line = &mut lines[v_padding + i];
+                target_line.replace_range(h_padding..h_padding + text_line.len(), text_line);
+            }
+        }
+
+        Self { lines }
+    }
+
     /// Returns the dimensions of the content as (width, height).
     /// Width is the length of the longest line, height is the number of lines.
     pub fn size(&self) -> (usize, usize) {
@@ -86,13 +112,14 @@ impl Content {
     }
 }
 
-/// A window pane.
+/// A window pane, which is a window and a buffer managed in concert. This struct is intended for
+/// interface windows, especially floats - that is, windows that aren't used for editing text
+/// directly.
+#[derive(Clone, Debug)]
 pub struct Pane {
     pub window: types::Window,
     pub buffer: types::Buffer,
-    pub border: Option<types::Border>,
     pub content: Content,
-    client: Client,
 }
 
 impl Pane {
@@ -102,9 +129,9 @@ impl Pane {
     }
 
     /// Destroys the window and buffer, consuming the pane.
-    pub async fn destroy(self) -> Result<()> {
-        self.client.nvim.win_close(&self.window, true).await?;
-        self.client
+    pub async fn destroy(self, client: &Client) -> Result<()> {
+        client.nvim.win_close(&self.window, true).await?;
+        client
             .nvim
             .buf_delete(&self.buffer, Default::default())
             .await?;
@@ -165,15 +192,8 @@ impl PaneBuilder {
             .buf_set_lines(&buffer, 0, -1, false, content.lines.clone())
             .await?;
 
-        let mut conf = self.window_conf.unwrap_or_else(|| WindowConf {
-            style: Some("minimal".to_string()),
-            relative: Some(types::Relative::Editor),
-            row: Some(0),
-            col: Some(0),
-            ..Default::default()
-        });
+        let mut conf = self.window_conf.unwrap_or_default();
 
-        // Ensure we have a style set
         if conf.style.is_none() {
             conf.style = Some("minimal".to_string());
         }
@@ -221,9 +241,7 @@ impl PaneBuilder {
         Ok(Pane {
             window,
             buffer,
-            border: self.border,
             content,
-            client: client.clone(),
         })
     }
 }
@@ -251,6 +269,27 @@ mod tests {
         padding: u64,
         /// Expected positions for each Pos variant
         positions: Vec<(Pos, (i64, i64))>,
+    }
+
+    #[test]
+    fn test_content_center() {
+        let tests = vec![
+            ("single line", 4, 3, "hi", vec!["    ", " hi ", "    "]),
+            (
+                "multi line",
+                6,
+                5,
+                "hi\nbye",
+                vec!["      ", "  hi  ", " bye  ", "      ", "      "],
+            ),
+            ("exact fit", 2, 1, "hi", vec!["hi"]),
+        ];
+
+        for (name, width, height, text, expected) in tests {
+            let content = Content::center(width, height, text);
+            assert_eq!(content.lines, expected, "test case: {}", name);
+            assert_eq!(content.size(), (width, height), "size check: {}", name);
+        }
     }
 
     #[test]
@@ -373,7 +412,7 @@ mod tests {
         assert!(test.client.nvim.win_is_valid(&pane.window).await.unwrap());
         assert!(test.client.nvim.buf_is_valid(&pane.buffer).await.unwrap());
 
-        pane.destroy().await.unwrap();
+        pane.destroy(&test.client).await.unwrap();
         test.finish().await.unwrap();
     }
 }

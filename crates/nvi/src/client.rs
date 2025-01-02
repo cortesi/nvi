@@ -13,7 +13,7 @@ use crate::{
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
 /// It exposes the full auto-generated API for Neovim on its `nvim` field, and provides a set of
 /// higher-level methods directly on the `Client` object.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Client {
     /// The name of the plugin.
     pub name: String,
