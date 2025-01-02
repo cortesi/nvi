@@ -1,3 +1,5 @@
+use nvi::error::Result;
+use nvi::highlights;
 use nvi::nvi_macros::*;
 
 #[derive(Default)]
@@ -59,6 +61,10 @@ impl Simple {
     async fn connected(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
         client.info("simple plugin connected").await?;
         Ok(())
+    }
+
+    fn highlights(&self) -> Result<highlights::Highlights> {
+        Ok(highlights::Highlights::default())
     }
 }
 

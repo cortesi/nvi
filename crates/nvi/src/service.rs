@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
-use crate::{client::Client, error::Result, macro_types, nvim, nvim::types};
+use crate::{client::Client, error::Result, highlights, macro_types, nvim, nvim::types};
 
 pub(crate) const STATUS_MESSAGE: &str = "__nvi_status";
 
@@ -24,6 +24,10 @@ pub(crate) enum Status {
 #[async_trait]
 pub trait NviPlugin: Sync + Send + 'static {
     fn name(&self) -> String;
+
+    fn highlights(&self) -> Result<highlights::Highlights> {
+        Ok(highlights::Highlights::default())
+    }
 
     /// Introspect the service methods, as derived with the `nvi_plugin` attribute macro.
     fn introspect(&self) -> Vec<macro_types::Method> {
@@ -73,11 +77,14 @@ pub trait NviPlugin: Sync + Send + 'static {
                     }
                 }
                 macro_types::MethodType::Connected => (), // Nothing to register for connected methods
+                macro_types::MethodType::Highlights => (), // Nothing to register for highlights methods
             }
         }
         client
             .register_rpcrequest::<String>(&self.name(), STATUS_MESSAGE, &[])
             .await?;
+        let highlights = self.highlights()?;
+        highlights.create(client, &self.name()).await?;
         Ok(())
     }
 

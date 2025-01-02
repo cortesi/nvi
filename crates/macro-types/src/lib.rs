@@ -4,7 +4,9 @@
 pub enum MethodType {
     Request,
     Notify,
+    /// Methods that are passed through straight into the NviPlugin impl block
     Connected,
+    Highlights,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]

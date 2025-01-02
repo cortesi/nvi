@@ -9,6 +9,7 @@ use proc_macro2_diagnostics::SpanDiagnosticExt;
 type Result<T> = std::result::Result<T, syn::Error>;
 
 const CONNECTED: &str = "connected";
+const HIGHLIGHTS: &str = "highlights";
 
 const RPC: &str = "request";
 const RPC_NOTIFICATION: &str = "notify";
@@ -25,20 +26,13 @@ struct ImplBlock {
 }
 
 /// Output the invocation clause of a connect function
-fn connected_invocation(m: &Method, name: syn::Ident) -> proc_macro2::TokenStream {
+/// Generate the invocation for the connected method implementation
+fn connected_invocation(m: &Method, type_name: syn::Ident) -> proc_macro2::TokenStream {
     let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
     match m.ret {
-        Return::Void => {
-            quote! {
-                    #name::#method(self, client).await;
-            }
-        }
-        Return::ResultVoid => {
-            quote! {
-                    #name::#method(self, client).await?;
-            }
-        }
-        _ => panic!("unreachable"),
+        Return::Void => quote! { #type_name::#method(self, client).await; },
+        Return::ResultVoid => quote! { #type_name::#method(self, client).await?; },
+        _ => panic!("connected method must return Result<()> or be void"),
     }
 }
 
@@ -252,8 +246,12 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
-    if message_type.is_none() && name == CONNECTED {
-        message_type = Some(MethodType::Connected);
+    if message_type.is_none() {
+        if name == CONNECTED {
+            message_type = Some(MethodType::Connected);
+        } else if name == HIGHLIGHTS {
+            message_type = Some(MethodType::Highlights);
+        }
     }
 
     let message_type = if let Some(a) = message_type {
@@ -296,21 +294,23 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
-    if let Some(first) = args.first() {
-        if !first.typ.ends_with("Client") {
+    // The highlights method is special and takes no Client argument
+    if name != HIGHLIGHTS {
+        if let Some(first) = args.first() {
+            if !first.typ.ends_with("Client") {
+                return Err(syn::Error::new(
+                    method.span(),
+                    "first argument must be `Client`",
+                ));
+            }
+        } else {
             return Err(syn::Error::new(
                 method.span(),
-                "first argument must be `Client`",
+                "no arguments on command method",
             ));
         }
-    } else {
-        return Err(syn::Error::new(
-            method.span(),
-            "no arguments on command method",
-        ));
+        args = args.into_iter().skip(1).collect::<Vec<_>>();
     }
-
-    let args = args.into_iter().skip(1).collect::<Vec<_>>();
 
     let ret = match &method.sig.output {
         syn::ReturnType::Default => Return::Void,
@@ -376,19 +376,43 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
-    if message_type == MethodType::Connected {
-        if !(ret == Return::ResultVoid || ret == Return::Void) {
-            return Err(syn::Error::new(
-                method.span(),
-                "notification methods must return Result<()> or be void",
-            ));
+    match message_type {
+        MethodType::Connected => {
+            if !args.is_empty() {
+                return Err(syn::Error::new(
+                    method.span(),
+                    "connected method must take only a Client argument",
+                ));
+            }
+            if !(ret == Return::ResultVoid || ret == Return::Void) {
+                return Err(syn::Error::new(
+                    method.span(),
+                    "connected method must return Result<()> or be void",
+                ));
+            }
         }
-        if !args.is_empty() {
-            return Err(syn::Error::new(
-                method.span(),
-                "run methods must take only a Client argument",
-            ));
+        MethodType::Highlights => {
+            if !args.is_empty() {
+                return Err(syn::Error::new(
+                    method.span(),
+                    "highlights method must not take any arguments",
+                ));
+            }
+            if let Return::Result(s) = &ret {
+                if !s.ends_with("Highlights") {
+                    return Err(syn::Error::new(
+                        method.span(),
+                        "highlights method must return Result<Highlights>",
+                    ));
+                }
+            } else {
+                return Err(syn::Error::new(
+                    method.span(),
+                    "highlights method must return Result<Highlights>",
+                ));
+            }
         }
+        _ => {}
     }
 
     Ok(Some(Method {
@@ -440,6 +464,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
             MethodType::Request => quote! { nvi::macro_types::MethodType::Request },
             MethodType::Notify => quote! { nvi::macro_types::MethodType::Notify },
             MethodType::Connected => quote! { nvi::macro_types::MethodType::Connected },
+            MethodType::Highlights => quote! { nvi::macro_types::MethodType::Highlights },
         };
 
         let ret = match &m.ret {
@@ -560,28 +585,32 @@ fn inner_nvi_plugin(
     let namestr = heck::ToSnakeCase::to_snake_case(type_name.as_str());
 
     let methods = generate_methods(&imp);
-    let connected_invocations: Vec<proc_macro2::TokenStream> = imp
+    // Handle the connected method
+    let connected = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MethodType::Connected)
+        .find(|x| x.message_type == MethodType::Connected)
         .map(|x| connected_invocation(x, name.clone()))
-        .collect();
+        .unwrap_or_else(|| quote! {});
 
-    if connected_invocations.len() > 1 {
-        return Err(syn::Error::new(
-            input.span(),
-            "Only one 'connected' method is allowed per plugin",
-        ));
-    }
-
-    let connected = connected_invocations.first().unwrap_or(&quote! {}).clone();
+    // Handle the highlights method - if user implements highlights(), we use it,
+    // otherwise return default highlights
+    let highlights = if imp
+        .methods
+        .iter()
+        .any(|x| x.message_type == MethodType::Highlights)
+    {
+        quote! { self.highlights() }
+    } else {
+        quote! { Ok(nvi::highlights::Highlights::default()) }
+    };
 
     // Verify we have at least one method
     if imp.methods.is_empty() {
         return Err(syn::Error::new(
-    input.span(),
-    "No RPC methods found in the implementation. Use #[request], #[notify], or #[autocmd] to mark RPC methods"
-));
+            input.span(),
+            "No RPC methods found in the implementation. Use #[request], #[notify], or #[autocmd] to mark RPC methods"
+        ));
     }
 
     Ok(quote! {
@@ -591,6 +620,10 @@ fn inner_nvi_plugin(
         impl nvi::NviPlugin for #name {
             fn name(&self) -> String {
                 #namestr.into()
+            }
+
+            fn highlights(&self) -> nvi::error::Result<nvi::highlights::Highlights> {
+                #highlights
             }
 
             async fn connected(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
@@ -718,6 +751,37 @@ mod tests {
     use rust_format::{Formatter, RustFmt};
 
     #[test]
+    fn it_handles_special_methods() {
+        // Test struct with highlights and connected methods
+        let s = quote! {
+            impl Test {
+                fn connected(&mut self, client: &mut nvi::Client) -> Result<()> {
+                    Ok(())
+                }
+
+                fn highlights(&self) -> Result<nvi::highlights::Highlights> {
+                    Ok(nvi::highlights::Highlights::default())
+                }
+            }
+        };
+
+        let (_, ret) = parse_impl(&s).unwrap();
+        let connected = ret
+            .methods
+            .iter()
+            .filter(|m| m.message_type == MethodType::Connected)
+            .count();
+        let highlights = ret
+            .methods
+            .iter()
+            .filter(|m| m.message_type == MethodType::Highlights)
+            .count();
+
+        assert_eq!(connected, 1, "Should have one connected method");
+        assert_eq!(highlights, 1, "Should have one highlights method");
+    }
+
+    #[test]
     fn it_parses_struct() {
         let s = quote! {
             impl <T>TestPlugin for Test<T> {
@@ -822,6 +886,42 @@ mod tests {
             }
         };
         assert!(inner_nvi_plugin(quote! {}, s).is_err());
+    }
+
+    #[test]
+    fn it_validates_highlights_method() {
+        // Invalid return type (not a Result)
+        let s = quote! {
+            impl Test {
+                fn highlights(&self) -> nvi::highlights::Highlights {
+                    nvi::highlights::Highlights::default()
+                }
+            }
+        };
+        assert!(
+            parse_impl(&s).is_err(),
+            "Should reject non-Result return type"
+        );
+
+        // Invalid Result type
+        let s = quote! {
+            impl Test {
+                fn highlights(&self) -> Result<String> {
+                    Ok("invalid".into())
+                }
+            }
+        };
+        assert!(parse_impl(&s).is_err(), "Should reject invalid Result type");
+
+        // Invalid arguments
+        let s = quote! {
+            impl Test {
+                fn highlights(&self, extra: String) -> Result<nvi::highlights::Highlights> {
+                    Ok(nvi::highlights::Highlights::default())
+                }
+            }
+        };
+        assert!(parse_impl(&s).is_err(), "Should reject arguments");
     }
 
     #[test]

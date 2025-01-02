@@ -73,12 +73,12 @@ impl Highlights {
         }
     }
 
-    pub fn hl(&mut self, name: &str, h: Hl) -> &mut Self {
+    pub fn hl(mut self, name: &str, h: Hl) -> Self {
         self.highlights.push((name.into(), h));
         self
     }
 
-    pub fn link(&mut self, new_group: &str, existing_group: &str) -> &mut Self {
+    pub fn link(mut self, new_group: &str, existing_group: &str) -> Self {
         self.links.push((new_group.into(), existing_group.into()));
         self
     }
@@ -123,6 +123,8 @@ impl Highlights {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::NviTest;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_group_new() {
@@ -136,5 +138,45 @@ mod tests {
             .hl("foo", Hl::new().bold(true).italic(true))
             .hl("bar", Hl::new().fg("red").bg("blue"))
             .link("foo", "bar");
+    }
+
+    #[tokio::test]
+    async fn test_highlight_creation() {
+        let test = NviTest::builder().run().await.unwrap();
+        let highlights = Highlights::new()
+            .hl("TestHl", Hl::new().fg("Red").bold(true))
+            .link("TestLink", "TestHl");
+
+        highlights.create(&test.client, "test_").await.unwrap();
+
+        // Get the highlight definitions
+        let hl: std::collections::HashMap<String, crate::Value> = test
+            .client
+            .nvim
+            .get_hl(0, std::collections::HashMap::new())
+            .await
+            .unwrap();
+
+        // Check the highlight group
+        let test_hl = hl.get("test_TestHl").unwrap().as_map().unwrap();
+        test_hl
+            .iter()
+            .find(|(k, _)| k.as_str().unwrap() == "fg")
+            .unwrap();
+        test_hl
+            .iter()
+            .find(|(k, _)| k.as_str().unwrap() == "bold")
+            .unwrap();
+
+        // Check the link
+        let test_link = hl.get("test_TestLink").unwrap().as_map().unwrap();
+        let link = &test_link
+            .iter()
+            .find(|(k, _)| k.as_str().unwrap() == "link")
+            .unwrap()
+            .1;
+        assert_eq!(link.as_str().unwrap(), "test_TestHl");
+
+        test.finish().await.unwrap();
     }
 }
