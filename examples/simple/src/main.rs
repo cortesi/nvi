@@ -1,4 +1,4 @@
-use nvi::highlights;
+use nvi::highlights::*;
 use nvi::nvi_macros::*;
 
 #[derive(Default)]
@@ -9,8 +9,8 @@ struct Simple {
 // The `nvi_plugin` attribute macro on the impl block generates the `NviPlugin` trait. It inspects
 // the the block for methods marked as `#[notify]`, `#[request]` or `#[autocmd]` and generates the
 // required structure for them to be invoked from the editor. When the service connects to the
-// editor, it makes a set of global namespace entries to expose the plugin API. In this case, after
-// the editor connects, we can use it from Lua like so:
+// editor, it makes a set of global namespace entries to expose the plugin API under the snake_case
+// name of the plugin. In this case, after the editor connects, we can use it from Lua like so:
 //
 // ```lua
 // simple.inc(5)
@@ -44,7 +44,7 @@ impl Simple {
 
     /// The `#[autocmd]` attribute macro marks a method as an autocmd handler. Autocmds are methods
     /// that are called when an event occurs in the editor. The only argument apart from client
-    /// must be an `AutocmdEvent`. This macro takes a list of event names, a
+    /// must be an `AutocmdEvent`.
     #[autocmd(["BufEnter", "BufLeave"], patterns=["*.rs"], group="test", nested=true)]
     async fn on_buf_enter(
         &mut self,
@@ -62,8 +62,11 @@ impl Simple {
         Ok(())
     }
 
-    fn highlights(&self) -> highlights::Highlights {
-        highlights::Highlights::default()
+    /// Return a `Highlights` struct that defines the highlight groups for this plugin. To suit
+    /// convention, the highlights have the camel-case name of the plugin as a prefix. In this
+    /// case, we're defining a group called SimpleNormal with a red foreground.
+    fn highlights(&self) -> Highlights {
+        Highlights::default().hl("Normal", Hl::default().fg("red"))
     }
 }
 
