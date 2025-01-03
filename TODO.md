@@ -39,6 +39,7 @@
 - Take opts by reference in nvi_api.
 - Nicer way to do equality checks against KeyPress
 - Generate docs as actual comments rather than attributes to improve readability
+- Consolidate our Error enum, and evaluate whether we need more variants
 
 
 # Design

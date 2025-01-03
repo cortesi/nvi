@@ -101,9 +101,10 @@ impl Demos {
         let mut demo_result = client.await_plugin(&plugin_name, TIMEOUT).await;
 
         if demo_result.is_ok() {
-            let f = self.functions.get(demo_name).ok_or_else(|| {
-                crate::error::Error::Plugin(format!("no such demo: {}", demo_name))
-            })?;
+            let f = self
+                .functions
+                .get(demo_name)
+                .ok_or_else(|| crate::error::Error::User(format!("no such demo: {}", demo_name)))?;
             demo_result = f(&client).await;
         }
 

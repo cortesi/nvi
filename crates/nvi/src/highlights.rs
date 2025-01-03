@@ -2,12 +2,21 @@ use crate::error::Result;
 use crate::nvim::opts::SetHl;
 use derive_setters::*;
 
-/// Check if a string is a valid RGB color specification of the form "#xxxxxx"
-pub fn is_valid_color(color: &str) -> bool {
+/// Validates that a string is a valid RGB color specification of the form "#xxxxxx"
+pub fn validate_color(color: &str) -> Result<()> {
     if !color.starts_with('#') || color.len() != 7 {
-        return false;
+        return Err(crate::error::Error::User(format!(
+            "Invalid color format '{}': must be '#' followed by 6 hex digits",
+            color
+        )));
     }
-    color[1..].chars().all(|c| c.is_ascii_hexdigit())
+    if !color[1..].chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(crate::error::Error::User(format!(
+            "Invalid color format '{}': must contain only hex digits after '#'",
+            color
+        )));
+    }
+    Ok(())
 }
 
 /// Validates a highlight group name according to Neovim rules.
@@ -68,14 +77,10 @@ impl Hl {
     pub fn to_sethl(&self) -> crate::nvim::opts::SetHl {
         // Validate colors if present
         if let Some(fg) = &self.fg {
-            if !is_valid_color(fg) {
-                panic!("Invalid foreground color format: {}", fg);
-            }
+            validate_color(fg).expect("Invalid foreground color");
         }
         if let Some(bg) = &self.bg {
-            if !is_valid_color(bg) {
-                panic!("Invalid background color format: {}", bg);
-            }
+            validate_color(bg).expect("Invalid background color");
         }
 
         SetHl {
@@ -176,20 +181,31 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_is_valid_color() {
+    fn test_validate_color() {
         // Valid colors
-        assert!(is_valid_color("#000000"));
-        assert!(is_valid_color("#FFFFFF"));
-        assert!(is_valid_color("#ff00ff"));
-        assert!(is_valid_color("#1a2b3c"));
+        assert!(validate_color("#000000").is_ok());
+        assert!(validate_color("#FFFFFF").is_ok());
+        assert!(validate_color("#ff00ff").is_ok());
+        assert!(validate_color("#1a2b3c").is_ok());
 
         // Invalid colors
-        assert!(!is_valid_color("000000")); // missing #
-        assert!(!is_valid_color("#00000")); // too short
-        assert!(!is_valid_color("#0000000")); // too long
-        assert!(!is_valid_color("#gggggg")); // invalid hex
-        assert!(!is_valid_color("#00000g")); // invalid hex
-        assert!(!is_valid_color("#invalid")); // invalid hex
+        let err = validate_color("000000").unwrap_err().to_string(); // missing #
+        assert!(err.contains("must be '#' followed by"));
+
+        let err = validate_color("#00000").unwrap_err().to_string(); // too short
+        assert!(err.contains("must be '#' followed by"));
+
+        let err = validate_color("#0000000").unwrap_err().to_string(); // too long
+        assert!(err.contains("must be '#' followed by"));
+
+        let err = validate_color("#gggggg").unwrap_err().to_string(); // invalid hex
+        assert!(err.contains("must contain only hex digits"));
+
+        let err = validate_color("#00000g").unwrap_err().to_string(); // invalid hex
+        assert!(err.contains("must contain only hex digits"));
+
+        let err = validate_color("#invalid").unwrap_err().to_string(); // invalid hex
+        assert!(err.contains("must be '#' followed by"));
     }
 
     #[test]
@@ -223,14 +239,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid foreground color format")]
+    #[should_panic(
+        expected = "Invalid color format 'invalid': must be '#' followed by 6 hex digits"
+    )]
     fn test_invalid_fg_color() {
         let hl = Hl::new().fg("invalid");
         hl.to_sethl();
     }
 
     #[test]
-    #[should_panic(expected = "Invalid background color format")]
+    #[should_panic(
+        expected = "Invalid color format 'invalid': must be '#' followed by 6 hex digits"
+    )]
     fn test_invalid_bg_color() {
         let hl = Hl::new().bg("invalid");
         hl.to_sethl();

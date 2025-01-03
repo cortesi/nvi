@@ -6,8 +6,6 @@ pub enum Error {
     /// Error connecting to a server
     #[error("connection error: {msg:}")]
     Connect { msg: String },
-    #[error("request timed out: {method:}")]
-    Timeout { method: String },
     #[error("decoding error: {msg:}")]
     Decode { msg: String },
     #[error("encoding error: {msg:}")]
@@ -18,10 +16,9 @@ pub enum Error {
     RemoteError(rmpv::Value),
     #[error("internal: {msg:}")]
     Internal { msg: String },
+    /// An error caused by the user through invalid input
     #[error("{0}")]
     User(String),
-    #[error("plugin error: {0}")]
-    Plugin(String),
 }
 
 impl From<serde_rmpv::Error> for Error {
