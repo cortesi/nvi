@@ -80,10 +80,19 @@ impl Window {
         Window((WINDOW_EXT_TYPE, vec![0, 0, 0, 0]))
     }
 
+    pub async fn winhl(&self, c: &client::Client, highlights: Vec<(String, String)>) -> Result<()> {
+        let hl_string = highlights
+            .into_iter()
+            .map(|(from, to)| format!("{}:{}", from, to))
+            .collect::<Vec<_>>()
+            .join(",");
+        self.set(c, "winhl", hl_string).await
+    }
+
     /// Set an option on this window
     pub async fn set<T: serde::Serialize>(
         &self,
-        c: &mut client::Client,
+        c: &client::Client,
         name: &str,
         value: T,
     ) -> Result<()> {

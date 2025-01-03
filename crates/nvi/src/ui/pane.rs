@@ -129,7 +129,7 @@ impl Pane {
     }
 
     /// Destroys the window and buffer, consuming the pane.
-    pub async fn destroy(self, client: &Client) -> Result<()> {
+    pub async fn destroy(self, client: &mut Client) -> Result<()> {
         client.nvim.win_close(&self.window, true).await?;
         client
             .nvim
@@ -145,6 +145,7 @@ pub struct PaneBuilder {
     window_conf: Option<WindowConf>,
     win_pos: Option<(types::Window, Pos, u64)>,
     editor_pos: Option<(Pos, u64)>,
+    highlights: Vec<(String, String)>,
 }
 
 impl PaneBuilder {
@@ -155,7 +156,15 @@ impl PaneBuilder {
             window_conf: None,
             win_pos: None,
             editor_pos: None,
+            highlights: Vec::new(),
         }
+    }
+
+    /// Adds a highlight group mapping for the window. All mappings are applied to the window
+    /// through the `winhl` option.
+    pub fn winhl(mut self, from: &str, to: &str) -> Self {
+        self.highlights.push((from.to_string(), to.to_string()));
+        self
     }
 
     /// Sets a base window configuration. Other builder methods will override these settings.
@@ -183,7 +192,7 @@ impl PaneBuilder {
     }
 
     /// Builds the pane with the configured options, creating the underlying buffer and window.
-    pub async fn build(self, client: &Client, content: Content) -> Result<Pane> {
+    pub async fn build(self, client: &mut Client, content: Content) -> Result<Pane> {
         let buffer = client.nvim.create_buf(false, true).await?;
 
         // Set the buffer content
@@ -238,6 +247,11 @@ impl PaneBuilder {
         }
 
         let window = client.nvim.open_win(&buffer, true, conf).await?;
+
+        if !self.highlights.is_empty() {
+            window.winhl(client, self.highlights).await?;
+        }
+
         Ok(Pane {
             window,
             buffer,
@@ -402,17 +416,18 @@ mod tests {
     async fn test_pane_creation() {
         let test = NviTest::builder().run().await.unwrap();
         let content = Content::new(vec!["test".to_string()]);
+        let mut client = test.client.clone();
 
         let pane = Pane::builder()
             .with_editor_pos(Pos::Center, 0)
-            .build(&test.client, content)
+            .build(&mut client, content)
             .await
             .unwrap();
 
-        assert!(test.client.nvim.win_is_valid(&pane.window).await.unwrap());
-        assert!(test.client.nvim.buf_is_valid(&pane.buffer).await.unwrap());
+        assert!(client.nvim.win_is_valid(&pane.window).await.unwrap());
+        assert!(client.nvim.buf_is_valid(&pane.buffer).await.unwrap());
 
-        pane.destroy(&test.client).await.unwrap();
+        pane.destroy(&mut client).await.unwrap();
         test.finish().await.unwrap();
     }
 }

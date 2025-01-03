@@ -1,5 +1,28 @@
+use crate::error::Result;
 use crate::nvim::opts::SetHl;
 use derive_setters::*;
+
+/// Validates a highlight group name according to Neovim rules.
+/// Group names must consist of ASCII letters, digits, underscores, dots, hyphens, or `@`,
+/// and must be no longer than 200 bytes.
+pub fn check_group_name(name: &str) -> Result<()> {
+    if name.len() > 200 {
+        return Err(crate::error::Error::User(
+            "Highlight group name exceeds 200 bytes".into(),
+        ));
+    }
+
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-' || c == '@')
+    {
+        return Err(crate::error::Error::User(
+            "Highlight group name contains invalid characters".into(),
+        ));
+    }
+
+    Ok(())
+}
 
 /// We support the subset of highlight attributes that are common to both terminal and GUI, and
 /// omit anachronisms like "standout".
@@ -74,11 +97,14 @@ impl Highlights {
     }
 
     pub fn hl(mut self, name: &str, h: Hl) -> Self {
+        check_group_name(name).expect("Invalid highlight group name");
         self.highlights.push((name.into(), h));
         self
     }
 
     pub fn link(mut self, new_group: &str, existing_group: &str) -> Self {
+        check_group_name(new_group).expect("Invalid highlight group name");
+        check_group_name(existing_group).expect("Invalid highlight group name");
         self.links.push((new_group.into(), existing_group.into()));
         self
     }
@@ -88,6 +114,7 @@ impl Highlights {
     /// `prefix` is prepended to all highlight group names. This is useful when
     /// the same highlight definitions need to be created with different namespaces.
     pub async fn create(&self, client: &crate::Client, prefix: &str) -> crate::error::Result<()> {
+        check_group_name(prefix)?;
         let ns_id = 0; // Use the default namespace
 
         // Create highlights
@@ -125,6 +152,22 @@ mod tests {
     use super::*;
     use crate::test::NviTest;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_check_group_name() {
+        // Valid names
+        assert!(check_group_name("Normal").is_ok());
+        assert!(check_group_name("Test_Group").is_ok());
+        assert!(check_group_name("Test.Group").is_ok());
+        assert!(check_group_name("Test-Group").is_ok());
+        assert!(check_group_name("@text").is_ok());
+
+        // Invalid names
+        assert!(check_group_name("Test Group").is_err()); // space
+        assert!(check_group_name("Test*Group").is_err()); // special char
+        assert!(check_group_name("Test💡Group").is_err()); // unicode
+        assert!(check_group_name(&"a".repeat(201)).is_err()); // too long
+    }
 
     #[test]
     fn test_group_new() {
