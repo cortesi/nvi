@@ -2,9 +2,19 @@ use crate::error::Result;
 use crate::nvim::opts::SetHl;
 use derive_setters::*;
 
+/// Check if a string is a valid RGB color specification of the form "#xxxxxx"
+pub fn is_valid_color(color: &str) -> bool {
+    if !color.starts_with('#') || color.len() != 7 {
+        return false;
+    }
+    color[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
 /// Validates a highlight group name according to Neovim rules.
 /// Group names must consist of ASCII letters, digits, underscores, dots, hyphens, or `@`,
 /// and must be no longer than 200 bytes.
+///
+/// :help group-name
 pub fn check_group_name(name: &str) -> Result<()> {
     if name.len() > 200 {
         return Err(crate::error::Error::User(
@@ -56,6 +66,18 @@ impl Hl {
 
     /// Convert to opts::SetHl, copying only the fields that are present in both structs
     pub fn to_sethl(&self) -> crate::nvim::opts::SetHl {
+        // Validate colors if present
+        if let Some(fg) = &self.fg {
+            if !is_valid_color(fg) {
+                panic!("Invalid foreground color format: {}", fg);
+            }
+        }
+        if let Some(bg) = &self.bg {
+            if !is_valid_color(bg) {
+                panic!("Invalid background color format: {}", bg);
+            }
+        }
+
         SetHl {
             fg: self.fg.clone(),
             bg: self.bg.clone(),
@@ -154,6 +176,23 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
+    fn test_is_valid_color() {
+        // Valid colors
+        assert!(is_valid_color("#000000"));
+        assert!(is_valid_color("#FFFFFF"));
+        assert!(is_valid_color("#ff00ff"));
+        assert!(is_valid_color("#1a2b3c"));
+
+        // Invalid colors
+        assert!(!is_valid_color("000000")); // missing #
+        assert!(!is_valid_color("#00000")); // too short
+        assert!(!is_valid_color("#0000000")); // too long
+        assert!(!is_valid_color("#gggggg")); // invalid hex
+        assert!(!is_valid_color("#00000g")); // invalid hex
+        assert!(!is_valid_color("#invalid")); // invalid hex
+    }
+
+    #[test]
     fn test_check_group_name() {
         // Valid names
         assert!(check_group_name("Normal").is_ok());
@@ -179,15 +218,29 @@ mod tests {
 
         let _ = Highlights::new()
             .hl("foo", Hl::new().bold(true).italic(true))
-            .hl("bar", Hl::new().fg("red").bg("blue"))
+            .hl("bar", Hl::new().fg("#ff0000").bg("#0000ff"))
             .link("foo", "bar");
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid foreground color format")]
+    fn test_invalid_fg_color() {
+        let hl = Hl::new().fg("invalid");
+        hl.to_sethl();
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid background color format")]
+    fn test_invalid_bg_color() {
+        let hl = Hl::new().bg("invalid");
+        hl.to_sethl();
     }
 
     #[tokio::test]
     async fn test_highlight_creation() {
         let test = NviTest::builder().run().await.unwrap();
         let highlights = Highlights::new()
-            .hl("TestHl", Hl::new().fg("Red").bold(true))
+            .hl("TestHl", Hl::new().fg("#ff0000").bold(true))
             .link("TestLink", "TestHl");
 
         highlights.create(&test.client, "test_").await.unwrap();
