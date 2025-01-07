@@ -140,7 +140,6 @@ impl Pane {
 }
 
 /// Builder for constructing a Pane.
-/// Builder for constructing a Pane.
 ///
 /// By default, panes are not focusable. This means that the cursor cannot enter
 /// the window using normal window movement commands. This is useful for UI
@@ -152,6 +151,9 @@ pub struct PaneBuilder {
     editor_pos: Option<(Pos, u64)>,
     highlights: Vec<(String, String)>,
     focusable: bool,
+    /// Controls whether the window receives focus when created.
+    /// Defaults to false to prevent disrupting the user's focus.
+    enter: bool,
 }
 
 impl PaneBuilder {
@@ -164,6 +166,7 @@ impl PaneBuilder {
             editor_pos: None,
             highlights: Vec::new(),
             focusable: false,
+            enter: false,
         }
     }
 
@@ -202,6 +205,13 @@ impl PaneBuilder {
     /// Default is false.
     pub fn focusable(mut self, value: bool) -> Self {
         self.focusable = value;
+        self
+    }
+
+    /// Sets whether the window receives focus when created.
+    /// Default is false.
+    pub fn enter(mut self, value: bool) -> Self {
+        self.enter = value;
         self
     }
 
@@ -262,7 +272,7 @@ impl PaneBuilder {
             conf = conf.relative(types::Relative::Editor).row(0.0).col(0.0);
         }
 
-        let window = client.nvim.open_win(&buffer, true, conf).await?;
+        let window = client.nvim.open_win(&buffer, self.enter, conf).await?;
 
         if !self.highlights.is_empty() {
             window.winhl(client, self.highlights).await?;
