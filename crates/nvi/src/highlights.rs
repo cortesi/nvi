@@ -2,6 +2,13 @@ use crate::error::Result;
 use crate::nvim::opts::SetHl;
 use derive_setters::*;
 
+/// Create a full highlight name by joining a prefix and highlight name with validation.
+pub fn full_name(prefix: &str, name: &str) -> Result<String> {
+    check_group_name(prefix)?;
+    check_group_name(name)?;
+    Ok(format!("{}{}", prefix, name))
+}
+
 /// Validates that a string is a valid RGB color specification of the form "#xxxxxx"
 pub fn validate_color(color: &str) -> Result<()> {
     if !color.starts_with('#') || color.len() != 7 {
@@ -141,29 +148,24 @@ impl Highlights {
     /// `prefix` is prepended to all highlight group names. This is useful when
     /// the same highlight definitions need to be created with different namespaces.
     pub async fn create(&self, client: &crate::Client, prefix: &str) -> crate::error::Result<()> {
-        check_group_name(prefix)?;
         let ns_id = 0; // Use the default namespace
 
         // Create highlights
         for (name, opts) in &self.highlights {
-            let full_name = format!("{}{}", prefix, name);
-            client
-                .nvim
-                .set_hl(ns_id, &full_name, opts.to_sethl())
-                .await?;
+            let full = full_name(prefix, name)?;
+            client.nvim.set_hl(ns_id, &full, opts.to_sethl()).await?;
         }
 
         // Create links
         for (new_group, existing_group) in &self.links {
-            let full_name = format!("{}{}", prefix, new_group);
-            let full_target = format!("{}{}", prefix, existing_group);
+            let full = full_name(prefix, new_group)?;
             client
                 .nvim
                 .set_hl(
                     ns_id,
-                    &full_name,
+                    &full,
                     SetHl {
-                        link: Some(full_target),
+                        link: Some(existing_group.to_string()),
                         ..Default::default()
                     },
                 )
@@ -291,7 +293,7 @@ mod tests {
             .find(|(k, _)| k.as_str().unwrap() == "link")
             .unwrap()
             .1;
-        assert_eq!(link.as_str().unwrap(), "test_TestHl");
+        assert_eq!(link.as_str().unwrap(), "TestHl");
 
         test.finish().await.unwrap();
     }
