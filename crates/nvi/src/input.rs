@@ -329,7 +329,6 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
         local charmod = vim.fn.getcharmod()
         return {charmod, char}
     "#;
-
     match lua_exec!(client, lua_code).await? {
         Value::Array(arr) if arr.len() == 2 => {
             if let Value::Integer(charmod) = &arr[0] {

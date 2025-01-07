@@ -561,44 +561,64 @@ pub struct WindowConf {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "NoneAsEmptyString")]
     pub relative: Option<Relative>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub win: Option<Window>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<u64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub height: Option<u64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bufpos: Option<(u64, u64)>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub row: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub col: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub focusable: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zinc: Option<u64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub border: Option<Border>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<Text>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title_pos: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub footer: Option<Text>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub footer_position: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub noautocmd: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fixed: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hide: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vertical: Option<bool>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "NoneAsEmptyString")]
     pub split: Option<Split>,

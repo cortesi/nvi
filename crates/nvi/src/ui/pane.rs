@@ -1,4 +1,4 @@
-use crate::nvim::{types, types::WindowConf};
+use crate::nvim::{opts, types, types::WindowConf};
 use crate::{error::Result, Client};
 
 #[derive(Debug)]
@@ -133,19 +133,25 @@ impl Pane {
         client.nvim.win_close(&self.window, true).await?;
         client
             .nvim
-            .buf_delete(&self.buffer, Default::default())
+            .buf_delete(&self.buffer, opts::BufDelete::default().force(true))
             .await?;
         Ok(())
     }
 }
 
 /// Builder for constructing a Pane.
+/// Builder for constructing a Pane.
+///
+/// By default, panes are not focusable. This means that the cursor cannot enter
+/// the window using normal window movement commands. This is useful for UI
+/// elements that should not interfere with normal window navigation.
 pub struct PaneBuilder {
     border: Option<types::Border>,
     window_conf: Option<WindowConf>,
     win_pos: Option<(types::Window, Pos, u64)>,
     editor_pos: Option<(Pos, u64)>,
     highlights: Vec<(String, String)>,
+    focusable: bool,
 }
 
 impl PaneBuilder {
@@ -157,6 +163,7 @@ impl PaneBuilder {
             win_pos: None,
             editor_pos: None,
             highlights: Vec::new(),
+            focusable: false,
         }
     }
 
@@ -191,6 +198,13 @@ impl PaneBuilder {
         self
     }
 
+    /// Sets whether the pane can be focused through normal window navigation.
+    /// Default is false.
+    pub fn focusable(mut self, value: bool) -> Self {
+        self.focusable = value;
+        self
+    }
+
     /// Builds the pane with the configured options, creating the underlying buffer and window.
     pub async fn build(self, client: &mut Client, content: Content) -> Result<Pane> {
         let buffer = client.nvim.create_buf(false, true).await?;
@@ -198,14 +212,16 @@ impl PaneBuilder {
         // Set the buffer content
         client
             .nvim
-            .buf_set_lines(&buffer, 0, -1, false, content.lines.clone())
+            .buf_set_lines(&buffer, 0, -1, true, content.lines.clone())
             .await?;
 
         let mut conf = self.window_conf.unwrap_or_default();
 
+        conf.noautocmd = Some(true);
         if conf.style.is_none() {
             conf.style = Some("minimal".to_string());
         }
+        conf = conf.focusable(self.focusable);
         if let Some(ref border) = self.border {
             conf = conf.border(border.clone());
         }
