@@ -1,32 +1,11 @@
-use std::{
-    io::Write,
-    process::{Command, Stdio},
-};
-
 use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::{api, overrides};
 
-fn format_with_rustfmt(code: TokenStream) -> String {
-    let mut rustfmt = Command::new("rustfmt")
-        .arg("--edition")
-        .arg("2021")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("Failed to start rustfmt");
-
-    {
-        let stdin = rustfmt.stdin.as_mut().expect("Failed to open stdin");
-        stdin
-            .write_all(code.to_string().as_bytes())
-            .expect("Failed to write to stdin");
-    }
-
-    let output = rustfmt.wait_with_output().expect("Failed to read stdout");
-    String::from_utf8(output.stdout).expect("Failed to convert output to string")
+fn format_with_prettyplease(code: TokenStream) -> String {
+    prettyplease::unparse(&syn::parse2(code).expect("Failed to parse token stream"))
 }
 
 fn clean_name(name: &str) -> String {
@@ -200,30 +179,33 @@ fn mk_arg_value(p: &api::Parameter) -> TokenStream {
 }
 
 /// Retrieves and formats the documentation for a given function name.
-fn get_docs(name: &str) -> Option<String> {
-    use regex::Regex;
-    use std::io::{stderr, Write};
-
+/// Returns a vec of TokenStream, each representing a doc comment line.
+fn get_docs(name: &str) -> Vec<TokenStream> {
     let docs = crate::docs::DOCS
         .iter()
         .find(|(n, _)| *n == name)
         .map(|(_, doc)| {
-            let re = Regex::new(r"<([^>]+)>").unwrap();
-            doc.lines()
-                .map(|line| line.trim())
-                .map(|line| re.replace_all(line, "*$1*").to_string())
-                .collect::<Vec<_>>()
-                .join("\n")
+            let lines: Vec<_> = doc.lines().map(|line| line.trim()).collect();
+            // Find first and last non-empty line
+            let start = lines.iter().position(|line| !line.is_empty()).unwrap_or(0);
+            let end = lines.iter().rposition(|line| !line.is_empty()).unwrap_or(0);
+
+            // Only take the lines between start and end (inclusive)
+            if start <= end {
+                lines[start..=end]
+                    .iter()
+                    .map(|&line| format!(" {}", line))
+                    .map(|line| quote!(#[doc = #line]))
+                    .collect()
+            } else {
+                Vec::new()
+            }
         });
 
-    if docs.is_none() {
-        writeln!(stderr(), "Warning: no documentation found for {}", name).ok();
-    }
-    docs
+    docs.unwrap_or_default()
 }
 
 fn generate_function(f: api::Function) -> TokenStream {
-    let docs = get_docs(&f.name);
     // All functions have the nvim_ prefix, so we strip it.
     let id = Ident::new(&f.name[5..], Span::call_site());
     let name = &f.name;
@@ -280,15 +262,10 @@ fn generate_function(f: api::Function) -> TokenStream {
 
     let arg_vals: Vec<TokenStream> = f.parameters.iter().map(mk_arg_value).collect();
 
-    let fn_def = if let Some(doc) = docs {
-        quote! {
-            #[doc = #doc]
-            pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
-        }
-    } else {
-        quote! {
-            pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
-        }
+    let doc_lines = get_docs(&f.name);
+    let fn_def = quote! {
+        #(#doc_lines)*
+        pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
     };
 
     quote! {
@@ -316,6 +293,7 @@ pub fn protoc() -> Result<()> {
     let toks = quote!(
         #![allow(clippy::needless_question_mark)]
         #![allow(clippy::needless_borrow)]
+        #![allow(clippy::doc_lazy_continuation)]
         use std::collections::HashMap;
 
         use mrpc::Value;
@@ -359,6 +337,6 @@ pub fn protoc() -> Result<()> {
             #(#funcs)*
         }
     );
-    print!("{}", format_with_rustfmt(toks));
+    print!("{}", format_with_prettyplease(toks));
     Ok(())
 }
