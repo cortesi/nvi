@@ -2,7 +2,7 @@
 # Questions
 
 - Highights - at the moment we generate highilght names like "my_pluginNormal".
-  Wonder if "my_plugin-Normal" would be better?
+  Wonder if "my_plugin_Normal" would be better?
 
 
 # Features
@@ -45,6 +45,7 @@
 # Design
 
 
+
 # nvi.nvim
 
 - nvi.nvim to install, update and run nvi plugins
@@ -69,8 +70,6 @@
   them to neovim?
 - option to start neovim with the user's config intact
 - option to start plugins from installed binary
-- lua script to execute on startup (for setting up the environment)
-    - neovim vim config file arg enough?
 - demos
     - a way to pop up text to tell the user about key bindings, etc
     - non-interactive demos for docs

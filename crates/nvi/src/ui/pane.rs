@@ -24,36 +24,36 @@ impl Pos {
     /// * `padding` - padding from the anchor point
     ///
     /// Returns (row, col) coordinates assuming NE anchor
-    pub fn win_pos(&self, enclosing: (u64, u64), target: (u64, u64), padding: u64) -> (i64, i64) {
+    pub fn win_pos(&self, enclosing: (u64, u64), target: (u64, u64), padding: u64) -> (f64, f64) {
         let (win_width, win_height) = enclosing;
         let (width, height) = target;
 
         // If target window is larger than enclosing window, position at (0, 0)
         if width > win_width || height > win_height {
-            return (0, 0);
+            return (0.0, 0.0);
         }
 
         match self {
-            Pos::NW => (padding as i64, padding as i64),
-            Pos::N => (padding as i64, ((win_width - width) / 2) as i64),
-            Pos::NE => (padding as i64, (win_width - width - padding) as i64),
-            Pos::W => (((win_height - height) / 2) as i64, padding as i64),
+            Pos::NW => (padding as f64, padding as f64),
+            Pos::N => (padding as f64, ((win_width - width) / 2) as f64),
+            Pos::NE => (padding as f64, (win_width - width - padding) as f64),
+            Pos::W => (((win_height - height) / 2) as f64, padding as f64),
             Pos::E => (
-                ((win_height - height) / 2) as i64,
-                (win_width - width - padding) as i64,
+                ((win_height - height) / 2) as f64,
+                (win_width - width - padding) as f64,
             ),
-            Pos::SW => ((win_height - height - padding) as i64, padding as i64),
+            Pos::SW => ((win_height - height - padding) as f64, padding as f64),
             Pos::S => (
-                (win_height - height - padding) as i64,
-                ((win_width - width) / 2) as i64,
+                (win_height - height - padding) as f64,
+                ((win_width - width) / 2) as f64,
             ),
             Pos::SE => (
-                (win_height - height - padding) as i64,
-                (win_width - width - padding) as i64,
+                (win_height - height - padding) as f64,
+                (win_width - width - padding) as f64,
             ),
             Pos::Center => (
-                ((win_height - height) / 2) as i64,
-                ((win_width - width) / 2) as i64,
+                ((win_height - height) / 2) as f64,
+                ((win_width - width) / 2) as f64,
             ),
         }
     }
@@ -243,7 +243,7 @@ impl PaneBuilder {
 
             conf = conf.row(row).col(col);
         } else {
-            conf = conf.relative(types::Relative::Editor).row(0).col(0);
+            conf = conf.relative(types::Relative::Editor).row(0.0).col(0.0);
         }
 
         let window = client.nvim.open_win(&buffer, true, conf).await?;
@@ -282,7 +282,7 @@ mod tests {
         /// Padding between windows
         padding: u64,
         /// Expected positions for each Pos variant
-        positions: Vec<(Pos, (i64, i64))>,
+        positions: Vec<(Pos, (f64, f64))>,
     }
 
     #[test]
@@ -315,15 +315,15 @@ mod tests {
                 target: (15, 15),
                 padding: 0,
                 positions: vec![
-                    (Pos::NW, (0, 0)), // all positions should return (0, 0)
-                    (Pos::N, (0, 0)),
-                    (Pos::NE, (0, 0)),
-                    (Pos::W, (0, 0)),
-                    (Pos::E, (0, 0)),
-                    (Pos::SW, (0, 0)),
-                    (Pos::S, (0, 0)),
-                    (Pos::SE, (0, 0)),
-                    (Pos::Center, (0, 0)),
+                    (Pos::NW, (0.0, 0.0)), // all positions should return (0, 0)
+                    (Pos::N, (0.0, 0.0)),
+                    (Pos::NE, (0.0, 0.0)),
+                    (Pos::W, (0.0, 0.0)),
+                    (Pos::E, (0.0, 0.0)),
+                    (Pos::SW, (0.0, 0.0)),
+                    (Pos::S, (0.0, 0.0)),
+                    (Pos::SE, (0.0, 0.0)),
+                    (Pos::Center, (0.0, 0.0)),
                 ],
             },
             WinPosCase {
@@ -332,15 +332,15 @@ mod tests {
                 target: (2, 2),
                 padding: 0,
                 positions: vec![
-                    (Pos::NW, (0, 0)),     // top left
-                    (Pos::N, (0, 4)),      // top center
-                    (Pos::NE, (0, 8)),     // top right
-                    (Pos::W, (4, 0)),      // middle left
-                    (Pos::E, (4, 8)),      // middle right
-                    (Pos::SW, (8, 0)),     // bottom left
-                    (Pos::S, (8, 4)),      // bottom center
-                    (Pos::SE, (8, 8)),     // bottom right
-                    (Pos::Center, (4, 4)), // center
+                    (Pos::NW, (0.0, 0.0)),     // top left
+                    (Pos::N, (0.0, 4.0)),      // top center
+                    (Pos::NE, (0.0, 8.0)),     // top right
+                    (Pos::W, (4.0, 0.0)),      // middle left
+                    (Pos::E, (4.0, 8.0)),      // middle right
+                    (Pos::SW, (8.0, 0.0)),     // bottom left
+                    (Pos::S, (8.0, 4.0)),      // bottom center
+                    (Pos::SE, (8.0, 8.0)),     // bottom right
+                    (Pos::Center, (4.0, 4.0)), // center
                 ],
             },
             WinPosCase {
@@ -349,15 +349,15 @@ mod tests {
                 target: (10, 10),
                 padding: 0,
                 positions: vec![
-                    (Pos::NW, (0, 0)),     // top left
-                    (Pos::N, (0, 5)),      // top center: (20-10)/2 = 5
-                    (Pos::NE, (0, 10)),    // top right: 20-10
-                    (Pos::W, (5, 0)),      // middle left
-                    (Pos::E, (5, 10)),     // middle right
-                    (Pos::SW, (10, 0)),    // bottom left
-                    (Pos::S, (10, 5)),     // bottom center
-                    (Pos::SE, (10, 10)),   // bottom right
-                    (Pos::Center, (5, 5)), // center
+                    (Pos::NW, (0.0, 0.0)),     // top left
+                    (Pos::N, (0.0, 5.0)),      // top center: (20-10)/2 = 5
+                    (Pos::NE, (0.0, 10.0)),    // top right: 20-10
+                    (Pos::W, (5.0, 0.0)),      // middle left
+                    (Pos::E, (5.0, 10.0)),     // middle right
+                    (Pos::SW, (10.0, 0.0)),    // bottom left
+                    (Pos::S, (10.0, 5.0)),     // bottom center
+                    (Pos::SE, (10.0, 10.0)),   // bottom right
+                    (Pos::Center, (5.0, 5.0)), // center
                 ],
             },
             WinPosCase {
@@ -366,15 +366,15 @@ mod tests {
                 target: (2, 2),
                 padding: 1,
                 positions: vec![
-                    (Pos::NW, (1, 1)),     // top left
-                    (Pos::N, (1, 4)),      // top center
-                    (Pos::NE, (1, 7)),     // top right
-                    (Pos::W, (4, 1)),      // middle left
-                    (Pos::E, (4, 7)),      // middle right
-                    (Pos::SW, (7, 1)),     // bottom left
-                    (Pos::S, (7, 4)),      // bottom center
-                    (Pos::SE, (7, 7)),     // bottom right
-                    (Pos::Center, (4, 4)), // center
+                    (Pos::NW, (1.0, 1.0)),     // top left
+                    (Pos::N, (1.0, 4.0)),      // top center
+                    (Pos::NE, (1.0, 7.0)),     // top right
+                    (Pos::W, (4.0, 1.0)),      // middle left
+                    (Pos::E, (4.0, 7.0)),      // middle right
+                    (Pos::SW, (7.0, 1.0)),     // bottom left
+                    (Pos::S, (7.0, 4.0)),      // bottom center
+                    (Pos::SE, (7.0, 7.0)),     // bottom right
+                    (Pos::Center, (4.0, 4.0)), // center
                 ],
             },
             WinPosCase {
@@ -383,15 +383,15 @@ mod tests {
                 target: (2, 2),
                 padding: 3,
                 positions: vec![
-                    (Pos::NW, (3, 3)),     // top left
-                    (Pos::N, (3, 4)),      // top center
-                    (Pos::NE, (3, 5)),     // top right
-                    (Pos::W, (4, 3)),      // middle left
-                    (Pos::E, (4, 5)),      // middle right
-                    (Pos::SW, (5, 3)),     // bottom left
-                    (Pos::S, (5, 4)),      // bottom center
-                    (Pos::SE, (5, 5)),     // bottom right
-                    (Pos::Center, (4, 4)), // center
+                    (Pos::NW, (3.0, 3.0)),     // top left
+                    (Pos::N, (3.0, 4.0)),      // top center
+                    (Pos::NE, (3.0, 5.0)),     // top right
+                    (Pos::W, (4.0, 3.0)),      // middle left
+                    (Pos::E, (4.0, 5.0)),      // middle right
+                    (Pos::SW, (5.0, 3.0)),     // bottom left
+                    (Pos::S, (5.0, 4.0)),      // bottom center
+                    (Pos::SE, (5.0, 5.0)),     // bottom right
+                    (Pos::Center, (4.0, 4.0)), // center
                 ],
             },
         ];

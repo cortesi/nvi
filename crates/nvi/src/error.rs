@@ -24,7 +24,7 @@ pub enum Error {
 impl From<serde_rmpv::Error> for Error {
     fn from(e: serde_rmpv::Error) -> Self {
         Error::Decode {
-            msg: format!("{}", e),
+            msg: format!("serde: {}", e),
         }
     }
 }
@@ -40,7 +40,7 @@ impl From<rmp::encode::ValueWriteError> for Error {
 impl From<rmp::decode::ValueReadError> for Error {
     fn from(e: rmp::decode::ValueReadError) -> Self {
         Error::Decode {
-            msg: format!("{}", e),
+            msg: format!("value read: {}", e),
         }
     }
 }
@@ -48,7 +48,7 @@ impl From<rmp::decode::ValueReadError> for Error {
 impl From<rmp::decode::DecodeStringError<'_>> for Error {
     fn from(e: rmp::decode::DecodeStringError) -> Self {
         Error::Decode {
-            msg: format!("{}", e),
+            msg: format!("rmp decode: {}", e),
         }
     }
 }
@@ -56,7 +56,7 @@ impl From<rmp::decode::DecodeStringError<'_>> for Error {
 impl From<rmpv::decode::Error> for Error {
     fn from(e: rmpv::decode::Error) -> Self {
         Error::Decode {
-            msg: format!("{}", e),
+            msg: format!("rmpv decode: {}", e),
         }
     }
 }
