@@ -1,6 +1,10 @@
 
 # Questions
 
+- At the moment, the "highlights" and "connected" methods are weird - we derive
+  them if they are in the impl block for our macro, but it feels like maybe
+  these should be in a separate trait that is explicitly implemented? This
+  would be more idiomatic, but add implementation complexity.
 - Highights - at the moment we generate highilght names like "my_pluginNormal".
   Wonder if "my_plugin_Normal" would be better?
 - Take opts by reference in nvi_api?
@@ -33,12 +37,12 @@
 - Parser for Vim help format would be super useful, not just to extract the
   complete docs for our API, but also as a general service to the community.
   The current docs just suck.
+- nvi manual
 
 
 # API
 
 - Nicer way to do equality checks against KeyPress
-- Generate docs as actual comments rather than attributes to improve readability
 - Consolidate our Error enum, and evaluate whether we need more variants
 
 
@@ -59,7 +63,7 @@
 
 - nvi-stacks
 - nvi-nav
-
+- built-in demo project, which will also be useful for dev
 
 
 # Dev tools

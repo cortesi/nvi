@@ -29,8 +29,8 @@ pub trait NviPlugin: Sync + Send + 'static {
         Ok(highlights::Highlights::default())
     }
 
-    /// Introspect the service methods, as derived with the `nvi_plugin` attribute macro.
-    fn introspect(&self) -> Vec<macro_types::Method> {
+    /// Inspect the service methods, as derived with the `nvi_plugin` attribute macro.
+    fn inspect(&self) -> Vec<macro_types::Method> {
         vec![]
     }
 
@@ -38,7 +38,7 @@ pub trait NviPlugin: Sync + Send + 'static {
     /// method is called. This method should execute and exit. Typically, this method will be
     /// derived with the `nvim_service` annotation, and should not be over-ridden by the user.
     async fn bootstrap(&self, client: &mut Client) -> Result<()> {
-        let methods = self.introspect();
+        let methods = self.inspect();
         for method in methods {
             let name = method.name.clone();
 
@@ -156,7 +156,7 @@ where
 {
     pub fn new(shutdown_tx: broadcast::Sender<()>, plugin: T) -> Self {
         let method_mutability = plugin
-            .introspect()
+            .inspect()
             .into_iter()
             .map(|m| (m.name, m.is_mut))
             .collect();

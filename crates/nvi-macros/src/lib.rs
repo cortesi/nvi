@@ -696,7 +696,7 @@ fn inner_nvi_plugin(
             }
 
             #[inline]
-            fn introspect(&self) -> Vec<nvi::macro_types::Method> {
+            fn inspect(&self) -> Vec<nvi::macro_types::Method> {
                 vec![#(#methods),*]
             }
         }

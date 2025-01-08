@@ -348,6 +348,39 @@ impl Client {
         }
         Ok(())
     }
+
+    /// Redraw pending screen updates.
+    ///
+    /// Equivalent to the :redraw command in Neovim.
+    pub async fn redraw(&self) -> Result<()> {
+        lua!(self, "vim.cmd('redraw')").await
+    }
+
+    /// Redraw the entire screen.
+    ///
+    /// Equivalent to the :redraw! command in Neovim.
+    pub async fn redraw_screen(&self) -> Result<()> {
+        lua!(self, "vim.cmd('redraw!')").await
+    }
+
+    /// Redraw the status line and window bar of the current window.
+    ///
+    /// Equivalent to the :redrawstatus command in Neovim.
+    pub async fn redraw_status(&self) -> Result<()> {
+        lua!(self, "vim.cmd('redrawstatus')").await
+    }
+
+    ///  Redraw the status line and window bar of all windows.
+    ///
+    /// Equivalent to the :redrawstatus! command in Neovim.
+    pub async fn redraw_status_all(&self) -> Result<()> {
+        lua!(self, "vim.cmd('redrawstatus!')").await
+    }
+
+    /// Equivalent to the :redrawtabline command in Neovim.
+    pub async fn redraw_tabline(&self) -> Result<()> {
+        lua!(self, "vim.cmd('redrawtabline')").await
+    }
 }
 
 #[cfg(test)]

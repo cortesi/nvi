@@ -27,6 +27,8 @@ enum Commands {
     },
     /// List available demos
     Demos,
+    /// Inspect the plugin
+    Inspect,
     /// Run a specific demo
     RunDemo {
         /// Name of the demo to run
@@ -34,7 +36,7 @@ enum Commands {
     },
 }
 
-async fn inner_run<T>(service: T, demos: Option<Demos>) -> Result<()>
+async fn inner_run<T>(plugin: T, demos: Option<Demos>) -> Result<()>
 where
     T: NviPlugin + Unpin + Sync + 'static,
 {
@@ -49,7 +51,7 @@ where
                 .with(verbose.log_level_filter().as_trace())
                 .init();
             let (tx, _rx) = broadcast::channel(16);
-            crate::connect_unix(tx, addr.clone(), service).await
+            crate::connect_unix(tx, addr.clone(), plugin).await
         }
         Commands::Demos => {
             if let Some(demos) = demos {
@@ -66,9 +68,13 @@ where
             }
             Ok(())
         }
+        Commands::Inspect => {
+            println!("{:#?}", plugin.inspect());
+            Ok(())
+        }
         Commands::RunDemo { name } => {
             if let Some(demos) = demos {
-                demos.run(name, service).await
+                demos.run(name, plugin).await
             } else {
                 eprintln!("No demos available.");
                 Ok(())
