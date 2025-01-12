@@ -69,13 +69,13 @@ impl Pos {
     }
 }
 
-/// Content to be displayed in a window pane.
+/// Textual content to be displayed in a window pane.
 #[derive(Clone, Debug)]
-pub struct Content {
+pub struct Text {
     pub(crate) lines: Vec<String>,
 }
 
-impl Content {
+impl Text {
     /// Creates new content from a vector of strings.
     pub fn new(lines: Vec<String>) -> Self {
         Self { lines }
@@ -129,7 +129,7 @@ impl Content {
 pub struct Pane {
     pub window: types::Window,
     pub buffer: types::Buffer,
-    pub content: Content,
+    pub content: Text,
 }
 
 impl Pane {
@@ -226,7 +226,7 @@ impl PaneBuilder {
     }
 
     /// Builds the pane with the configured options, creating the underlying buffer and window.
-    pub async fn build(self, client: &mut Client, content: Content) -> Result<Pane> {
+    pub async fn build(self, client: &mut Client, content: Text) -> Result<Pane> {
         let buffer = client.nvim.create_buf(false, true).await?;
 
         // Set the buffer content
@@ -336,7 +336,7 @@ mod tests {
         ];
 
         for (name, width, height, text, expected) in tests {
-            let content = Content::center(width, height, text);
+            let content = Text::center(width, height, text);
             assert_eq!(content.lines, expected, "test case: {}", name);
             assert_eq!(content.size(), (width, height), "size check: {}", name);
         }
@@ -451,7 +451,7 @@ mod tests {
     #[tokio::test]
     async fn test_pane_creation() {
         let test = NviTest::builder().run().await.unwrap();
-        let content = Content::new(vec!["test".to_string()]);
+        let content = Text::new(vec!["test".to_string()]);
         let mut client = test.client.clone();
 
         let pane = Pane::builder()

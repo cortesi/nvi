@@ -84,7 +84,7 @@ pub trait NviPlugin: Sync + Send + 'static {
             .register_rpcrequest::<String>(&self.name(), STATUS_MESSAGE, &[])
             .await?;
         let highlights = self.highlights()?;
-        highlights.create(client, &self.name()).await?;
+        highlights.create(client).await?;
         Ok(())
     }
 

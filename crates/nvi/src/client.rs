@@ -7,7 +7,7 @@ use tracing::trace;
 
 use crate::{
     error::{Error, Result},
-    lua, lua_exec, nvim,
+    highlights, lua, lua_exec, nvim,
 };
 
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
@@ -380,6 +380,20 @@ impl Client {
     /// Equivalent to the :redrawtabline command in Neovim.
     pub async fn redraw_tabline(&self) -> Result<()> {
         lua!(self, "vim.cmd('redrawtabline')").await
+    }
+
+    /// Calculates a highlight group name for this plugin. This essentially prepends the plugin
+    /// name to the group name, separated by an _. This means the prefix is the snake_case version,
+    /// e.g. for the group "Normal", the result might be:
+    ///
+    ///     my_plugin_Normal
+    ///
+    /// This departs from the camelcase convention for highlight group names, but it gives us a
+    /// consistent way to namespace over all features.
+    pub fn hl_name(&self, group: &str) -> Result<String> {
+        let name = format!("{}_{}", self.name, group);
+        highlights::check_group_name(&name)?;
+        Ok(name)
     }
 }
 

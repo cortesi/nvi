@@ -33,7 +33,7 @@ pub fn validate_color(color: &str) -> Result<()> {
 /// and must be no longer than 200 bytes.
 ///
 /// :help group-name
-pub fn check_group_name(name: &str) -> Result<()> {
+pub(crate) fn check_group_name(name: &str) -> Result<()> {
     if name.len() > 200 {
         return Err(crate::error::Error::User(
             "Highlight group name exceeds 200 bytes".into(),
@@ -167,23 +167,24 @@ impl Highlights {
     ///
     /// `prefix` is prepended to all highlight group names. This is useful when
     /// the same highlight definitions need to be created with different namespaces.
-    pub async fn create(&self, client: &crate::Client, prefix: &str) -> crate::error::Result<()> {
+    pub async fn create(&self, client: &crate::Client) -> crate::error::Result<()> {
         let ns_id = 0; // Use the default namespace
 
         // Create highlights
         for (name, opts) in &self.highlights {
-            let full = full_name(prefix, name)?;
-            client.nvim.set_hl(ns_id, &full, opts.to_sethl()).await?;
+            client
+                .nvim
+                .set_hl(ns_id, &client.hl_name(name)?, opts.to_sethl())
+                .await?;
         }
 
         // Create links
         for (new_group, existing_group) in &self.links {
-            let full = full_name(prefix, new_group)?;
             client
                 .nvim
                 .set_hl(
                     ns_id,
-                    &full,
+                    &client.hl_name(new_group)?,
                     SetHl {
                         link: Some(existing_group.to_string()),
                         ..Default::default()
@@ -279,7 +280,7 @@ mod tests {
             .hl("TestHl", Hl::new().fg("#ff0000").unwrap().bold(true))
             .link("TestLink", "TestHl");
 
-        highlights.create(&test.client, "test_").await.unwrap();
+        highlights.create(&test.client).await.unwrap();
 
         // Get the highlight definitions
         let hl: std::collections::HashMap<String, crate::Value> = test
