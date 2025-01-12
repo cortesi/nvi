@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
 
-use crate::{demo::Demos, error::Result, NviPlugin};
+use crate::{demo::Demos, error::Result, process, NviPlugin};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -20,6 +20,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Connect to a Neovim instance on a socket
     Connect {
         /// Address to connect to
         addr: String,
@@ -31,7 +32,7 @@ enum Commands {
     Demos,
     /// Inspect the plugin
     Inspect,
-    /// Launch an interactive Neovim session
+    /// Launch an interactive Neovim session listening on a socket
     Nvim {
         /// Unix domain socket path for communicating with Neovim
         socket: String,
@@ -49,9 +50,11 @@ enum Commands {
         /// Unix domain socket path for communicating with Neovim
         #[arg(default_value = "/tmp/nvi.sock")]
         socket: String,
+
         /// Start Neovim with your config (don't use --clean)
         #[arg(long)]
         no_clean: bool,
+
         #[command(flatten)]
         verbose: Verbosity<InfoLevel>,
     },
@@ -95,7 +98,20 @@ where
         }
         Commands::Nvim { socket, no_clean } => {
             let socket = std::path::PathBuf::from(socket);
-            crate::process::start_nvim_cmdline(socket, !no_clean)
+            let nvtask = process::start_nvim_cmdline(socket, !no_clean).await?;
+            let neovim_handle = tokio::spawn(async move { nvtask.wait_with_output().await });
+            let err = neovim_handle
+                .await
+                .map_err(|e| crate::error::Error::Internal {
+                    msg: format!("Error waiting for Neovim process: {}", e),
+                });
+
+            // Reset terminal state
+            let _ = std::process::Command::new("reset").status();
+
+            err??;
+
+            Ok(())
         }
         Commands::RunDemo { name } => {
             if let Some(demos) = demos {
@@ -122,7 +138,7 @@ where
             let socket_path = tempdir.path().join("nvim.socket");
 
             let (shutdown_tx, _) = broadcast::channel(1);
-            let neovim_task = crate::demo::start_nvim(&socket_path, !no_clean).await?;
+            let neovim_task = process::start_nvim_cmdline(&socket_path, !no_clean).await?;
             let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
 
             let plugin_shutdown = shutdown_tx.clone();

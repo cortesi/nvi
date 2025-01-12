@@ -26,8 +26,8 @@
 - Better execution of lua, with positional replacement of arguments. We could do
   this by using select(offset, ...) to get the arguments, and then assigning
   them to variables to use in the user's code. nvi_1, nvi_2, etc.
-- At the moment we're tied to nightly for protocol generation, although all our
-  unit tests pass on stable. We should:
+- At the moment we're tied to neovim nightly for protocol generation, although all our
+  unit tests pass on neovim stable. We should:
     - Specify in docs that we need nightly for dev
     - Detect if protocol generation is happening on stable and fail
     - Work unit testing on nightly and stable into our CI somehow
@@ -43,14 +43,12 @@
 - nvi manual
 
 
-# API
+# API Design
 
 - Nicer way to do equality checks against KeyPress
 - Consolidate our Error enum, and evaluate whether we need more variants
-
-
-# Design
-
+- We have a confusing situation where Client can be managing a plugin (in
+  plugin code) or not (in demos). We should probalby make this distinct.
 
 
 # nvi.nvim
@@ -70,16 +68,11 @@
 
 # Dev tools
 
-- deprecate nvic, build dev tools into addon
-
 - live rebuild/reconnect
 - run should inject a truss that consumes logs from the client and sends
   them to neovim?
-- option to start neovim with the user's config intact
-- option to start plugins from installed binary
 - demos
     - a way to pop up text to tell the user about key bindings, etc
-    - non-interactive demos for docs
 
 
 # Bugs

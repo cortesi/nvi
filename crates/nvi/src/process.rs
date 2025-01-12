@@ -11,7 +11,7 @@ use tokio::{
     sync::broadcast,
 };
 
-use crate::error::Result;
+use crate::{error::Result, test::wait_for_path};
 
 /// Start a headless neovim process, redirecting stdout/stderr and waiting for termination signal.
 pub async fn start_nvim_headless(
@@ -76,20 +76,21 @@ pub async fn start_nvim_headless(
     }
 }
 
-/// Start an interactive neovim process by executing nvim directly.
-pub fn start_nvim_cmdline(socket_path: std::path::PathBuf, clean: bool) -> Result<()> {
+/// Start an interactive nvim instance listening on the given socket path
+pub async fn start_nvim_cmdline<P>(socket_path: P, clean: bool) -> Result<tokio::process::Child>
+where
+    P: Into<std::path::PathBuf>,
+{
+    let path = socket_path.into();
     let mut oscmd = std::process::Command::new("nvim");
-    oscmd.process_group(0);
-
     if clean {
         oscmd.arg("--clean");
     }
-
     oscmd
         .arg("--listen")
-        .arg(format!("{}", socket_path.to_string_lossy()));
+        .arg(path.to_string_lossy().to_string());
 
-    Err(crate::error::Error::Internal {
-        msg: format!("Failed to exec nvim: {}", oscmd.exec()),
-    })
+    let child = Command::from(oscmd).spawn()?;
+    wait_for_path(&path).await?;
+    Ok(child)
 }

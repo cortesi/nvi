@@ -1,13 +1,9 @@
 //! Functions for managing plugin demo functionality.
+use std::{process::Command as StdCommand, time::Duration};
 
-use std::process::Command as StdCommand;
-use std::time::Duration;
-
-use crate::error::Result;
-use crate::test::wait_for_path;
-use crate::{client::Client, connect_unix, NviPlugin};
-use tokio::process::Command;
 use tokio::sync::broadcast;
+
+use crate::{client::Client, connect_unix, error::Result, process, NviPlugin};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -20,24 +16,6 @@ pub type DemoFunction = Box<
 #[derive(Default)]
 pub struct Demos {
     functions: std::collections::HashMap<String, DemoFunction>,
-}
-
-/// Start an interactive nvim instance listening on the given socket path
-pub async fn start_nvim(
-    socket_path: &std::path::Path,
-    clean: bool,
-) -> Result<tokio::process::Child> {
-    let mut oscmd = StdCommand::new("nvim");
-    if clean {
-        oscmd.arg("--clean");
-    }
-    oscmd
-        .arg("--listen")
-        .arg(socket_path.to_string_lossy().to_string());
-
-    let child = Command::from(oscmd).spawn()?;
-    wait_for_path(socket_path).await?;
-    Ok(child)
 }
 
 impl Demos {
@@ -93,7 +71,7 @@ impl Demos {
         let socket_path = tempdir.path().join("nvim.socket");
 
         let (shutdown_tx, _) = broadcast::channel(1);
-        let neovim_task = start_nvim(&socket_path, true).await?;
+        let neovim_task = process::start_nvim_cmdline(&socket_path, true).await?;
         let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
