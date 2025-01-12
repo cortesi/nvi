@@ -1,16 +1,26 @@
 use crate::nvim::{opts, types, types::WindowConf};
 use crate::{error::Result, Client};
 
+/// A quick way to position a window relative to another window or the editor.
 #[derive(Debug)]
 pub enum Pos {
+    /// Top left corner
     NE,
+    /// Top center
     N,
+    /// Top right corner
     NW,
+    /// Middle left
     E,
+    /// Middle right
     W,
+    /// Bottom left corner
     SE,
+    /// Bottom center
     S,
+    /// Bottom right corner
     SW,
+    /// Centered
     Center,
 }
 

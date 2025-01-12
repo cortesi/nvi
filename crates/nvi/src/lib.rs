@@ -20,8 +20,12 @@ pub use service::*;
 
 pub use client::Client;
 pub use mrpc::Value;
+
 // AutocmdEvent is special, because it's used in the user event API
 pub use nvim::types::AutocmdEvent;
+
+// Re-export consistent color names
+pub use colornames::Color;
 
 // Re-export, because we use this in our derive code
 #[doc(hidden)]

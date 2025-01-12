@@ -8,6 +8,8 @@
 - Highights - at the moment we generate highilght names like "my_pluginNormal".
   Wonder if "my_plugin_Normal" would be better?
 - Take opts by reference in nvi_api?
+- What should live on Client and what shouldn't? For instance, many input
+  functions could naturally live on Client.
 
 
 # Features
@@ -62,7 +64,6 @@
 # Demo projects
 
 - nvi-stacks
-- nvi-nav
 - built-in demo project, which will also be useful for dev
 
 

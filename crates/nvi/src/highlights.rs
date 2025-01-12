@@ -2,6 +2,8 @@ use crate::error::Result;
 use crate::nvim::opts::SetHl;
 use derive_setters::*;
 
+use crate::Color;
+
 /// Create a full highlight name by joining a prefix and highlight name with validation.
 pub fn full_name(prefix: &str, name: &str) -> Result<String> {
     check_group_name(prefix)?;
@@ -55,8 +57,10 @@ pub fn check_group_name(name: &str) -> Result<()> {
 #[derive(Debug, Clone, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option, into)]
 pub struct Hl {
-    pub fg: Option<String>,
-    pub bg: Option<String>,
+    #[setters(skip)]
+    pub fg: Option<Color>,
+    #[setters(skip)]
+    pub bg: Option<Color>,
 
     // Text attributes omit anachronisms like "standout", and things that are GUI-only like blend,
     // underdotted, etc..
@@ -80,19 +84,23 @@ impl Hl {
         }
     }
 
+    pub fn fg(mut self, fg: &str) -> Result<Self> {
+        validate_color(fg)?;
+        self.fg = Some(fg.try_into().map_err(crate::error::Error::User)?);
+        Ok(self)
+    }
+
+    pub fn bg(mut self, bg: &str) -> Result<Self> {
+        validate_color(bg)?;
+        self.bg = Some(bg.try_into().map_err(crate::error::Error::User)?);
+        Ok(self)
+    }
+
     /// Convert to opts::SetHl, copying only the fields that are present in both structs
     pub fn to_sethl(&self) -> crate::nvim::opts::SetHl {
-        // Validate colors if present
-        if let Some(fg) = &self.fg {
-            validate_color(fg).expect("Invalid foreground color");
-        }
-        if let Some(bg) = &self.bg {
-            validate_color(bg).expect("Invalid background color");
-        }
-
         SetHl {
-            fg: self.fg.clone(),
-            bg: self.bg.clone(),
+            fg: self.fg.map(|c| c.rgb_hex()),
+            bg: self.bg.map(|c| c.rgb_hex()),
             bold: self.bold,
             italic: self.italic,
             underline: self.underline,
@@ -236,7 +244,10 @@ mod tests {
 
         let _ = Highlights::new()
             .hl("foo", Hl::new().bold(true).italic(true))
-            .hl("bar", Hl::new().fg("#ff0000").bg("#0000ff"))
+            .hl(
+                "bar",
+                Hl::new().fg("#ff0000").unwrap().bg("#0000ff").unwrap(),
+            )
             .link("foo", "bar");
     }
 
@@ -245,7 +256,7 @@ mod tests {
         expected = "Invalid color format 'invalid': must be '#' followed by 6 hex digits"
     )]
     fn test_invalid_fg_color() {
-        let hl = Hl::new().fg("invalid");
+        let hl = Hl::new().fg("invalid").unwrap();
         hl.to_sethl();
     }
 
@@ -254,7 +265,7 @@ mod tests {
         expected = "Invalid color format 'invalid': must be '#' followed by 6 hex digits"
     )]
     fn test_invalid_bg_color() {
-        let hl = Hl::new().bg("invalid");
+        let hl = Hl::new().bg("invalid").unwrap();
         hl.to_sethl();
     }
 
@@ -262,7 +273,7 @@ mod tests {
     async fn test_highlight_creation() {
         let test = NviTest::builder().run().await.unwrap();
         let highlights = Highlights::new()
-            .hl("TestHl", Hl::new().fg("#ff0000").bold(true))
+            .hl("TestHl", Hl::new().fg("#ff0000").unwrap().bold(true))
             .link("TestLink", "TestHl");
 
         highlights.create(&test.client, "test_").await.unwrap();

@@ -246,6 +246,7 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 name = "client"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "nvi",
  "tokio",
 ]
@@ -255,6 +256,15 @@ name = "colorchoice"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
+
+[[package]]
+name = "colornames"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e2c21b11d52808646c1b42faf73929440580d11e6f48c0c8acb84f2f7bd98fe"
+dependencies = [
+ "once_cell",
+]
 
 [[package]]
 name = "core-foundation-sys"
@@ -681,6 +691,7 @@ dependencies = [
  "async-trait",
  "clap",
  "clap-verbosity-flag",
+ "colornames",
  "derive_setters",
  "futures",
  "futures-util",

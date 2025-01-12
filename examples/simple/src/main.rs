@@ -1,5 +1,4 @@
-use nvi::highlights::*;
-use nvi::nvi_macros::*;
+use nvi::{error::Result, highlights::*, nvi_macros::*};
 
 #[derive(Default)]
 struct Simple {
@@ -50,23 +49,22 @@ impl Simple {
         &mut self,
         client: &mut nvi::Client,
         evt: nvi::AutocmdEvent,
-    ) -> nvi::error::Result<()> {
+    ) -> Result<()> {
         self.n += 1;
         client.info(&format!("bufenter: {:?}", evt)).await
     }
 
     // If the impl block has a method called `connected`, it will be called after connection to the
     // editor.
-    async fn connected(&mut self, client: &mut nvi::Client) -> nvi::error::Result<()> {
-        client.info("simple plugin connected").await?;
-        Ok(())
+    async fn connected(&mut self, client: &mut nvi::Client) -> Result<()> {
+        client.info("simple plugin connected").await
     }
 
     /// Return a `Highlights` struct that defines the highlight groups for this plugin. We break
     /// from convention somewhat because we use the `snake_case` name of our addon as a prefix. In
     /// this case, we're defining a group called simpleNormal with a red foreground.
-    fn highlights(&self) -> Highlights {
-        Highlights::default().hl("Normal", Hl::default().fg("red"))
+    fn highlights(&self) -> nvi::error::Result<Highlights> {
+        Ok(Highlights::default().hl("Normal", Hl::default().fg("red")?))
     }
 }
 
