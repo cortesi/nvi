@@ -13,28 +13,20 @@ use tokio::{
 
 use crate::error::Result;
 
-/// Start a neovim process, and wait for a signal on the broadcast channel to trigger termination.
-///
-/// headless: Run neovim in headless mode (--headless)
-/// clean: Run neovim in clean mode (--clean)
-pub async fn start_nvim(
+/// Start a headless neovim process, redirecting stdout/stderr and waiting for termination signal.
+pub async fn start_nvim_headless(
     mut termrx: broadcast::Receiver<()>,
     socket_path: std::path::PathBuf,
-    headless: bool,
     clean: bool,
 ) -> Result<()> {
     let mut oscmd = std::process::Command::new("nvim");
     oscmd.process_group(0);
+    oscmd.arg("--headless");
 
-    if headless {
-        oscmd.arg("--headless");
-    }
     if clean {
         oscmd.arg("--clean");
     }
 
-    // Toggle this to enable verbose printing from nvim
-    //.arg("-V3")
     oscmd
         .arg("--listen")
         .arg(format!("{}", socket_path.to_string_lossy()))
@@ -54,7 +46,6 @@ pub async fn start_nvim(
     loop {
         select! {
             _ = termrx.recv() => {
-                // Termination signal received, kill the process group
                 killpg(pgid, Signal::SIGTERM).map_err(|e| crate::error::Error::Internal {
                     msg: format!("could not kill process group {}", e),
                 })?;
@@ -62,7 +53,6 @@ pub async fn start_nvim(
                 return Ok(());
             }
             result = child.wait() => {
-                // Child exited before receiving termination signal
                 return match result {
                     Ok(status) => Err(crate::error::Error::Internal {
                         msg: format!("Neovim process exited unexpectedly with status: {}", status)
@@ -84,4 +74,22 @@ pub async fn start_nvim(
             }
         }
     }
+}
+
+/// Start an interactive neovim process by executing nvim directly.
+pub fn start_nvim_cmdline(socket_path: std::path::PathBuf, clean: bool) -> Result<()> {
+    let mut oscmd = std::process::Command::new("nvim");
+    oscmd.process_group(0);
+
+    if clean {
+        oscmd.arg("--clean");
+    }
+
+    oscmd
+        .arg("--listen")
+        .arg(format!("{}", socket_path.to_string_lossy()));
+
+    Err(crate::error::Error::Internal {
+        msg: format!("Failed to exec nvim: {}", oscmd.exec()),
+    })
 }

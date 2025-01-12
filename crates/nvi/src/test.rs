@@ -7,7 +7,7 @@ use tokio::sync::broadcast;
 use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::{connect_unix, error::Result, process::start_nvim, NviPlugin};
+use crate::{connect_unix, error::Result, process::start_nvim_headless, NviPlugin};
 
 /// Default timeout for log assertions
 const DEFAULT_TEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -98,7 +98,7 @@ impl NviTest {
 
         let sp = socket_path.clone();
         let srx = shutdown_tx.subscribe();
-        let nvim_task = tokio::spawn(async move { start_nvim(srx, sp, true, true).await });
+        let nvim_task = tokio::spawn(async move { start_nvim_headless(srx, sp, true).await });
 
         wait_for_path(&socket_path).await?;
 
@@ -136,7 +136,7 @@ impl NviTest {
         // Start neovim task
         let sp = socket_path.clone();
         let srx = shutdown_tx.subscribe();
-        let nvim_task = tokio::spawn(async move { start_nvim(srx, sp, true, true).await });
+        let nvim_task = tokio::spawn(async move { start_nvim_headless(srx, sp, true).await });
 
         // Wait for the socket to appear
         wait_for_path(&socket_path).await?;
@@ -334,7 +334,7 @@ where
 
     let sp = socket_path.clone();
     let srx = shutdown_tx.subscribe();
-    let nv = tokio::spawn(async move { start_nvim(srx, sp, true, true).await });
+    let nv = tokio::spawn(async move { start_nvim_headless(srx, sp, true).await });
 
     wait_for_path(&socket_path).await?;
 

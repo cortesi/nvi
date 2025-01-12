@@ -31,6 +31,14 @@ enum Commands {
     Demos,
     /// Inspect the plugin
     Inspect,
+    /// Launch an interactive Neovim session
+    Nvim {
+        /// Unix domain socket path for communicating with Neovim
+        socket: String,
+        /// Start Neovim with your config (don't use --clean)
+        #[arg(long)]
+        no_clean: bool,
+    },
     /// Run a specific demo
     RunDemo {
         /// Name of the demo to run
@@ -73,6 +81,10 @@ where
         Commands::Inspect => {
             println!("{:#?}", plugin.inspect());
             Ok(())
+        }
+        Commands::Nvim { socket, no_clean } => {
+            let socket = std::path::PathBuf::from(socket);
+            crate::process::start_nvim_cmdline(socket, !no_clean)
         }
         Commands::RunDemo { name } => {
             if let Some(demos) = demos {
