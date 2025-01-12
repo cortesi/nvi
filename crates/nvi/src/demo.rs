@@ -23,10 +23,15 @@ pub struct Demos {
 }
 
 /// Start an interactive nvim instance listening on the given socket path
-async fn start_nvim(socket_path: &std::path::Path) -> Result<tokio::process::Child> {
+pub async fn start_nvim(
+    socket_path: &std::path::Path,
+    clean: bool,
+) -> Result<tokio::process::Child> {
     let mut oscmd = StdCommand::new("nvim");
+    if clean {
+        oscmd.arg("--clean");
+    }
     oscmd
-        .arg("--clean")
         .arg("--listen")
         .arg(socket_path.to_string_lossy().to_string());
 
@@ -88,7 +93,7 @@ impl Demos {
         let socket_path = tempdir.path().join("nvim.socket");
 
         let (shutdown_tx, _) = broadcast::channel(1);
-        let neovim_task = start_nvim(&socket_path).await?;
+        let neovim_task = start_nvim(&socket_path, true).await?;
         let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;

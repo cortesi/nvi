@@ -44,6 +44,17 @@ enum Commands {
         /// Name of the demo to run
         name: String,
     },
+    /// Run an interactive Neovim session with the plugin connected
+    Run {
+        /// Unix domain socket path for communicating with Neovim
+        #[arg(default_value = "/tmp/nvi.sock")]
+        socket: String,
+        /// Start Neovim with your config (don't use --clean)
+        #[arg(long)]
+        no_clean: bool,
+        #[command(flatten)]
+        verbose: Verbosity<InfoLevel>,
+    },
 }
 
 async fn inner_run<T>(plugin: T, demos: Option<Demos>) -> Result<()>
@@ -93,6 +104,50 @@ where
                 eprintln!("No demos available.");
                 Ok(())
             }
+        }
+        Commands::Run {
+            socket: _,
+            no_clean,
+            verbose,
+        } => {
+            let fmt_layer = tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_target(true);
+            tracing_subscriber::registry()
+                .with(fmt_layer)
+                .with(verbose.log_level_filter().as_trace())
+                .init();
+
+            let tempdir = tempfile::tempdir()?;
+            let socket_path = tempdir.path().join("nvim.socket");
+
+            let (shutdown_tx, _) = broadcast::channel(1);
+            let neovim_task = crate::demo::start_nvim(&socket_path, !no_clean).await?;
+            let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
+
+            let plugin_shutdown = shutdown_tx.clone();
+            let plugin_task =
+                tokio::spawn(crate::connect_unix(plugin_shutdown, socket_path, plugin));
+
+            let (plugin_result, neovim_result) = tokio::join!(plugin_task, neovim_handle);
+
+            let plugin_result = plugin_result
+                .map_err(|e| crate::error::Error::Internal {
+                    msg: format!("plugin task failed: {}", e),
+                })
+                .and_then(|r| r);
+
+            let _ = neovim_result.map_err(|e| crate::error::Error::Internal {
+                msg: format!("neovim task failed: {}", e),
+            });
+
+            // Reset terminal state
+            let _ = std::process::Command::new("reset").status();
+
+            if let Err(e) = plugin_result {
+                eprintln!("Plugin error: {}", e);
+            }
+            Ok(())
         }
     }
 }
