@@ -2,7 +2,9 @@
 
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+
 use tokio::sync::broadcast;
+
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
 

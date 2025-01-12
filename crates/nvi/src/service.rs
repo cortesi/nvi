@@ -25,6 +25,8 @@ pub(crate) enum Status {
 pub trait NviPlugin: Sync + Send + 'static {
     fn name(&self) -> String;
 
+    /// Return the highlight groups for this service. Highlight group names have the plugin name
+    /// prepended (as in `Client::hl_name`) before creation.
     fn highlights(&self) -> Result<highlights::Highlights> {
         Ok(highlights::Highlights::default())
     }

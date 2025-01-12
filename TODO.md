@@ -71,6 +71,7 @@
 # Dev tools
 
 - deprecate nvic, build dev tools into addon
+
 - live rebuild/reconnect
 - run should inject a truss that consumes logs from the client and sends
   them to neovim?
