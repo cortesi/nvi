@@ -84,15 +84,27 @@ impl Hl {
         }
     }
 
-    pub fn fg(mut self, fg: &str) -> Result<Self> {
-        validate_color(fg)?;
-        self.fg = Some(fg.try_into().map_err(crate::error::Error::User)?);
+    pub fn fg<T>(mut self, fg: T) -> Result<Self>
+    where
+        T: TryInto<Color>,
+        T::Error: std::fmt::Display,
+    {
+        self.fg = Some(
+            fg.try_into()
+                .map_err(|e| crate::error::Error::User(e.to_string()))?,
+        );
         Ok(self)
     }
 
-    pub fn bg(mut self, bg: &str) -> Result<Self> {
-        validate_color(bg)?;
-        self.bg = Some(bg.try_into().map_err(crate::error::Error::User)?);
+    pub fn bg<T>(mut self, bg: T) -> Result<Self>
+    where
+        T: TryInto<Color>,
+        T::Error: std::fmt::Display,
+    {
+        self.bg = Some(
+            bg.try_into()
+                .map_err(|e| crate::error::Error::User(e.to_string()))?,
+        );
         Ok(self)
     }
 
@@ -252,21 +264,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Invalid color format 'invalid': must be '#' followed by 6 hex digits"
-    )]
-    fn test_invalid_fg_color() {
-        let hl = Hl::new().fg("invalid").unwrap();
-        hl.to_sethl();
-    }
+    fn test_invalid_color() {
+        let hl = Hl::new().fg("invalid");
+        assert!(hl.is_err());
 
-    #[test]
-    #[should_panic(
-        expected = "Invalid color format 'invalid': must be '#' followed by 6 hex digits"
-    )]
-    fn test_invalid_bg_color() {
-        let hl = Hl::new().bg("invalid").unwrap();
-        hl.to_sethl();
+        let hl = Hl::new().bg("invalid");
+        assert!(hl.is_err());
     }
 
     #[tokio::test]
