@@ -18,7 +18,7 @@ pub(crate) enum Status {
     Running,
 }
 
-/// The `NviService` trait is the way Nvi plugins are defined. Usually this is done with the
+/// The `NviPlugin` trait is the way Nvi plugins are defined. Usually this is done with the
 /// `nvi_plugin` attribute macro, which generates the required methods for the trait.
 #[allow(unused_variables)]
 #[async_trait]
@@ -236,7 +236,7 @@ where
 {
     async fn connected(&self, sender: mrpc::RpcSender) -> mrpc::Result<()> {
         *self.status.lock().unwrap() = Status::Connected;
-        let nv = nvim::api::NvimApi {
+        let nv = nvim::NvimApi {
             rpc_sender: sender.clone(),
         };
         let mut plugin = self.plugin.write().await;

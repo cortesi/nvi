@@ -1,3 +1,12 @@
+//! Functions to listen for and establish connections between Nvi plugins and Neovim instances.
+//!
+//! Provides two main connection patterns:
+//! - Listen for incoming connections on Unix domain sockets and TCP ports
+//! - Connect to a running Neovim instance through Unix domain sockets and TCP
+//!
+//! Each function takes a shutdown broadcast channel that can be used to gracefully terminate
+//! the connection.
+
 use std::{net::SocketAddr, path::Path};
 use tokio::sync::broadcast;
 use tracing::{error, trace};
@@ -6,6 +15,14 @@ use crate::error::Result;
 use crate::service::{NviPlugin, RpcConnection};
 use mrpc::{Client, ConnectionMakerFn, Server};
 
+/// Listen for incoming connections on a Unix domain socket.
+///
+/// Creates a Unix domain socket at the specified path and listens for incoming connections.
+/// For each connection, creates a new plugin instance using the provided factory function.
+///
+/// * `shutdown_tx` - Broadcast channel for shutdown signals
+/// * `path` - Path where the Unix domain socket will be created
+/// * `make_plugin` - Factory function to create plugin instances
 pub async fn listen_unix<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     path: impl AsRef<Path>,
@@ -34,6 +51,14 @@ where
     Ok(())
 }
 
+/// Listen for incoming connections on a TCP socket.
+///
+/// Binds to the specified address and listens for incoming TCP connections.
+/// For each connection, creates a new plugin instance using the provided factory function.
+///
+/// * `shutdown_tx` - Broadcast channel for shutdown signals
+/// * `addr` - TCP socket address to bind to
+/// * `make_plugin` - Factory function to create plugin instances
 pub async fn listen_tcp<T, F>(
     shutdown_tx: broadcast::Sender<()>,
     addr: SocketAddr,
@@ -64,6 +89,14 @@ where
     Ok(())
 }
 
+/// Connect to a Neovim instance through a Unix domain socket.
+///
+/// Establishes a connection to an existing Neovim instance via a Unix domain socket
+/// and starts the plugin.
+///
+/// * `shutdown_tx` - Broadcast channel for shutdown signals
+/// * `path` - Path to the Unix domain socket to connect to
+/// * `plugin` - Plugin instance to run
 pub async fn connect_unix<T, P>(
     shutdown_tx: broadcast::Sender<()>,
     path: P,
@@ -78,6 +111,14 @@ where
     handle_client(shutdown_tx.subscribe(), client).await
 }
 
+/// Connect to a Neovim instance through a TCP socket.
+///
+/// Establishes a connection to an existing Neovim instance via TCP
+/// and starts the plugin.
+///
+/// * `shutdown_tx` - Broadcast channel for shutdown signals
+/// * `addr` - TCP address to connect to
+/// * `plugin` - Plugin instance to run
 pub async fn connect_tcp<T>(
     shutdown_tx: broadcast::Sender<()>,
     addr: SocketAddr,

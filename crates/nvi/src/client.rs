@@ -18,7 +18,7 @@ pub struct Client {
     /// The name of the plugin.
     pub name: String,
     /// The compiled API for Neovim.
-    pub nvim: nvim::api::NvimApi,
+    pub nvim: nvim::NvimApi,
     /// The MessagePack-RPC channel ID for this client. Channel ID 0 is global.
     pub channel_id: u64,
 
@@ -34,7 +34,7 @@ impl Client {
     ) -> Self {
         Client {
             name: name.into(),
-            nvim: nvim::api::NvimApi { rpc_sender },
+            nvim: nvim::NvimApi { rpc_sender },
             shutdown_tx,
             channel_id,
         }

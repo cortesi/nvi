@@ -1,3 +1,8 @@
+//! Utilities for working with Lua code.
+//!
+//! Contains macros and utilities for executing Lua code through Neovim's RPC interface, and helper
+//! functions for string escaping.
+
 /// Execute Lua code with optional arguments
 #[macro_export]
 macro_rules! lua {

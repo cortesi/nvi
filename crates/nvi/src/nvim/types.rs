@@ -1,5 +1,6 @@
-//! A compendium of types for working with the Neovim msgrpc API. These hew quite closely to the
-//! neovim API itself, and does not attempt to build higher level abstractions.
+//! A compendium of types for working with the Neovim msgrpc API. The types here hew quite closely
+//! to the neovim API itself, without attempting to add higher-level abstractions, apart from
+//! obvious, simple helper methods.
 
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
