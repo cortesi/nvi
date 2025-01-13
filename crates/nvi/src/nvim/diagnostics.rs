@@ -3,17 +3,17 @@
 //! Includes types for configuring how diagnostics are displayed (e.g., virtual text, signs,
 //! floating windows) and functions for setting and resetting diagnostics.
 
-use derive_setters::*;
-use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{
+use derive_setters::*;
+use serde_derive::{Deserialize, Serialize};
+
+use crate::{
     error::{Error, Result},
+    lua, lua_exec,
     nvim::types::Text,
-    Client,
+    Client, Value,
 };
-use crate::Value;
-use crate::{lua, lua_exec};
 
 /// Options for getting diagnostics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
