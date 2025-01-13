@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
 
-use crate::{demo::Demos, error::Result, process, NviPlugin};
+use crate::{connect, demo::Demos, error::Result, process, NviPlugin};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -75,7 +75,7 @@ where
                 .with(verbose.log_level_filter().as_trace())
                 .init();
             let (tx, _rx) = broadcast::channel(16);
-            crate::connect_unix(tx, addr.clone(), plugin).await
+            connect::connect_unix(tx, addr.clone(), plugin).await
         }
         Commands::Demos => {
             if let Some(demos) = demos {
@@ -143,7 +143,7 @@ where
 
             let plugin_shutdown = shutdown_tx.clone();
             let plugin_task =
-                tokio::spawn(crate::connect_unix(plugin_shutdown, socket_path, plugin));
+                tokio::spawn(connect::connect_unix(plugin_shutdown, socket_path, plugin));
 
             let (plugin_result, neovim_result) = tokio::join!(plugin_task, neovim_handle);
 

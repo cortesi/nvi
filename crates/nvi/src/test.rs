@@ -7,7 +7,7 @@ use tokio::sync::broadcast;
 use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::{connect_unix, error::Result, process::start_nvim_headless, NviPlugin};
+use crate::{connect::connect_unix, error::Result, process::start_nvim_headless, NviPlugin};
 
 /// Default timeout for log assertions
 const DEFAULT_TEST_TIMEOUT: Duration = Duration::from_secs(5);

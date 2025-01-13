@@ -2357,7 +2357,7 @@ impl NvimApi {
         Ok(from_value(&ret)?)
     }
     /// Gets the window position in display cells. First position is zero.
-    pub async fn win_get_position(&self, window: &Window) -> Result<Vec<i64>> {
+    pub async fn win_get_position(&self, window: &Window) -> Result<(i64, i64)> {
         #[allow(unused_variables)]
         let ret = self
             .raw_request("nvim_win_get_position", &[to_value(&window)?])

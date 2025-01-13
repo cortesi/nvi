@@ -1,9 +1,9 @@
 mod client;
-mod connect;
 mod process;
 mod service;
 
 pub mod cmd;
+pub mod connect;
 pub mod demo;
 pub mod diagnostics;
 pub mod error;
@@ -14,7 +14,6 @@ pub mod nvim;
 pub mod test;
 pub mod ui;
 
-pub use connect::*;
 pub use macro_types;
 pub use nvi_macros;
 pub use service::*;

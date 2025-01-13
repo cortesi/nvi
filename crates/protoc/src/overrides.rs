@@ -113,6 +113,13 @@ pub fn get_override(name: &str) -> Option<Override> {
             }],
             ret: None,
         },
+        "nvim_win_get_position" => Override {
+            args: vec![Arg {
+                name: "window".into(),
+                typ: quote! { &Window },
+            }],
+            ret: Some(quote! {(i64, i64)}),
+        },
         _ => return None,
     })
 }

@@ -26,7 +26,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(
+    pub(crate) fn new(
         rpc_sender: mrpc::RpcSender,
         name: &str,
         channel_id: u64,
@@ -105,7 +105,7 @@ impl Client {
     /// Which can be invoked from Lua like so:
     ///
     /// test_module.test_fn("value", 3)
-    pub async fn register_rpcrequest<P>(
+    pub(crate) async fn register_rpcrequest<P>(
         &mut self,
         namespace: &str,
         method: &str,
@@ -133,7 +133,7 @@ impl Client {
     /// Which can be invoked from Lua like so:
     ///
     /// test_module.test_fn("value", 3)
-    pub async fn register_rpcnotify<P>(
+    pub(crate) async fn register_rpcnotify<P>(
         &mut self,
         namespace: &str,
         method: &str,

@@ -3,7 +3,7 @@ use std::{process::Command as StdCommand, time::Duration};
 
 use tokio::sync::broadcast;
 
-use crate::{client::Client, connect_unix, error::Result, process, NviPlugin};
+use crate::{client::Client, connect::connect_unix, error::Result, process, NviPlugin};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 

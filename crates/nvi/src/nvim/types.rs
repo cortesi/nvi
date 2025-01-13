@@ -1,4 +1,6 @@
-//! A compendium of types for working with the Neovim msgrpc API
+//! A compendium of types for working with the Neovim msgrpc API. These hew quite closely to the
+//! neovim API itself, and does not attempt to build higher level abstractions.
+
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{serde_as, Bytes, NoneAsEmptyString};
@@ -78,6 +80,16 @@ impl std::fmt::Display for Window {
 impl Window {
     pub fn current() -> Self {
         Window((WINDOW_EXT_TYPE, vec![0, 0, 0, 0]))
+    }
+
+    /// Get the window geometry.  
+    ///
+    /// Returns (x, y, width, height).
+    pub async fn geom(&self, c: &client::Client) -> Result<(i64, i64, i64, i64)> {
+        let (x, y) = c.nvim.win_get_position(self).await?;
+        let width = c.nvim.win_get_width(self).await?;
+        let height = c.nvim.win_get_height(self).await?;
+        Ok((x, y, width, height))
     }
 
     pub async fn winhl(&self, c: &client::Client, highlights: Vec<(String, String)>) -> Result<()> {
@@ -627,10 +639,18 @@ pub struct WindowConf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::NviTest;
+    use pretty_assertions::assert_eq;
     use rmpv::Value;
     use serde_rmpv::from_value;
 
-    use pretty_assertions::assert_eq;
+    #[tokio::test]
+    async fn test_window_geom() {
+        let test = NviTest::builder().run().await.unwrap();
+        let win = test.client.nvim.get_current_win().await.unwrap();
+        let g = win.geom(&test.client).await.unwrap();
+        assert!(g.3 > 0);
+    }
 
     #[test]
     fn test_deser_windowconf() {
