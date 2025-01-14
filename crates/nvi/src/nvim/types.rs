@@ -9,8 +9,11 @@ use serde_with::{serde_as, Bytes, NoneAsEmptyString};
 use super::opts;
 use crate::{client, error::Result};
 
+/// The type identifier for Buffer objects in the MessagePack protocol
 pub const BUFFER_EXT_TYPE: i8 = 0;
+/// The type identifier for Window objects in the MessagePack protocol
 pub const WINDOW_EXT_TYPE: i8 = 1;
+/// The type identifier for TabPage objects in the MessagePack protocol
 pub const TABPAGE_EXT_TYPE: i8 = 2;
 
 fn u8_array_to_u64(bytes: &[u8]) -> u64 {
@@ -23,6 +26,7 @@ fn u8_array_to_u64(bytes: &[u8]) -> u64 {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
+/// A Neovim buffer handle. Buffers are containers that hold the content of files being edited.
 pub struct Buffer(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl Buffer {
@@ -64,6 +68,7 @@ impl From<u64> for Buffer {
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
+/// A Neovim window handle. Windows are viewports onto buffers.
 pub struct Window(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl std::fmt::Debug for Window {
@@ -136,6 +141,7 @@ impl From<u64> for Window {
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
+/// A Neovim tabpage handle. Tabpages are collections of windows.
 pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl std::fmt::Debug for TabPage {
@@ -171,6 +177,7 @@ impl From<u64> for TabPage {
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
+/// Version information for the Neovim API.
 pub struct APIVersion {
     pub major: u64,
     pub minor: u64,
@@ -182,11 +189,13 @@ pub struct APIVersion {
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
+/// Information about the Neovim API implementation.
 pub struct ApiInfo {
     pub version: APIVersion,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
+/// Information about a Neovim communication channel.
 pub struct ChanInfo {
     pub id: u64,
     pub argv: Option<String>,
@@ -472,6 +481,8 @@ pub enum Event {
 /// name, or as a numeric ID.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
+/// A group specification, used in many command options. Groups can be specified as either a string
+/// name, or as a numeric ID.
 pub enum Group {
     Name(String),
     Id(u64),
@@ -487,6 +498,7 @@ impl Group {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Log levels for Neovim notifications.
 pub enum LogLevel {
     Trace = 0,
     Debug = 1,
@@ -513,6 +525,7 @@ impl LogLevel {
 #[serde(untagged)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
+/// The reference point for floating window positioning.
 pub enum Relative {
     Editor,
     Win,
@@ -526,6 +539,7 @@ pub enum Relative {
 #[serde(untagged)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
+/// Split direction for window creation.
 pub enum Split {
     Left,
     Right,
@@ -535,6 +549,7 @@ pub enum Split {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
+/// Anchor point for floating window positioning.
 pub enum Anchor {
     NW,
     NE,
@@ -570,6 +585,7 @@ pub enum Border {
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Setters, Default)]
 #[setters(strip_option)]
+/// Configuration options for window creation and modification.
 pub struct WindowConf {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "NoneAsEmptyString")]
