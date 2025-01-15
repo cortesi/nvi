@@ -30,7 +30,7 @@ fn render_text_markdown(
     if !methods.is_empty() {
         ret.push_str("\n## Methods\n\n");
         for m in methods {
-            match m.message_type {
+            match m.method_type {
                 MethodType::Request | MethodType::Notify => {
                     ret.push_str(&format!("### {name}.{}\n\n", m.name));
                     if !m.docs.is_empty() {

@@ -216,18 +216,18 @@ fn parse_autocmd(a: &syn::Attribute) -> Result<Option<AutoCmd>> {
 }
 
 fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
-    let mut message_type = None;
+    let mut method_type = None;
     let mut docs: Vec<String> = vec![];
     let mut autocmd = None;
     let name = method.sig.ident.to_string();
 
     for a in &method.attrs {
         if a.path().is_ident(RPC) {
-            message_type = Some(MethodType::Request);
+            method_type = Some(MethodType::Request);
         } else if a.path().is_ident(RPC_NOTIFICATION) {
-            message_type = Some(MethodType::Notify);
+            method_type = Some(MethodType::Notify);
         } else if a.path().is_ident(RPC_AUTOCMD) {
-            message_type = Some(MethodType::Request);
+            method_type = Some(MethodType::Request);
             autocmd = parse_autocmd(a)?;
         } else if a.path().is_ident("doc") {
             match &a.meta {
@@ -246,15 +246,15 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
-    if message_type.is_none() {
+    if method_type.is_none() {
         if name == CONNECTED {
-            message_type = Some(MethodType::Connected);
+            method_type = Some(MethodType::Connected);
         } else if name == HIGHLIGHTS {
-            message_type = Some(MethodType::Highlights);
+            method_type = Some(MethodType::Highlights);
         }
     }
 
-    let message_type = if let Some(a) = message_type {
+    let method_type = if let Some(a) = method_type {
         a
     } else {
         // This is not a command method
@@ -352,7 +352,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         },
     };
 
-    if message_type == MethodType::Notify && !(ret == Return::ResultVoid || ret == Return::Void) {
+    if method_type == MethodType::Notify && !(ret == Return::ResultVoid || ret == Return::Void) {
         return Err(syn::Error::new(
             method.span(),
             "notification methods must return Result<()> or be void",
@@ -376,7 +376,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         }
     }
 
-    match message_type {
+    match method_type {
         MethodType::Connected => {
             if !args.is_empty() {
                 return Err(syn::Error::new(
@@ -414,7 +414,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
 
     Ok(Some(Method {
         name,
-        message_type,
+        method_type,
         ret,
         args,
         docs: docs.join("\n"),
@@ -457,7 +457,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
         let name = &m.name;
         let docs = &m.docs;
         let is_mut = m.is_mut;
-        let message_type = match m.message_type {
+        let method_type = match m.method_type {
             MethodType::Request => quote! { nvi::macro_types::MethodType::Request },
             MethodType::Notify => quote! { nvi::macro_types::MethodType::Notify },
             MethodType::Connected => quote! { nvi::macro_types::MethodType::Connected },
@@ -507,7 +507,7 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
                 name: #name.to_string(),
                 docs: #docs.to_string(),
                 ret: #ret,
-                message_type: #message_type,
+                method_type: #method_type,
                 args: vec![#(#args),*],
                 autocmd: #autocmd,
                 is_mut: #is_mut,
@@ -568,7 +568,7 @@ fn inner_nvi_plugin(
     let request_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MethodType::Request)
+        .filter(|x| x.method_type == MethodType::Request)
         .filter(|x| !x.is_mut)
         .map(request_invocation)
         .collect();
@@ -576,7 +576,7 @@ fn inner_nvi_plugin(
     let request_invocations_mut: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MethodType::Request)
+        .filter(|x| x.method_type == MethodType::Request)
         .filter(|x| x.is_mut)
         .map(request_invocation)
         .collect();
@@ -584,7 +584,7 @@ fn inner_nvi_plugin(
     let notify_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MethodType::Notify)
+        .filter(|x| x.method_type == MethodType::Notify)
         .filter(|x| !x.is_mut)
         .map(notify_invocation)
         .collect();
@@ -592,7 +592,7 @@ fn inner_nvi_plugin(
     let notify_invocations_mut: Vec<proc_macro2::TokenStream> = imp
         .methods
         .iter()
-        .filter(|x| x.message_type == MethodType::Notify)
+        .filter(|x| x.method_type == MethodType::Notify)
         .filter(|x| x.is_mut)
         .map(notify_invocation)
         .collect();
@@ -606,7 +606,7 @@ fn inner_nvi_plugin(
     let connected = imp
         .methods
         .iter()
-        .find(|x| x.message_type == MethodType::Connected)
+        .find(|x| x.method_type == MethodType::Connected)
         .map(|x| connected_invocation(x, name.clone()))
         .unwrap_or_else(|| quote! {});
 
@@ -614,7 +614,7 @@ fn inner_nvi_plugin(
     let highlights = if let Some(m) = imp
         .methods
         .iter()
-        .find(|x| x.message_type == MethodType::Highlights)
+        .find(|x| x.method_type == MethodType::Highlights)
     {
         // User can return either Highlights or Result<Highlights>
         match &m.ret {
@@ -813,12 +813,12 @@ mod tests {
         let connected = ret
             .methods
             .iter()
-            .filter(|m| m.message_type == MethodType::Connected)
+            .filter(|m| m.method_type == MethodType::Connected)
             .count();
         let highlights = ret
             .methods
             .iter()
-            .filter(|m| m.message_type == MethodType::Highlights)
+            .filter(|m| m.method_type == MethodType::Highlights)
             .count();
 
         assert_eq!(connected, 1, "Should have one connected method");
@@ -857,7 +857,7 @@ mod tests {
                     name: "test_method".into(),
                     docs: "Some docs".into(),
                     ret: Return::Result("String".into()),
-                    message_type: MethodType::Request,
+                    method_type: MethodType::Request,
                     args: vec![
                         Arg {
                             name: "a".into(),
@@ -883,7 +883,7 @@ mod tests {
                     name: "test_void".into(),
                     docs: "".into(),
                     ret: Return::Void,
-                    message_type: MethodType::Request,
+                    method_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
                     is_mut: true,
@@ -892,7 +892,7 @@ mod tests {
                     name: "test_usize".into(),
                     docs: "".into(),
                     ret: Return::Type("usize".into()),
-                    message_type: MethodType::Request,
+                    method_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
                     is_mut: false,
@@ -901,7 +901,7 @@ mod tests {
                     name: "test_resultvoid".into(),
                     docs: "".into(),
                     ret: Return::ResultVoid,
-                    message_type: MethodType::Request,
+                    method_type: MethodType::Request,
                     args: vec![],
                     autocmd: None,
                     is_mut: false,
@@ -910,7 +910,7 @@ mod tests {
                     name: "test_notification".into(),
                     docs: "".into(),
                     ret: Return::ResultVoid,
-                    message_type: MethodType::Notify,
+                    method_type: MethodType::Notify,
                     args: vec![],
                     autocmd: None,
                     is_mut: true,

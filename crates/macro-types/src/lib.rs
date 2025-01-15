@@ -40,7 +40,7 @@ pub struct Method {
     pub name: String,
     pub docs: String,
     pub ret: Return,
-    pub message_type: MethodType,
+    pub method_type: MethodType,
     pub args: Vec<Arg>,
     pub autocmd: Option<AutoCmd>,
     pub is_mut: bool,

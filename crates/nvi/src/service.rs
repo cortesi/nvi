@@ -49,7 +49,7 @@ pub trait NviPlugin: Sync + Send + 'static {
         for method in methods {
             let name = method.name.clone();
 
-            match method.message_type {
+            match method.method_type {
                 macro_types::MethodType::Notify => {
                     let args: Vec<String> = method.args.iter().map(|a| a.name.clone()).collect();
                     client
