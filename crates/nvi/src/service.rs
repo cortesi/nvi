@@ -36,6 +36,11 @@ pub trait NviPlugin: Sync + Send + 'static {
         vec![]
     }
 
+    /// Return the plugin doc string. The string is empty if there are no docs.
+    fn docs(&self) -> Result<String> {
+        Ok("".into())
+    }
+
     /// Bootstrapping that happens after connecting to the remote service, but before the run
     /// method is called. This method should execute and exit. Typically, this method will be
     /// derived with the `nvim_service` annotation, and should not be over-ridden by the user.

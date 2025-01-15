@@ -1,3 +1,5 @@
+//! A window pane, which is a window and a buffer managed in concert. This is the base for
+//! non-editing interface windows.
 use crate::nvim::{opts, types, types::WindowConf};
 use crate::{error::Result, Client};
 

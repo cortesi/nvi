@@ -544,7 +544,26 @@ fn inner_nvi_plugin(
         .ident
         .to_string();
 
-    let (output, imp) = parse_impl(&input)?;
+    let (impl_block, imp) = parse_impl(&input)?;
+
+    // Collect impl block doc comments
+    let mut docs = String::new();
+    for attr in &impl_block.attrs {
+        if attr.path().is_ident("doc") {
+            if let Meta::NameValue(meta) = &attr.meta {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s), ..
+                }) = &meta.value
+                {
+                    if !docs.is_empty() {
+                        docs.push('\n');
+                    }
+                    docs.push_str(s.value().trim());
+                }
+            }
+        }
+    }
+    let docs = docs; // Make docs immutable
 
     let request_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
@@ -580,6 +599,7 @@ fn inner_nvi_plugin(
 
     let name = syn::Ident::new(&type_name, proc_macro2::Span::call_site());
     let namestr = heck::ToSnakeCase::to_snake_case(type_name.as_str());
+    let docs = &docs;
 
     let methods = generate_methods(&imp);
     // Handle the connected method
@@ -616,7 +636,7 @@ fn inner_nvi_plugin(
     }
 
     Ok(quote! {
-        #output
+        #impl_block
 
         #[nvi::async_trait::async_trait]
         impl nvi::NviPlugin for #name {
@@ -699,6 +719,10 @@ fn inner_nvi_plugin(
             fn inspect(&self) -> Vec<nvi::macro_types::Method> {
                 vec![#(#methods),*]
             }
+
+            fn docs(&self) -> nvi::error::Result<String> {
+                Ok(#docs.into())
+            }
         }
     }
     .to_token_stream())
@@ -751,6 +775,24 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use rust_format::{Formatter, RustFmt};
+
+    #[test]
+    fn test_doc_collection() {
+        let s = quote! {
+            /// First line of doc
+            /// Second line of doc
+            impl Test {
+                #[request]
+                async fn test(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let result = inner_nvi_plugin(quote! {}, s).unwrap();
+        let result_str = result.to_string();
+        assert!(result_str.contains("First line of doc\\nSecond line of doc"));
+    }
 
     #[test]
     fn it_handles_special_methods() {

@@ -1,6 +1,6 @@
 use nvi::{
     nvim::{opts, types::Event},
-    test,
+    test, NviPlugin,
 };
 
 use nvi_macros::*;
@@ -18,9 +18,12 @@ async fn it_derives_basic_service() {
     }
 
     #[nvi_plugin]
+    /// aaa bbb
+    /// ccc
     impl TestPlugin {
         async fn connected(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
             trace!("connected");
+            debug!("docs: {:#?}", self.docs().unwrap());
             self.tx.send(()).unwrap();
             Ok(())
         }
@@ -31,6 +34,7 @@ async fn it_derives_basic_service() {
         .await
         .unwrap();
     assert!(logs_contain("connected"));
+    assert!(logs_contain(r"aaa bbb\nccc"));
 }
 
 #[tokio::test]

@@ -16,6 +16,7 @@ struct Simple {
 // print(simple.get())
 // ```
 #[nvi_plugin]
+/// This is a doc comment for the plugin.
 impl Simple {
     // The `#[notify]` attribute macro marks a method as an RPC notification handler. Notifications
     // are methods that don't provide a response, so they are fire-and-forget as far as the editor
