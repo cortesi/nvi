@@ -7,6 +7,7 @@
 use crate::error::Result;
 use crate::nvim::opts::SetHl;
 use derive_setters::*;
+use std::fmt;
 
 use crate::Color;
 
@@ -17,6 +18,64 @@ pub fn full_name(prefix: &str, name: &str) -> Result<String> {
     check_group_name(prefix)?;
     check_group_name(name)?;
     Ok(format!("{}{}", prefix, name))
+}
+
+impl fmt::Display for Hl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let fg_str = self.fg.as_ref().map(|c| format!("fg: {}", c.rgb_hex()));
+        let bg_str = self.bg.as_ref().map(|c| format!("bg: {}", c.rgb_hex()));
+        let bold_str = if self.bold.unwrap_or(false) {
+            Some("bold")
+        } else {
+            None
+        };
+        let italic_str = if self.italic.unwrap_or(false) {
+            Some("italic")
+        } else {
+            None
+        };
+        let underline_str = if self.underline.unwrap_or(false) {
+            Some("underline")
+        } else {
+            None
+        };
+        let reverse_str = if self.reverse.unwrap_or(false) {
+            Some("reverse")
+        } else {
+            None
+        };
+        let strikethrough_str = if self.strikethrough.unwrap_or(false) {
+            Some("strikethrough")
+        } else {
+            None
+        };
+
+        let mut parts: Vec<String> = vec![];
+
+        if let Some(fg) = fg_str {
+            parts.push(fg);
+        }
+        if let Some(bg) = bg_str {
+            parts.push(bg);
+        }
+        if let Some(bold) = bold_str {
+            parts.push(bold.into());
+        }
+        if let Some(italic) = italic_str {
+            parts.push(italic.into());
+        }
+        if let Some(underline) = underline_str {
+            parts.push(underline.into());
+        }
+        if let Some(reverse) = reverse_str {
+            parts.push(reverse.into());
+        }
+        if let Some(strikethrough) = strikethrough_str {
+            parts.push(strikethrough.into());
+        }
+
+        write!(f, "{}", parts.join(", "))
+    }
 }
 
 /// Validates that a string is a valid RGB color specification of the form "#xxxxxx".
@@ -173,6 +232,11 @@ impl Highlights {
             highlights: Vec::new(),
             links: Vec::new(),
         }
+    }
+
+    /// Returns true if this collection contains no highlights or links.
+    pub fn is_empty(&self) -> bool {
+        self.highlights.is_empty() && self.links.is_empty()
     }
 
     /// Adds a highlight definition to the collection.
@@ -344,3 +408,4 @@ mod tests {
         test.finish().await.unwrap();
     }
 }
+

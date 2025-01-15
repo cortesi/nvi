@@ -5,6 +5,7 @@ mod service;
 pub mod cmd;
 pub mod connect;
 pub mod demo;
+pub mod docs;
 pub mod error;
 pub mod highlights;
 pub mod input;

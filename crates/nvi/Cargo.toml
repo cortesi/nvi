@@ -36,6 +36,7 @@ clap-verbosity-flag = "3.0.2"
 tracing-log = "0.2.0"
 derive_setters = "0.1.6"
 colornames = "0.0.5"
+textwrap = "0.16.1"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

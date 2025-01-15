@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tracing_log::AsTrace;
 use tracing_subscriber::prelude::*;
 
-use crate::{connect, demo::Demos, error::Result, process, NviPlugin};
+use crate::{connect, demo::Demos, docs, error::Result, process, NviPlugin};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -28,6 +28,8 @@ enum Commands {
         #[command(flatten)]
         verbose: Verbosity<InfoLevel>,
     },
+    /// Show plugin documentation
+    Docs,
     /// List available demos
     Demos,
     /// Inspect the plugin
@@ -90,6 +92,18 @@ where
             } else {
                 println!("No demos available.");
             }
+            Ok(())
+        }
+        Commands::Docs => {
+            let name = plugin.name();
+            let docs = plugin.docs()?;
+            let methods = plugin.inspect();
+            let hl = plugin.highlights()?;
+
+            println!(
+                "{}",
+                docs::render_docs(docs::Formats::Markdown, &name, &docs, hl, methods)?
+            );
             Ok(())
         }
         Commands::Inspect => {
