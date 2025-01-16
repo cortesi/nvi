@@ -102,7 +102,7 @@ where
 
             println!(
                 "{}",
-                docs::render_docs(docs::Formats::Markdown, &name, &docs, hl, methods)?
+                docs::render_docs(docs::Formats::Terminal, &name, &docs, hl, methods)?
             );
             Ok(())
         }
