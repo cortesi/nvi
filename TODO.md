@@ -15,9 +15,6 @@
 # Features
 
 - Evolve pane::Text to be much more powerful, and have operations that make creating visual interfaces easier
-- Generate help docs. This should now be pretty do-able with the introspection API.
-    - Add help docs to introspect()
-    - standard "plugin docs" command
 - Standard way to control logging in plugins (tracing?)
     - For development, configure tracing to output to screen or file
     - For production, output to a file or neovim notices

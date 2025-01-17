@@ -29,7 +29,11 @@ enum Commands {
         verbose: Verbosity<InfoLevel>,
     },
     /// Show plugin documentation
-    Docs,
+    Docs {
+        /// Output format (terminal or markdown)
+        #[arg(long, default_value = "terminal")]
+        fmt: String,
+    },
     /// List available demos
     Demos,
     /// Inspect the plugin
@@ -94,16 +98,24 @@ where
             }
             Ok(())
         }
-        Commands::Docs => {
+        Commands::Docs { fmt } => {
             let name = plugin.name();
             let docs = plugin.docs()?;
             let methods = plugin.inspect();
             let hl = plugin.highlights()?;
 
-            println!(
-                "{}",
-                docs::render_docs(docs::Formats::Terminal, &name, &docs, hl, methods)?
-            );
+            let format = match fmt.to_lowercase().as_str() {
+                "markdown" => docs::Formats::Markdown,
+                "terminal" => docs::Formats::Terminal,
+                _ => {
+                    return Err(crate::error::Error::User(format!(
+                        "Invalid format: {}",
+                        fmt
+                    )))
+                }
+            };
+
+            println!("{}", docs::render_docs(format, &name, &docs, hl, methods)?);
             Ok(())
         }
         Commands::Inspect => {
