@@ -104,11 +104,11 @@ impl Window {
             .map(|(from, to)| format!("{}:{}", from, to))
             .collect::<Vec<_>>()
             .join(",");
-        self.set(c, "winhl", hl_string).await
+        self.set_option(c, "winhl", hl_string).await
     }
 
     /// Set an option on this window
-    pub async fn set<T: serde::Serialize>(
+    pub async fn set_option<T: serde::Serialize>(
         &self,
         c: &client::Client,
         name: &str,

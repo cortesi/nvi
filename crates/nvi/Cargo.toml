@@ -35,7 +35,7 @@ strum = { version = "0.26.2", features = ["derive"] }
 clap-verbosity-flag = "3.0.2"
 tracing-log = "0.2.0"
 derive_setters = "0.1.6"
-colornames = "0.0.5"
+colornames = "0.0.6"
 textwrap = "0.16.1"
 termcolor = "1.4.1"
 

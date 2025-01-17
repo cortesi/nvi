@@ -9,7 +9,7 @@ proc-macro = true
 
 [dependencies]
 macro-types = { path = "../macro-types" }
-heck = "0.4"
+heck = "0.5"
 proc-macro2 = "1.0.85"
 proc-macro2-diagnostics = "0.10.1"
 quote = "1.0.36"

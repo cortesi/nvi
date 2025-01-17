@@ -2,14 +2,15 @@
 # Questions
 
 - At the moment, the "highlights" and "connected" methods are weird - we derive
-  them if they are in the impl block for our macro, but it feels like maybe
-  these should be in a separate trait that is explicitly implemented? This
-  would be more idiomatic, but add implementation complexity.
+  them if they are in the impl block for our macro, but it's error prone since
+  the names are not constrained by a trait. It feels like maybe these should be
+  in a separate trait that is explicitly implemented? This would be more
+  idiomatic, but also add implementation complexity.
 - Highights - at the moment we generate highilght names like "my_pluginNormal".
   Wonder if "my_plugin_Normal" would be better?
 - Take opts by reference in nvi_api?
 - What should live on Client and what shouldn't? For instance, many input
-  functions could naturally live on Client.
+  functions could naturally live on Client. 
 
 
 # Features
@@ -30,14 +31,23 @@
     - Work unit testing on nightly and stable into our CI somehow
 
 
+# Plugin docs
+
+- Specify that the first line of plugin doc string is the "short doc" used in
+  vimdoc rendering and plugin listings.
+- Vim help output format 
+    - https://github.com/google/vimdoc
+- Wrap text to a width - a default for non-terminal output, and terminal width
+  for terminal output
+- A docs field for highlights?
+
+
 # Docs
 
-- Vim help format generator for the plugin API
-    - https://github.com/google/vimdoc
+- nvi manual
 - Parser for Vim help format would be super useful, not just to extract the
   complete docs for our API, but also as a general service to the community.
   The current docs just suck.
-- nvi manual
 
 
 # API Design
@@ -70,6 +80,7 @@
   them to neovim?
 - demos
     - a way to pop up text to tell the user about key bindings, etc
+    - this could just be a ui modal pane, without specific features related to demo
 
 
 # Bugs
