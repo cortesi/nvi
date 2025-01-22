@@ -92,7 +92,8 @@ impl Window {
     ///
     /// Returns (x, y, width, height).
     pub async fn geom(&self, c: &client::Client) -> Result<(i64, i64, i64, i64)> {
-        let (x, y) = c.nvim.win_get_position(self).await?;
+        // Invert the weird row/col order that Neovim uses
+        let (y, x) = c.nvim.win_get_position(self).await?;
         let width = c.nvim.win_get_width(self).await?;
         let height = c.nvim.win_get_height(self).await?;
         Ok((x, y, width, height))
