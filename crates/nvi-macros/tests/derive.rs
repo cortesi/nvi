@@ -21,7 +21,7 @@ async fn it_derives_messages() {
             a: i64,
             b: String,
         ) -> nvi::error::Result<String> {
-            Ok(format!("{}:{}", a, b))
+            Ok(format!("{a}:{b}"))
         }
 
         #[notify]
@@ -31,13 +31,13 @@ async fn it_derives_messages() {
             a: i64,
             b: String,
         ) -> nvi::error::Result<()> {
-            println!("{}:{}", a, b);
+            println!("{a}:{b}");
             Ok(())
         }
 
         #[notify]
         async fn test_notify_void(&self, _: &mut nvi::Client, a: i64, b: String) {
-            println!("{}:{}", a, b);
+            println!("{a}:{b}");
         }
 
         async fn connected(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {

@@ -339,8 +339,8 @@ mod tests {
 
         for (name, width, height, text, expected) in tests {
             let content = Text::center(width, height, text);
-            assert_eq!(content.lines, expected, "test case: {}", name);
-            assert_eq!(content.size(), (width, height), "size check: {}", name);
+            assert_eq!(content.lines, expected, "test case: {name}");
+            assert_eq!(content.size(), (width, height), "size check: {name}");
         }
     }
 

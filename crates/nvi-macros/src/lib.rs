@@ -77,7 +77,7 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
     for (idx, _) in m.args.iter().enumerate() {
         let a = quote! {
             nvi::serde_rmpv::from_value(&params[#idx])
-                .map_err(|e| nvi::Value::from(format!("{}", e)))?
+                .map_err(|e| nvi::Value::from(format!("{e}")))?
         };
         args.push(a);
     }
@@ -93,7 +93,7 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
         }
         Return::ResultVoid => {
             quote! {
-                    self.#method(client, #(#args),*).await.map_err(|e| nvi::Value::from(format!("{}", e)))?;
+                    self.#method(client, #(#args),*).await.map_err(|e| nvi::Value::from(format!("{e}")))?;
                     nvi::Value::Nil
             }
         }
@@ -101,15 +101,15 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
             quote! {
                     nvi::serde_rmpv::to_value(
                         &self.#method(client, #(#args),*).await
-                            .map_err(|e| nvi::Value::from(format!("{}", e)))?
-                    ).map_err(|e| nvi::Value::from(format!("{}", e)))?
+                            .map_err(|e| nvi::Value::from(format!("{e}")))?
+                    ).map_err(|e| nvi::Value::from(format!("{e}")))?
             }
         }
         Return::Type(_) => {
             quote! {
                     nvi::serde_rmpv::to_value(
                         &self.#method(client, #(#args),*).await
-                    ).map_err(|e| nvi::Value::from(format!("{}", e)))?
+                    ).map_err(|e| nvi::Value::from(format!("{e}")))?
             }
         }
     };
@@ -522,7 +522,7 @@ fn inner_nvi_plugin(
 ) -> Result<proc_macro2::TokenStream> {
     // First parse the input as an impl block to verify basic syntax
     let impl_block = syn::parse2::<syn::ItemImpl>(input.clone())
-        .map_err(|e| input.span().error(format!("Invalid impl block: {}", e)))?;
+        .map_err(|e| input.span().error(format!("Invalid impl block: {e}")))?;
 
     // Verify this is implementing a struct or enum
     let impl_type = match &*impl_block.self_ty {
@@ -663,7 +663,7 @@ fn inner_nvi_plugin(
                     match method {
                         #(#request_invocations),*
                         _ => {
-                            nvi::error::Result::Err(nvi::Value::from(format!("Unknown method: {}", method)))?
+                            nvi::error::Result::Err(nvi::Value::from(format!("Unknown method: {method}")))?
                         }
                     }
                 )
@@ -679,7 +679,7 @@ fn inner_nvi_plugin(
                     match method {
                         #(#request_invocations_mut),*
                         _ => {
-                            nvi::error::Result::Err(nvi::Value::from(format!("Unknown method: {}", method)))?
+                            nvi::error::Result::Err(nvi::Value::from(format!("Unknown method: {method}")))?
                         }
                     }
                 )
@@ -694,7 +694,7 @@ fn inner_nvi_plugin(
                 match method {
                     #(#notify_invocations),*
                     _ => {
-                        Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {}", method) })?
+                        Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {method}") })?
                     }
                 }
                 Ok(())
@@ -709,7 +709,7 @@ fn inner_nvi_plugin(
                 match method {
                     #(#notify_invocations_mut),*
                     _ => {
-                        Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {}", method) })?
+                        Err(nvi::error::Error::Internal{ msg: format!("Unknown notification: {method}") })?
                     }
                 }
                 Ok(())
@@ -832,7 +832,7 @@ mod tests {
                 #[request]
                 /// Some docs
                 fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
-                    Ok(format!("{}:{}", a, b))
+                    Ok(format!("{a}:{b}"))
                 }
                 #[request]
                 fn test_void(&mut self, client: &mut nvi::Client) {}
@@ -1001,7 +1001,7 @@ mod tests {
                 #[request]
                 /// Some docs
                 async fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str, d: foo::bar::Voing) -> Result<String> {
-                    Ok(format!("{}:{}", a, b))
+                    Ok(format!("{a}:{b}"))
                 }
 
                 #[request]
@@ -1039,7 +1039,7 @@ mod tests {
                 #[request]
                 /// Some docs
                 async fn test_method(&self, client: &mut nvi::Client, a: i32, b: String, c: &str) -> nvi::error::Result<String> {
-                    Ok(format!("{}:{}", a, b))
+                    Ok(format!("{a}:{b}"))
                 }
                 #[request]
                 async fn test_void(&self, client: &mut nvi::Client) {}

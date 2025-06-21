@@ -210,7 +210,7 @@ impl Client {
         }
         let events = events
             .iter()
-            .map(|e| format!("\"{}\"", e))
+            .map(|e| format!("\"{e}\""))
             .collect::<Vec<String>>()
             .join(", ");
 
@@ -278,13 +278,13 @@ impl Client {
         }
         let events = events
             .iter()
-            .map(|e| format!("\"{}\"", e))
+            .map(|e| format!("\"{e}\""))
             .collect::<Vec<String>>()
             .join(", ");
 
         let patterns = patterns
             .iter()
-            .map(|p| format!("\"{}\"", p))
+            .map(|p| format!("\"{p}\""))
             .collect::<Vec<String>>()
             .join(", ");
 
@@ -329,12 +329,12 @@ impl Client {
         loop {
             if start.elapsed() > timeout {
                 return Err(crate::error::Error::Internal {
-                    msg: format!("Plugin failed to reach running state after {:?}", timeout),
+                    msg: format!("Plugin failed to reach running state after {timeout:?}"),
                 });
             }
             let val = lua_exec!(
                 self,
-                &format!("return {}.{}()", name, crate::service::STATUS_MESSAGE)
+                &format!("return {name}.{status}()", status = crate::service::STATUS_MESSAGE)
             )
             .await;
             if let Ok(val) = val {
@@ -391,7 +391,7 @@ impl Client {
     /// This departs from the camelcase convention for highlight group names, but it gives us a
     /// consistent way to namespace over all features.
     pub fn hl_name(&self, group: &str) -> Result<String> {
-        let name = format!("{}_{}", self.name, group);
+        let name = format!("{}_{group}", self.name);
         highlights::check_group_name(&name)?;
         Ok(name)
     }

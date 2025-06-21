@@ -52,7 +52,7 @@ impl Simple {
         evt: nvi::AutocmdEvent,
     ) -> Result<()> {
         self.n += 1;
-        client.info(&format!("bufenter: {:?}", evt)).await
+        client.info(&format!("bufenter: {evt:?}")).await
     }
 
     // If the impl block has a method called `connected`, it will be called after connection to the

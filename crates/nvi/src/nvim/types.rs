@@ -102,7 +102,7 @@ impl Window {
     pub async fn winhl(&self, c: &client::Client, highlights: Vec<(String, String)>) -> Result<()> {
         let hl_string = highlights
             .into_iter()
-            .map(|(from, to)| format!("{}:{}", from, to))
+            .map(|(from, to)| format!("{from}:{to}"))
             .collect::<Vec<_>>()
             .join(",");
         self.set_option(c, "winhl", hl_string).await
@@ -493,7 +493,7 @@ impl Group {
     pub fn to_lua_arg(&self) -> String {
         match self {
             Group::Name(s) => s.clone(),
-            Group::Id(i) => format!("'{}'", i),
+            Group::Id(i) => format!("'{i}'"),
         }
     }
 }

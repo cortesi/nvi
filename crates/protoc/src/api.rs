@@ -40,9 +40,9 @@ impl std::fmt::Display for Type {
         match self {
             Type::Array => write!(f, "array"),
             Type::ArrayOf { typ, length } => {
-                write!(f, "arrayOf({}", typ)?;
+                write!(f, "arrayOf({typ}")?;
                 if let Some(length) = length {
-                    write!(f, ", {}", length)?;
+                    write!(f, ", {length}")?;
                 }
                 write!(f, ")")
             }

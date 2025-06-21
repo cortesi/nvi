@@ -178,9 +178,7 @@ impl NviTest {
         let logs = self.logs.lock().unwrap();
         assert!(
             logs.iter().any(|log| log.contains(contains)),
-            "Log containing '{}' not found in logs: {:?}",
-            contains,
-            logs
+            "Log containing '{contains}' not found in logs: {logs:?}"
         );
     }
 
@@ -212,7 +210,7 @@ impl NviTest {
                             let mut logs = self.0 .0.lock().unwrap();
                             logs.push(s.clone());
                             if self.0 .1 {
-                                print!("{}", s);
+                                print!("{s}");
                             }
                         }
                         Ok(buf.len())
@@ -251,7 +249,7 @@ impl NviTest {
         let handle_b = tokio::spawn(b(client_b));
 
         let result = handle_a.await.map_err(|e| crate::error::Error::Internal {
-            msg: format!("task a failed: {}", e),
+            msg: format!("task a failed: {e}"),
         })??;
 
         handle_b.abort();
@@ -284,8 +282,7 @@ impl NviTest {
         }
         Err(crate::error::Error::Internal {
             msg: format!(
-                "Timeout waiting for log containing '{}' after {:?}",
-                contains, timeout
+                "Timeout waiting for log containing '{contains}' after {timeout:?}"
             ),
         })
     }
@@ -296,12 +293,12 @@ impl NviTest {
         self.nvim_task
             .await
             .map_err(|e| crate::error::Error::Internal {
-                msg: format!("nvim task failed: {}", e),
+                msg: format!("nvim task failed: {e}"),
             })??;
         self.plugin_task
             .await
             .map_err(|e| crate::error::Error::Internal {
-                msg: format!("plugin task failed: {}", e),
+                msg: format!("plugin task failed: {e}"),
             })??;
         Ok(())
     }

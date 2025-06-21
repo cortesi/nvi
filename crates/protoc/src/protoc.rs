@@ -194,7 +194,7 @@ fn get_docs(name: &str) -> Vec<TokenStream> {
             if start <= end {
                 lines[start..=end]
                     .iter()
-                    .map(|&line| format!(" {}", line))
+                    .map(|&line| format!(" {line}"))
                     .map(|line| quote!(#[doc = #line]))
                     .collect()
             } else {

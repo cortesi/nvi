@@ -90,7 +90,7 @@ where
                     println!("No demos available.");
                 } else {
                     for name in demos {
-                        println!("{}", name);
+                        println!("{name}");
                     }
                 }
             } else {
@@ -109,8 +109,7 @@ where
                 "terminal" => docs::Formats::Terminal,
                 _ => {
                     return Err(crate::error::Error::User(format!(
-                        "Invalid format: {}",
-                        fmt
+                        "Invalid format: {fmt}"
                     )))
                 }
             };
@@ -129,7 +128,7 @@ where
             let err = neovim_handle
                 .await
                 .map_err(|e| crate::error::Error::Internal {
-                    msg: format!("Error waiting for Neovim process: {}", e),
+                    msg: format!("Error waiting for Neovim process: {e}"),
                 });
 
             // Reset terminal state
@@ -175,19 +174,19 @@ where
 
             let plugin_result = plugin_result
                 .map_err(|e| crate::error::Error::Internal {
-                    msg: format!("plugin task failed: {}", e),
+                    msg: format!("plugin task failed: {e}"),
                 })
                 .and_then(|r| r);
 
             let _ = neovim_result.map_err(|e| crate::error::Error::Internal {
-                msg: format!("neovim task failed: {}", e),
+                msg: format!("neovim task failed: {e}"),
             });
 
             // Reset terminal state
             let _ = std::process::Command::new("reset").status();
 
             if let Err(e) = plugin_result {
-                eprintln!("Plugin error: {}", e);
+                eprintln!("Plugin error: {e}");
             }
             Ok(())
         }

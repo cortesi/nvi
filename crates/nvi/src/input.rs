@@ -236,7 +236,7 @@ impl Keys {
     /// Parse a key name into a Keys variant.
     pub fn from_name(name: &str) -> Result<Self, Error> {
         name.parse::<Keys>()
-            .map_err(|_| Error::User(format!("Invalid key name: {}", name)))
+            .map_err(|_| Error::User(format!("Invalid key name: {name}")))
     }
 }
 
@@ -251,7 +251,7 @@ impl fmt::Display for KeyPress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.modifers.is_empty() {
             match &self.key {
-                Keys::Char(c) => write!(f, "{}", c),
+                Keys::Char(c) => write!(f, "{c}"),
                 _ => write!(f, "<{}>", self.key.name()),
             }
         } else {
@@ -260,7 +260,7 @@ impl fmt::Display for KeyPress {
                 write!(f, "{}", modifier.to_prefix())?;
             }
             match &self.key {
-                Keys::Char(c) => write!(f, "{}>", c),
+                Keys::Char(c) => write!(f, "{c}>"),
                 _ => write!(f, "{}>", self.key.name()),
             }
         }
@@ -318,7 +318,7 @@ impl KeyPress {
             }
             .normalise());
         }
-        Err(Error::User(format!("Failed to parse keypress: {:?}", raw)))
+        Err(Error::User(format!("Failed to parse keypress: {raw:?}")))
     }
 }
 
@@ -351,7 +351,7 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
                         let lua_keytrans = format!(
                             "return vim.fn.keytrans('{}')",
                             bytes.iter().fold(String::new(), |mut acc, &b| {
-                                let _ = write!(acc, "\\x{:02x}", b);
+                                let _ = write!(acc, "\\x{b:02x}");
                                 acc
                             })
                         );
@@ -390,7 +390,7 @@ pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
     );
     match lua_exec!(client, &lua_code).await {
         Ok(_) => Ok(()),
-        Err(e) => Err(Error::User(format!("Failed to feedkeys: {}", e))),
+        Err(e) => Err(Error::User(format!("Failed to feedkeys: {e}"))),
     }
 }
 
@@ -467,7 +467,7 @@ mod tests {
         ];
 
         for (key, expected) in test_cases {
-            assert_eq!(format!("{}", key), expected);
+            assert_eq!(format!("{key}"), expected);
         }
     }
 
@@ -499,11 +499,11 @@ mod tests {
                 }
             });
             let key = get_keypress(&client1).await.unwrap();
-            println!("Got key: {:?}", key);
+            println!("Got key: {key:?}");
             handle.abort();
             let _ = handle.await;
 
-            assert_eq!(format!("{}", key), expected);
+            assert_eq!(format!("{key}"), expected);
         }
         test.finish().await.unwrap();
     }

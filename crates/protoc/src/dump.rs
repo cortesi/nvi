@@ -4,7 +4,7 @@ use anyhow::Result;
 pub fn dump(raw: bool) -> Result<()> {
     let v = api::get_api()?;
     if raw {
-        println!("{:#?}", v);
+        println!("{v:#?}");
     } else {
         println!("API v{}.{}", v.version.major, v.version.minor);
         println!("Functions:");
@@ -19,7 +19,7 @@ pub fn dump(raw: bool) -> Result<()> {
                 .map(|p| format!("{}: {}", p.1, p.0))
                 .collect::<Vec<String>>()
                 .join(", ");
-            print!("{})", args);
+            print!("{args})");
             print!(") -> {}", f.return_type);
             println!();
         }

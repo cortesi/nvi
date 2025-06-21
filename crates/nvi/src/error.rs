@@ -34,7 +34,7 @@ pub enum Error {
 impl From<serde_rmpv::Error> for Error {
     fn from(e: serde_rmpv::Error) -> Self {
         Error::Decode {
-            msg: format!("serde: {}", e),
+            msg: format!("serde: {e}"),
         }
     }
 }
@@ -42,7 +42,7 @@ impl From<serde_rmpv::Error> for Error {
 impl From<rmp::encode::ValueWriteError> for Error {
     fn from(e: rmp::encode::ValueWriteError) -> Self {
         Error::Encode {
-            msg: format!("{}", e),
+            msg: format!("{e}"),
         }
     }
 }
@@ -50,7 +50,7 @@ impl From<rmp::encode::ValueWriteError> for Error {
 impl From<rmp::decode::ValueReadError> for Error {
     fn from(e: rmp::decode::ValueReadError) -> Self {
         Error::Decode {
-            msg: format!("value read: {}", e),
+            msg: format!("value read: {e}"),
         }
     }
 }
@@ -58,7 +58,7 @@ impl From<rmp::decode::ValueReadError> for Error {
 impl From<rmp::decode::DecodeStringError<'_>> for Error {
     fn from(e: rmp::decode::DecodeStringError) -> Self {
         Error::Decode {
-            msg: format!("rmp decode: {}", e),
+            msg: format!("rmp decode: {e}"),
         }
     }
 }
@@ -66,7 +66,7 @@ impl From<rmp::decode::DecodeStringError<'_>> for Error {
 impl From<rmpv::decode::Error> for Error {
     fn from(e: rmpv::decode::Error) -> Self {
         Error::Decode {
-            msg: format!("rmpv decode: {}", e),
+            msg: format!("rmpv decode: {e}"),
         }
     }
 }
@@ -80,7 +80,7 @@ impl From<std::convert::Infallible> for Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::IO {
-            msg: format!("{}", e),
+            msg: format!("{e}"),
         }
     }
 }
@@ -91,7 +91,7 @@ impl From<mrpc::RpcError> for Error {
             mrpc::RpcError::Service(e) => Error::RemoteError(e.value),
             mrpc::RpcError::Connect(e) => Error::Connect { msg: e },
             e => Error::Internal {
-                msg: format!("{:?}", e),
+                msg: format!("{e:?}"),
             },
         }
     }

@@ -47,7 +47,7 @@ pub async fn start_nvim_headless(
         select! {
             _ = termrx.recv() => {
                 killpg(pgid, Signal::SIGTERM).map_err(|e| crate::error::Error::Internal {
-                    msg: format!("could not kill process group {}", e),
+                    msg: format!("could not kill process group {e}"),
                 })?;
                 child.wait().await?;
                 return Ok(());
@@ -55,21 +55,21 @@ pub async fn start_nvim_headless(
             result = child.wait() => {
                 return match result {
                     Ok(status) => Err(crate::error::Error::Internal {
-                        msg: format!("Neovim process exited unexpectedly with status: {}", status)
+                        msg: format!("Neovim process exited unexpectedly with status: {status}")
                     }),
                     Err(e) => Err(crate::error::Error::Internal {
-                        msg: format!("Error waiting for Neovim process: {}", e)
+                        msg: format!("Error waiting for Neovim process: {e}")
                     }),
                 };
             }
             line = stdout_reader.next_line() => {
                 if let Ok(Some(line)) = line {
-                    println!("stdout: {}", line);
+                    println!("stdout: {line}");
                 }
             }
             line = stderr_reader.next_line() => {
                 if let Ok(Some(line)) = line {
-                    eprintln!("stderr: {}", line);
+                    eprintln!("stderr: {line}");
                 }
             }
         }

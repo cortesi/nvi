@@ -17,7 +17,7 @@ use crate::Color;
 pub fn full_name(prefix: &str, name: &str) -> Result<String> {
     check_group_name(prefix)?;
     check_group_name(name)?;
-    Ok(format!("{}{}", prefix, name))
+    Ok(format!("{prefix}{name}"))
 }
 
 impl fmt::Display for Hl {
@@ -84,14 +84,12 @@ impl fmt::Display for Hl {
 pub fn validate_color(color: &str) -> Result<()> {
     if !color.starts_with('#') || color.len() != 7 {
         return Err(crate::error::Error::User(format!(
-            "Invalid color format '{}': must be '#' followed by 6 hex digits",
-            color
+            "Invalid color format '{color}': must be '#' followed by 6 hex digits"
         )));
     }
     if !color[1..].chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(crate::error::Error::User(format!(
-            "Invalid color format '{}': must contain only hex digits after '#'",
-            color
+            "Invalid color format '{color}': must contain only hex digits after '#'"
         )));
     }
     Ok(())

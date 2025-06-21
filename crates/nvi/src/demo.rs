@@ -87,7 +87,7 @@ impl Demos {
             let f = self
                 .functions
                 .get(demo_name)
-                .ok_or_else(|| crate::error::Error::User(format!("no such demo: {}", demo_name)))?;
+                .ok_or_else(|| crate::error::Error::User(format!("no such demo: {demo_name}")))?;
             demo_result = f(&client).await;
         }
 
@@ -95,19 +95,19 @@ impl Demos {
 
         let plugin_result = plugin_result
             .map_err(|e| crate::error::Error::Internal {
-                msg: format!("plugin task failed: {}", e),
+                msg: format!("plugin task failed: {e}"),
             })
             .and_then(|r| r);
 
         let _ = neovim_result.map_err(|e| crate::error::Error::Internal {
-            msg: format!("neovim task failed: {}", e),
+            msg: format!("neovim task failed: {e}"),
         });
 
         if let Err(e) = demo_result {
-            eprintln!("Demo error: {}", e);
+            eprintln!("Demo error: {e}");
         }
         if let Err(e) = plugin_result {
-            eprintln!("Plugin error: {}", e);
+            eprintln!("Plugin error: {e}");
         }
 
         // Reset terminal state

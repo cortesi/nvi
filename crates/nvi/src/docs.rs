@@ -22,10 +22,10 @@ fn render_text_markdown(
     if !hl.is_empty() {
         ret.push_str("\n## Highlights\n\n");
         for (n, hl) in hl.highlights {
-            ret.push_str(&format!("* {}: {}\n", full_name(name, &n)?, hl));
+            ret.push_str(&format!("* {}: {hl}\n", full_name(name, &n)?));
         }
         for (n, dst) in hl.links {
-            ret.push_str(&format!("* {}: {}\n", full_name(name, &n)?, dst));
+            ret.push_str(&format!("* {}: {dst}\n", full_name(name, &n)?));
         }
     }
     if !methods.is_empty() {
@@ -33,9 +33,9 @@ fn render_text_markdown(
         for m in methods {
             match m.method_type {
                 MethodType::Request | MethodType::Notify => {
-                    ret.push_str(&format!("### {name}.{}\n\n", m.name));
+                    ret.push_str(&format!("### {name}.{mname}\n\n", mname = m.name));
                     if !m.docs.is_empty() {
-                        ret.push_str(&format!("{docs}\n\n", docs = m.docs));
+                        ret.push_str(&format!("{}\n\n", m.docs));
                     }
                 }
                 _ => {}
@@ -90,17 +90,17 @@ fn render_text_terminal(
         for (n, hl) in hl.highlights {
             let full_name = full_name(name, &n)?;
             buffer.set_color(&hl_style)?;
-            write!(&mut buffer, "\n{}", full_name)?;
+            write!(&mut buffer, "\n{full_name}")?;
             buffer.reset()?;
-            write!(&mut buffer, ": {}", hl)?;
+            write!(&mut buffer, ": {hl}")?;
         }
 
         for (n, dst) in hl.links {
             let full_name = full_name(name, &n)?;
             buffer.set_color(&hl_style)?;
-            write!(&mut buffer, "\n{}", full_name)?;
+            write!(&mut buffer, "\n{full_name}")?;
             buffer.reset()?;
-            write!(&mut buffer, ": {}", dst)?;
+            write!(&mut buffer, ": {dst}")?;
         }
     }
 
@@ -128,7 +128,7 @@ fn render_text_terminal(
     }
 
     String::from_utf8(buffer.into_inner()).map_err(|e| crate::error::Error::Internal {
-        msg: format!("Invalid UTF-8 in terminal output: {}", e),
+        msg: format!("Invalid UTF-8 in terminal output: {e}"),
     })
 }
 
