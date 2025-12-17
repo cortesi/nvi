@@ -1,14 +1,13 @@
 #![allow(clippy::needless_question_mark)]
 #![allow(clippy::needless_borrow)]
 #![allow(clippy::doc_lazy_continuation)]
-use std::collections::HashMap;
-
+use super::opts;
+use super::types::*;
+use crate::error::Result;
 use mrpc::Value;
 use serde::{de::DeserializeOwned, Serialize};
+use std::collections::HashMap;
 use tracing::trace;
-
-use super::{opts, types::*};
-use crate::error::Result;
 const NO_PARAMS: [(); 0] = [];
 #[derive(Clone, Debug)]
 /// Generated bindings for Neovim's MessagePack-RPC API.
