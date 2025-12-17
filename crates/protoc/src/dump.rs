@@ -1,6 +1,8 @@
-use crate::api;
 use anyhow::Result;
 
+use crate::api;
+
+/// Dumps the Neovim API definition
 pub fn dump(raw: bool) -> Result<()> {
     let v = api::get_api()?;
     if raw {

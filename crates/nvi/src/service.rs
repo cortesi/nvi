@@ -1,20 +1,34 @@
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+//! Service implementation for Nvi plugins.
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
-use crate::Value;
 use async_trait::async_trait;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, trace, warn};
 
-use crate::{client::Client, error::Result, highlights, macro_types, nvim, nvim::types};
+use crate::{
+    client::Client,
+    error::{Error, Result},
+    highlights, macro_types, nvim,
+    nvim::types,
+    Value,
+};
 
-pub(crate) const STATUS_MESSAGE: &str = "__nvi_status";
+/// The message used to query the status of the plugin
+pub const STATUS_MESSAGE: &str = "__nvi_status";
 
+/// The status of the plugin
 #[derive(Debug, Clone, Copy, strum::Display)]
 #[strum(serialize_all = "lowercase")]
-pub(crate) enum Status {
+pub enum Status {
+    /// The plugin is stopped
     Stopped,
+    /// The plugin is connected to Neovim
     Connected,
+    /// The plugin is running
     Running,
 }
 
@@ -145,15 +159,20 @@ pub trait NviPlugin: Sync + Send + 'static {
     }
 }
 
-// RpcConnection handles a single RPC connection
-pub(crate) struct RpcConnection<T>
+/// RpcConnection handles a single RPC connection
+pub struct RpcConnection<T>
 where
     T: NviPlugin,
 {
-    plugin: tokio::sync::RwLock<T>,
+    /// The plugin instance
+    plugin: RwLock<T>,
+    /// The channel used to signal shutdown
     shutdown_tx: broadcast::Sender<()>,
+    /// The channel ID for this connection
     channel_id: Arc<Mutex<Option<u64>>>,
-    methods: std::collections::HashMap<String, bool>,
+    /// A map of method names to their mutability
+    methods: HashMap<String, bool>,
+    /// The status of the connection
     status: Arc<Mutex<Status>>,
 }
 
@@ -161,6 +180,7 @@ impl<T> RpcConnection<T>
 where
     T: NviPlugin,
 {
+    /// Create a new RpcConnection
     pub fn new(shutdown_tx: broadcast::Sender<()>, plugin: T) -> Self {
         let method_mutability = plugin
             .inspect()
@@ -168,8 +188,8 @@ where
             .map(|m| (m.name, m.is_mut))
             .collect();
 
-        RpcConnection {
-            plugin: tokio::sync::RwLock::new(plugin),
+        Self {
+            plugin: RwLock::new(plugin),
             shutdown_tx,
             channel_id: Arc::new(Mutex::new(None)),
             methods: method_mutability,
@@ -177,6 +197,7 @@ where
         }
     }
 
+    /// Create a new Client for the given plugin
     fn make_client(&self, plugin_name: &str, sender: mrpc::RpcSender) -> Client {
         Client::new(
             sender,
@@ -186,10 +207,11 @@ where
         )
     }
 
+    /// Handle an error that occurred during a notification
     async fn handle_notification_error(
         &self,
         method: &str,
-        e: crate::error::Error,
+        e: Error,
         sender: mrpc::RpcSender,
     ) -> mrpc::Result<()> {
         warn!("error handling notification: {:?}", e);
@@ -209,6 +231,7 @@ where
         }))
     }
 
+    /// Handle an error that occurred during a request
     async fn handle_request_error(
         &self,
         method: &str,

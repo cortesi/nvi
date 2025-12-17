@@ -2,6 +2,11 @@
 //! to the neovim API itself, without attempting to add higher-level abstractions, apart from
 //! obvious, simple helper methods.
 
+#![allow(missing_docs)]
+#![allow(clippy::absolute_paths)]
+
+use std::fmt;
+
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{serde_as, Bytes, NoneAsEmptyString};
@@ -16,6 +21,7 @@ pub const WINDOW_EXT_TYPE: i8 = 1;
 /// The type identifier for TabPage objects in the MessagePack protocol
 pub const TABPAGE_EXT_TYPE: i8 = 2;
 
+/// Convert a byte array to a u64
 fn u8_array_to_u64(bytes: &[u8]) -> u64 {
     bytes
         .iter()
@@ -30,8 +36,9 @@ fn u8_array_to_u64(bytes: &[u8]) -> u64 {
 pub struct Buffer(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl Buffer {
+    /// Get the current buffer.
     pub fn current() -> Self {
-        Buffer((BUFFER_EXT_TYPE, vec![0, 0, 0, 0]))
+        Self((BUFFER_EXT_TYPE, vec![0, 0, 0, 0]))
     }
 
     /// Set an option on this buffer
@@ -61,7 +68,7 @@ impl From<Buffer> for u64 {
 impl From<u64> for Buffer {
     fn from(value: u64) -> Self {
         let bytes = value.to_le_bytes().to_vec();
-        Buffer((BUFFER_EXT_TYPE, bytes))
+        Self((BUFFER_EXT_TYPE, bytes))
     }
 }
 
@@ -71,21 +78,22 @@ impl From<u64> for Buffer {
 /// A Neovim window handle. Windows are viewports onto buffers.
 pub struct Window(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
-impl std::fmt::Debug for Window {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for Window {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Window({})", u64::from(self.clone()))
     }
 }
 
-impl std::fmt::Display for Window {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Window {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Window({})", u64::from(self.clone()))
     }
 }
 
 impl Window {
+    /// Get the current window.
     pub fn current() -> Self {
-        Window((WINDOW_EXT_TYPE, vec![0, 0, 0, 0]))
+        Self((WINDOW_EXT_TYPE, vec![0, 0, 0, 0]))
     }
 
     /// Get the window geometry.  
@@ -99,6 +107,7 @@ impl Window {
         Ok((x, y, width, height))
     }
 
+    /// Set window highlighting.
     pub async fn winhl(&self, c: &client::Client, highlights: Vec<(String, String)>) -> Result<()> {
         let hl_string = highlights
             .into_iter()
@@ -135,7 +144,7 @@ impl From<Window> for u64 {
 impl From<u64> for Window {
     fn from(value: u64) -> Self {
         let bytes = value.to_le_bytes().to_vec();
-        Window((WINDOW_EXT_TYPE, bytes))
+        Self((WINDOW_EXT_TYPE, bytes))
     }
 }
 
@@ -145,21 +154,22 @@ impl From<u64> for Window {
 /// A Neovim tabpage handle. Tabpages are collections of windows.
 pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
-impl std::fmt::Debug for TabPage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TabPage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "TabPage({})", u64::from(self.clone()))
     }
 }
 
-impl std::fmt::Display for TabPage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for TabPage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "TabPage({})", u64::from(self.clone()))
     }
 }
 
 impl TabPage {
+    /// Get the current tabpage.
     pub fn current() -> Self {
-        TabPage((TABPAGE_EXT_TYPE, vec![0, 0, 0, 0]))
+        Self((TABPAGE_EXT_TYPE, vec![0, 0, 0, 0]))
     }
 }
 
@@ -173,35 +183,48 @@ impl From<TabPage> for u64 {
 impl From<u64> for TabPage {
     fn from(value: u64) -> Self {
         let bytes = value.to_le_bytes().to_vec();
-        TabPage((TABPAGE_EXT_TYPE, bytes))
+        Self((TABPAGE_EXT_TYPE, bytes))
     }
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
 /// Version information for the Neovim API.
 pub struct APIVersion {
+    /// The major version.
     pub major: u64,
+    /// The minor version.
     pub minor: u64,
+    /// The patch version.
     pub patch: u64,
+    /// The API level.
     pub api_level: u64,
+    /// The API compatibility level.
     pub api_compatible: u64,
+    /// The build version.
     pub build: String,
+    /// Whether the version is a prerelease.
     pub prerelease: bool,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
 /// Information about the Neovim API implementation.
 pub struct ApiInfo {
+    /// The version of the API.
     pub version: APIVersion,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 /// Information about a Neovim communication channel.
 pub struct ChanInfo {
+    /// The channel ID.
     pub id: u64,
+    /// The arguments used to start the channel.
     pub argv: Option<String>,
+    /// The stream type (stdio, socket, etc.).
     pub stream: String,
+    /// The mode of the channel.
     pub mode: String,
+    /// The PTY associated with the channel.
     pub pty: Option<String>,
     // FIXME: Docs aren't clear on what the return types of these two are.
     //pub buffer: Option<String>,
@@ -209,6 +232,7 @@ pub struct ChanInfo {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
+/// An AutoCommand event.
 pub struct AutocmdEvent {
     /// The AutoCommand ID, as returned by `nvim_create_autocmd`
     pub id: u64,
@@ -492,8 +516,8 @@ pub enum Group {
 impl Group {
     pub fn to_lua_arg(&self) -> String {
         match self {
-            Group::Name(s) => s.clone(),
-            Group::Id(i) => format!("'{i}'"),
+            Self::Name(s) => s.clone(),
+            Self::Id(i) => format!("'{i}'"),
         }
     }
 }
@@ -511,11 +535,11 @@ pub enum LogLevel {
 impl LogLevel {
     pub fn to_u64(&self) -> u64 {
         match self {
-            LogLevel::Trace => 0,
-            LogLevel::Debug => 1,
-            LogLevel::Info => 2,
-            LogLevel::Warn => 3,
-            LogLevel::Error => 4,
+            Self::Trace => 0,
+            Self::Debug => 1,
+            Self::Info => 2,
+            Self::Warn => 3,
+            Self::Error => 4,
         }
     }
 }
@@ -656,11 +680,12 @@ pub struct WindowConf {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test::NviTest;
     use pretty_assertions::assert_eq;
     use rmpv::Value;
     use serde_rmpv::from_value;
+
+    use super::*;
+    use crate::test::NviTest;
 
     #[tokio::test]
     async fn test_window_geom() {

@@ -1,7 +1,10 @@
 //! A window pane, which is a window and a buffer managed in concert. This is the base for
 //! non-editing interface windows.
-use crate::nvim::{opts, types, types::WindowConf};
-use crate::{error::Result, Client};
+use crate::{
+    error::Result,
+    nvim::{opts, types, types::WindowConf},
+    Client,
+};
 
 /// A quick way to position a window relative to another window or the editor.
 #[derive(Debug)]
@@ -46,24 +49,24 @@ impl Pos {
         }
 
         match self {
-            Pos::NW => (padding as f64, padding as f64),
-            Pos::N => (padding as f64, ((win_width - width) / 2) as f64),
-            Pos::NE => (padding as f64, (win_width - width - padding) as f64),
-            Pos::W => (((win_height - height) / 2) as f64, padding as f64),
-            Pos::E => (
+            Self::NW => (padding as f64, padding as f64),
+            Self::N => (padding as f64, ((win_width - width) / 2) as f64),
+            Self::NE => (padding as f64, (win_width - width - padding) as f64),
+            Self::W => (((win_height - height) / 2) as f64, padding as f64),
+            Self::E => (
                 ((win_height - height) / 2) as f64,
                 (win_width - width - padding) as f64,
             ),
-            Pos::SW => ((win_height - height - padding) as f64, padding as f64),
-            Pos::S => (
+            Self::SW => ((win_height - height - padding) as f64, padding as f64),
+            Self::S => (
                 (win_height - height - padding) as f64,
                 ((win_width - width) / 2) as f64,
             ),
-            Pos::SE => (
+            Self::SE => (
                 (win_height - height - padding) as f64,
                 (win_width - width - padding) as f64,
             ),
-            Pos::Center => (
+            Self::Center => (
                 ((win_height - height) / 2) as f64,
                 ((win_width - width) / 2) as f64,
             ),
@@ -74,6 +77,7 @@ impl Pos {
 /// Textual content to be displayed in a window pane.
 #[derive(Clone, Debug)]
 pub struct Text {
+    /// The lines of text.
     pub(crate) lines: Vec<String>,
 }
 
@@ -129,8 +133,11 @@ impl Text {
 /// directly.
 #[derive(Clone, Debug)]
 pub struct Pane {
+    /// The window handle.
     pub window: types::Window,
+    /// The buffer handle.
     pub buffer: types::Buffer,
+    /// The content of the pane.
     pub content: Text,
 }
 
@@ -157,11 +164,17 @@ impl Pane {
 /// the window using normal window movement commands. This is useful for UI
 /// elements that should not interfere with normal window navigation.
 pub struct PaneBuilder {
+    /// The border style.
     border: Option<types::Border>,
+    /// The base window configuration.
     window_conf: Option<WindowConf>,
+    /// The position relative to another window.
     win_pos: Option<(types::Window, Pos, u64)>,
+    /// The position relative to the editor.
     editor_pos: Option<(Pos, u64)>,
+    /// Highlights to apply to the window.
     highlights: Vec<(String, String)>,
+    /// Whether the window is focusable.
     focusable: bool,
     /// Controls whether the window receives focus when created.
     /// Defaults to false to prevent disrupting the user's focus.

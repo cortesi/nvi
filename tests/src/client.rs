@@ -1,13 +1,12 @@
 use nvi::{
+    error::Result,
     nvim::{
         opts,
         types::{AutocmdEvent, Event},
     },
-    test,
+    test, Client,
 };
-
 use nvi_macros::{nvi_plugin, request};
-
 use tokio::sync::broadcast;
 use tracing::debug;
 use tracing_test::traced_test;
@@ -21,12 +20,12 @@ async fn it_registers_buffer_autocmds() {
     #[nvi_plugin]
     impl T {
         #[request]
-        async fn aucmd(&self, _: &mut nvi::Client, _: AutocmdEvent) -> nvi::error::Result<bool> {
+        async fn aucmd(&self, _: &Client, _: AutocmdEvent) -> Result<bool> {
             debug!("aucmd received");
             Ok(false)
         }
 
-        async fn connected(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, c: &Client) -> Result<()> {
             c.nvim
                 .clear_autocmds(opts::ClearAutocmds::default())
                 .await?;
@@ -61,7 +60,7 @@ async fn api_nvim_get_chan_info() {
 
     #[nvi_plugin]
     impl T {
-        async fn connected(&self, c: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, c: &Client) -> Result<()> {
             let chan = c.nvim.get_chan_info(0).await?;
             assert!(chan.id > 0);
             c.shutdown();

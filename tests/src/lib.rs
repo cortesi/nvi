@@ -1,3 +1,4 @@
+//! Integration tests for nvi.
 #[cfg(test)]
 mod client;
 #[cfg(test)]

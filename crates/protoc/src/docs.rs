@@ -1,3 +1,4 @@
+/// Documentation for Neovim API functions
 pub const DOCS: &[(&str, &str)] = &[
     (
         "nvim__complete_set",

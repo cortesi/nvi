@@ -8,16 +8,23 @@ pub const IDENT_MAP: &[(&str, &str)] = &[("fn", "func"), ("type", "typ")];
 /// yet.
 pub const SKIP_FUNCTIONS: &[&str] = &["nvim_buf_call", "nvim_win_call"];
 
+/// An argument override
 pub struct Arg {
+    /// The name of the argument
     pub name: String,
+    /// The type of the argument
     pub typ: TokenStream,
 }
 
+/// An override definition
 pub struct Override {
+    /// The return type override
     pub ret: Option<TokenStream>,
+    /// The argument overrides
     pub args: Vec<Arg>,
 }
 
+/// Get an override for a function
 pub fn get_override(name: &str) -> Option<Override> {
     Some(match name {
         "nvim_buf_delete" => Override {
@@ -124,6 +131,7 @@ pub fn get_override(name: &str) -> Option<Override> {
     })
 }
 
+/// Get the type of an argument
 pub fn get_arg_type(name: &str, arg: &str) -> Option<TokenStream> {
     if let Some(override_) = get_override(name) {
         for a in override_.args.iter() {
@@ -135,6 +143,7 @@ pub fn get_arg_type(name: &str, arg: &str) -> Option<TokenStream> {
     None
 }
 
+/// Get the return type override for a function
 pub fn get_return_override(name: &str) -> Option<TokenStream> {
     get_override(name).and_then(|o| o.ret)
 }

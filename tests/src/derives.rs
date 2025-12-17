@@ -1,10 +1,14 @@
-use nvi::{
-    nvim::{opts, types::Event},
-    test, NviPlugin,
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
 };
 
+use nvi::{
+    error::Result,
+    nvim::{opts, types::Event},
+    test, Client, NviPlugin,
+};
 use nvi_macros::*;
-
 use tokio::sync::broadcast;
 use tracing::{debug, trace};
 use tracing_test::traced_test;
@@ -21,7 +25,7 @@ async fn it_derives_basic_service() {
     /// aaa bbb
     /// ccc
     impl TestPlugin {
-        async fn connected(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, _: &Client) -> Result<()> {
             trace!("connected");
             debug!("docs: {:#?}", self.docs().unwrap());
             self.tx.send(()).unwrap();
@@ -46,12 +50,12 @@ async fn it_derives_autocmd_handler() {
     #[nvi_plugin]
     impl TestPlugin {
         #[autocmd(["User"], patterns=["*.rs"])]
-        async fn on_user_event(&self, _client: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn on_user_event(&self, _client: &Client) -> Result<()> {
             debug!("received");
             Ok(())
         }
 
-        async fn connected(&self, _client: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, _client: &Client) -> Result<()> {
             Ok(())
         }
     }
@@ -82,35 +86,33 @@ async fn it_derives_autocmd_handler() {
 async fn it_derives_combined_handlers() {
     #[derive(Clone)]
     struct TestPlugin {
-        count: std::sync::Arc<std::sync::atomic::AtomicU32>,
+        count: Arc<AtomicU32>,
     }
 
     #[nvi_plugin]
     impl TestPlugin {
         #[request]
-        async fn increment(&mut self, _: &mut nvi::Client) -> nvi::error::Result<u32> {
-            let prev = self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        async fn increment(&self, _: &Client) -> Result<u32> {
+            let prev = self.count.fetch_add(1, Ordering::SeqCst);
             debug!("increment to {}", prev + 1);
             Ok(prev + 1)
         }
 
         #[notify]
-        async fn reset(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
-            self.count.store(0, std::sync::atomic::Ordering::SeqCst);
+        async fn reset(&self, _: &Client) -> Result<()> {
+            self.count.store(0, Ordering::SeqCst);
             debug!("reset counter");
             Ok(())
         }
 
         #[autocmd(["BufNew"], patterns=["*.txt"])]
-        async fn on_new_txt(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
-            let count = self
-                .count
-                .fetch_add(10, std::sync::atomic::Ordering::SeqCst);
+        async fn on_new_txt(&self, _: &Client) -> Result<()> {
+            let count = self.count.fetch_add(10, Ordering::SeqCst);
             debug!("buffer event: adding 10, was {}", count);
             Ok(())
         }
 
-        async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, _: &Client) -> Result<()> {
             Ok(())
         }
     }
@@ -119,7 +121,7 @@ async fn it_derives_combined_handlers() {
         .show_logs()
         .log_level(tracing::Level::DEBUG)
         .with_plugin(TestPlugin {
-            count: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            count: Arc::new(AtomicU32::new(0)),
         })
         .run()
         .await

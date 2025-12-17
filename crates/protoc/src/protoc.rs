@@ -2,12 +2,14 @@ use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::{api, overrides};
+use crate::{api, docs, overrides};
 
+/// Format code with prettyplease
 fn format_with_prettyplease(code: TokenStream) -> String {
     prettyplease::unparse(&syn::parse2(code).expect("Failed to parse token stream"))
 }
 
+/// Clean a name to be a valid identifier
 fn clean_name(name: &str) -> String {
     let mut name = name.to_string();
     for (a, b) in overrides::IDENT_MAP {
@@ -122,6 +124,7 @@ fn generate_argument(func: &str, p: &api::Parameter, meta_count: i32) -> (TokenS
     }
 }
 
+/// Make a return type
 fn mk_return_type(t: &api::Type) -> TokenStream {
     match t {
         api::Type::Array => quote! {
@@ -171,6 +174,7 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
     }
 }
 
+/// Make an argument value
 fn mk_arg_value(p: &api::Parameter) -> TokenStream {
     let name = Ident::new(&clean_name(&p.1), Span::call_site());
     quote! {
@@ -181,31 +185,29 @@ fn mk_arg_value(p: &api::Parameter) -> TokenStream {
 /// Retrieves and formats the documentation for a given function name.
 /// Returns a vec of TokenStream, each representing a doc comment line.
 fn get_docs(name: &str) -> Vec<TokenStream> {
-    let docs = crate::docs::DOCS
-        .iter()
-        .find(|(n, _)| *n == name)
-        .map(|(_, doc)| {
-            let lines: Vec<_> = doc.lines().map(|line| line.trim()).collect();
-            // Find first and last non-empty line
-            let start = lines.iter().position(|line| !line.is_empty()).unwrap_or(0);
-            let end = lines.iter().rposition(|line| !line.is_empty()).unwrap_or(0);
+    let docs = docs::DOCS.iter().find(|(n, _)| *n == name).map(|(_, doc)| {
+        let lines: Vec<_> = doc.lines().map(|line| line.trim()).collect();
+        // Find first and last non-empty line
+        let start = lines.iter().position(|line| !line.is_empty()).unwrap_or(0);
+        let end = lines.iter().rposition(|line| !line.is_empty()).unwrap_or(0);
 
-            // Only take the lines between start and end (inclusive)
-            if start <= end {
-                lines[start..=end]
-                    .iter()
-                    .map(|&line| format!(" {line}"))
-                    .map(|line| quote!(#[doc = #line]))
-                    .collect()
-            } else {
-                Vec::new()
-            }
-        });
+        // Only take the lines between start and end (inclusive)
+        if start <= end {
+            lines[start..=end]
+                .iter()
+                .map(|&line| format!(" {line}"))
+                .map(|line| quote!(#[doc = #line]))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    });
 
     docs.unwrap_or_default()
 }
 
-fn generate_function(f: api::Function) -> TokenStream {
+/// Generate a function definition
+fn generate_function(f: &api::Function) -> TokenStream {
     // All functions have the nvim_ prefix, so we strip it.
     let id = Ident::new(&f.name[5..], Span::call_site());
     let name = &f.name;
@@ -288,7 +290,7 @@ pub fn protoc() -> Result<()> {
         .into_iter()
         .filter(|f| !overrides::SKIP_FUNCTIONS.contains(&f.name.as_str()))
         .filter(|f| f.deprecated_since.is_none())
-        .map(generate_function)
+        .map(|f| generate_function(&f))
         .collect();
     let toks = quote!(
         #![allow(clippy::needless_question_mark)]

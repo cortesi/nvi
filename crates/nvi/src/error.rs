@@ -2,6 +2,8 @@
 //!
 //! This module provides the standard error types and Result type used throughout Nvi.
 
+#![allow(clippy::absolute_paths)]
+
 /// Standard Result type for Nvi operations, defaulting to the Nvi Error type.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -33,7 +35,7 @@ pub enum Error {
 
 impl From<serde_rmpv::Error> for Error {
     fn from(e: serde_rmpv::Error) -> Self {
-        Error::Decode {
+        Self::Decode {
             msg: format!("serde: {e}"),
         }
     }
@@ -41,7 +43,7 @@ impl From<serde_rmpv::Error> for Error {
 
 impl From<rmp::encode::ValueWriteError> for Error {
     fn from(e: rmp::encode::ValueWriteError) -> Self {
-        Error::Encode {
+        Self::Encode {
             msg: format!("{e}"),
         }
     }
@@ -49,7 +51,7 @@ impl From<rmp::encode::ValueWriteError> for Error {
 
 impl From<rmp::decode::ValueReadError> for Error {
     fn from(e: rmp::decode::ValueReadError) -> Self {
-        Error::Decode {
+        Self::Decode {
             msg: format!("value read: {e}"),
         }
     }
@@ -57,7 +59,7 @@ impl From<rmp::decode::ValueReadError> for Error {
 
 impl From<rmp::decode::DecodeStringError<'_>> for Error {
     fn from(e: rmp::decode::DecodeStringError) -> Self {
-        Error::Decode {
+        Self::Decode {
             msg: format!("rmp decode: {e}"),
         }
     }
@@ -65,7 +67,7 @@ impl From<rmp::decode::DecodeStringError<'_>> for Error {
 
 impl From<rmpv::decode::Error> for Error {
     fn from(e: rmpv::decode::Error) -> Self {
-        Error::Decode {
+        Self::Decode {
             msg: format!("rmpv decode: {e}"),
         }
     }
@@ -79,7 +81,7 @@ impl From<std::convert::Infallible> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Error::IO {
+        Self::IO {
             msg: format!("{e}"),
         }
     }
@@ -88,11 +90,11 @@ impl From<std::io::Error> for Error {
 impl From<mrpc::RpcError> for Error {
     fn from(e: mrpc::RpcError) -> Self {
         match e {
-            mrpc::RpcError::Service(e) => Error::RemoteError(e.value),
-            mrpc::RpcError::Connect { source } => Error::Connect {
+            mrpc::RpcError::Service(e) => Self::RemoteError(e.value),
+            mrpc::RpcError::Connect { source } => Self::Connect {
                 msg: source.to_string(),
             },
-            e => Error::Internal {
+            e => Self::Internal {
                 msg: format!("{e:?}"),
             },
         }

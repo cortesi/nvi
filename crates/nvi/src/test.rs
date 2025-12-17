@@ -1,13 +1,23 @@
 //! Utilities for writing tests for Nvi plugins.
-use std::{sync::Mutex, time::Duration};
+#![allow(missing_docs)]
+#![allow(clippy::absolute_paths)]
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use futures_util::future::BoxFuture;
-use mrpc;
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, task::JoinHandle, time::sleep};
 use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::{connect::connect_unix, error::Result, process::start_nvim_headless, NviPlugin};
+use crate::{
+    connect::connect_unix,
+    error::{Error, Result},
+    process::start_nvim_headless,
+    Client, NviPlugin,
+};
 
 /// Default timeout for log assertions
 const DEFAULT_TEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -74,12 +84,36 @@ where
 
 /// A handle to a running test instance.
 pub struct NviTest {
-    pub client: crate::Client,
+    /// The client connected to the test instance.
+    pub client: Client,
+    /// The shutdown channel for the test instance.
     shutdown_tx: broadcast::Sender<()>,
-    nvim_task: tokio::task::JoinHandle<Result<()>>,
-    plugin_task: tokio::task::JoinHandle<Result<()>>,
-    logs: std::sync::Arc<Mutex<Vec<String>>>,
+    /// The handle to the Neovim process task.
+    nvim_task: JoinHandle<Result<()>>,
+    /// The handle to the plugin task.
+    plugin_task: JoinHandle<Result<()>>,
+    /// The logs captured during the test.
+    logs: Arc<Mutex<Vec<String>>>,
+    /// The tracing subscriber guard.
     _guard: Option<DefaultGuard>,
+}
+
+struct LogWriter((Arc<Mutex<Vec<String>>>, bool));
+
+impl std::io::Write for LogWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if let Ok(s) = String::from_utf8(buf.to_vec()) {
+            let mut logs = self.0 .0.lock().unwrap();
+            logs.push(s.clone());
+            if self.0 .1 {
+                print!("{s}");
+            }
+        }
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 impl NviTest {
@@ -105,7 +139,7 @@ impl NviTest {
         let plugin_task = tokio::spawn(async { Ok(()) });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
-        let client = crate::Client::new(rpc_client.sender.clone(), "test", 0, shutdown_tx.clone());
+        let client = Client::new(rpc_client.sender.clone(), "test", 0, shutdown_tx.clone());
 
         Ok(Self {
             client,
@@ -157,7 +191,7 @@ impl NviTest {
         // Connect to nvim and create a client
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
         // Channel ID 0 is the global channel
-        let client = crate::Client::new(rpc_client.sender.clone(), "test", 0, shutdown_tx.clone());
+        let client = Client::new(rpc_client.sender.clone(), "test", 0, shutdown_tx.clone());
 
         if let Some(name) = plugin_name {
             client.await_plugin(&name, DEFAULT_TEST_TIMEOUT).await?;
@@ -195,32 +229,13 @@ impl NviTest {
     fn setup_tracing(
         show_logs: bool,
         log_level: tracing::Level,
-    ) -> (std::sync::Arc<Mutex<Vec<String>>>, DefaultGuard) {
-        let logs = std::sync::Arc::new(Mutex::new(Vec::new()));
+    ) -> (Arc<Mutex<Vec<String>>>, DefaultGuard) {
+        let logs = Arc::new(Mutex::new(Vec::new()));
         let logs_clone = (logs.clone(), show_logs);
 
         let guard = tracing_subscriber::fmt()
             .with_max_level(log_level)
-            .with_writer(move || {
-                let logs = logs_clone.clone();
-                struct Writer((std::sync::Arc<Mutex<Vec<String>>>, bool));
-                impl std::io::Write for Writer {
-                    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-                        if let Ok(s) = String::from_utf8(buf.to_vec()) {
-                            let mut logs = self.0 .0.lock().unwrap();
-                            logs.push(s.clone());
-                            if self.0 .1 {
-                                print!("{s}");
-                            }
-                        }
-                        Ok(buf.len())
-                    }
-                    fn flush(&mut self) -> std::io::Result<()> {
-                        Ok(())
-                    }
-                }
-                Writer(logs)
-            })
+            .with_writer(move || LogWriter(logs_clone.clone()))
             .with_ansi(true)
             .without_time()
             .with_file(true)
@@ -239,8 +254,8 @@ impl NviTest {
     pub async fn concurrent<T, A, B>(&self, a: A, b: B) -> Result<T>
     where
         T: Send + 'static,
-        A: FnOnce(crate::Client) -> BoxFuture<'static, Result<T>> + Send + 'static,
-        B: FnOnce(crate::Client) -> BoxFuture<'static, Result<()>> + Send + 'static,
+        A: FnOnce(Client) -> BoxFuture<'static, Result<T>> + Send + 'static,
+        B: FnOnce(Client) -> BoxFuture<'static, Result<()>> + Send + 'static,
     {
         let client_a = self.client.clone();
         let client_b = self.client.clone();
@@ -248,7 +263,7 @@ impl NviTest {
         let handle_a = tokio::spawn(a(client_a));
         let handle_b = tokio::spawn(b(client_b));
 
-        let result = handle_a.await.map_err(|e| crate::error::Error::Internal {
+        let result = handle_a.await.map_err(|e| Error::Internal {
             msg: format!("task a failed: {e}"),
         })??;
 
@@ -262,12 +277,8 @@ impl NviTest {
     }
 
     /// Wait for a log message containing the given string to appear, with a timeout
-    pub async fn await_log_timeout(
-        &self,
-        contains: &str,
-        timeout: std::time::Duration,
-    ) -> Result<()> {
-        let start = std::time::Instant::now();
+    pub async fn await_log_timeout(&self, contains: &str, timeout: Duration) -> Result<()> {
+        let start = Instant::now();
         while start.elapsed() < timeout {
             if self
                 .logs
@@ -278,9 +289,9 @@ impl NviTest {
             {
                 return Ok(());
             }
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            sleep(Duration::from_millis(50)).await;
         }
-        Err(crate::error::Error::Internal {
+        Err(Error::Internal {
             msg: format!("Timeout waiting for log containing '{contains}' after {timeout:?}"),
         })
     }
@@ -288,30 +299,26 @@ impl NviTest {
     /// Send termination signal and await all tasks.
     pub async fn finish(self) -> Result<()> {
         let _ = self.shutdown_tx.send(()).unwrap();
-        self.nvim_task
-            .await
-            .map_err(|e| crate::error::Error::Internal {
-                msg: format!("nvim task failed: {e}"),
-            })??;
-        self.plugin_task
-            .await
-            .map_err(|e| crate::error::Error::Internal {
-                msg: format!("plugin task failed: {e}"),
-            })??;
+        self.nvim_task.await.map_err(|e| Error::Internal {
+            msg: format!("nvim task failed: {e}"),
+        })??;
+        self.plugin_task.await.map_err(|e| Error::Internal {
+            msg: format!("plugin task failed: {e}"),
+        })??;
         Ok(())
     }
 }
 
 /// Wait a short while for a path to exist. Returns an error after 500ms if the path has not
 /// appeared.
-pub async fn wait_for_path(path: &std::path::Path) -> Result<()> {
+pub async fn wait_for_path(path: &Path) -> Result<()> {
     for _ in 0..10 {
         if path.exists() {
             return Ok(());
         }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        sleep(Duration::from_millis(50)).await;
     }
-    Err(crate::error::Error::IO {
+    Err(Error::IO {
         msg: "socket never appeared".to_string(),
     })
 }

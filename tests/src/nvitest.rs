@@ -1,7 +1,9 @@
-use futures_util::future::FutureExt;
-use nvi::test::NviTest;
-use nvi_macros::nvi_plugin;
 use std::time::Duration;
+
+use futures_util::future::FutureExt;
+use nvi::{error::Result, test::NviTest, Client};
+use nvi_macros::nvi_plugin;
+use tokio::time::sleep;
 use tracing::info;
 
 #[tokio::test]
@@ -11,7 +13,7 @@ async fn test_nvi_test() {
 
     #[nvi_plugin]
     impl TestPlugin {
-        async fn connected(&mut self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, _: &Client) -> Result<()> {
             info!("plugin connected");
             Ok(())
         }
@@ -46,7 +48,7 @@ async fn test_concurrent() {
 
     #[nvi_plugin]
     impl TestPlugin {
-        async fn connected(&self, _: &mut nvi::Client) -> nvi::error::Result<()> {
+        async fn connected(&self, _: &Client) -> Result<()> {
             Ok(())
         }
     }
@@ -62,7 +64,7 @@ async fn test_concurrent() {
             |_| async { Ok(42) }.boxed(),
             |_| {
                 async {
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(1)).await;
                     Ok(())
                 }
                 .boxed()

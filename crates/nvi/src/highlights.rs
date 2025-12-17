@@ -4,12 +4,15 @@
 //! with type safety and validation. It supports both direct highlight definitions and links
 //! between groups.
 
-use crate::error::Result;
-use crate::nvim::opts::SetHl;
-use derive_setters::*;
 use std::fmt;
 
-use crate::Color;
+use derive_setters::*;
+
+use crate::{
+    error::{Error, Result},
+    nvim::opts::SetHl,
+    Color,
+};
 
 /// Create a full highlight name by joining a prefix and highlight name with validation.
 ///
@@ -83,12 +86,12 @@ impl fmt::Display for Hl {
 /// The color must start with '#' and be followed by exactly 6 hexadecimal digits.
 pub fn validate_color(color: &str) -> Result<()> {
     if !color.starts_with('#') || color.len() != 7 {
-        return Err(crate::error::Error::User(format!(
+        return Err(Error::User(format!(
             "Invalid color format '{color}': must be '#' followed by 6 hex digits"
         )));
     }
     if !color[1..].chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(crate::error::Error::User(format!(
+        return Err(Error::User(format!(
             "Invalid color format '{color}': must contain only hex digits after '#'"
         )));
     }
@@ -102,16 +105,14 @@ pub fn validate_color(color: &str) -> Result<()> {
 /// :help group-name
 pub(crate) fn check_group_name(name: &str) -> Result<()> {
     if name.len() > 200 {
-        return Err(crate::error::Error::User(
-            "Highlight group name exceeds 200 bytes".into(),
-        ));
+        return Err(Error::User("Highlight group name exceeds 200 bytes".into()));
     }
 
     if !name
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-' || c == '@')
     {
-        return Err(crate::error::Error::User(
+        return Err(Error::User(
             "Highlight group name contains invalid characters".into(),
         ));
     }
@@ -127,24 +128,31 @@ pub(crate) fn check_group_name(name: &str) -> Result<()> {
 #[derive(Debug, Clone, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option, into)]
 pub struct Hl {
+    /// Foreground color.
     #[setters(skip)]
     pub fg: Option<Color>,
+    /// Background color.
     #[setters(skip)]
     pub bg: Option<Color>,
 
     // Text attributes omit anachronisms like "standout", and things that are GUI-only like blend,
     // underdotted, etc..
+    /// Bold text.
     pub bold: Option<bool>,
+    /// Italic text.
     pub italic: Option<bool>,
+    /// Underlined text.
     pub underline: Option<bool>,
+    /// Reverse video.
     pub reverse: Option<bool>,
+    /// Strikethrough text.
     pub strikethrough: Option<bool>,
 }
 
 impl Hl {
     /// Creates a new empty highlight definition.
-    pub fn new() -> Hl {
-        Hl {
+    pub fn new() -> Self {
+        Self {
             fg: None,
             bg: None,
             bold: None,
@@ -163,10 +171,7 @@ impl Hl {
         T: TryInto<Color>,
         T::Error: std::fmt::Display,
     {
-        self.fg = Some(
-            fg.try_into()
-                .map_err(|e| crate::error::Error::User(e.to_string()))?,
-        );
+        self.fg = Some(fg.try_into().map_err(|e| Error::User(e.to_string()))?);
         Ok(self)
     }
 
@@ -178,10 +183,7 @@ impl Hl {
         T: TryInto<Color>,
         T::Error: std::fmt::Display,
     {
-        self.bg = Some(
-            bg.try_into()
-                .map_err(|e| crate::error::Error::User(e.to_string()))?,
-        );
+        self.bg = Some(bg.try_into().map_err(|e| Error::User(e.to_string()))?);
         Ok(self)
     }
 
@@ -219,14 +221,16 @@ impl Hl {
 /// for bulk creation and management of related highlights.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Highlights {
+    /// A list of highlight definitions.
     pub highlights: Vec<(String, Hl)>,
+    /// A list of highlight links.
     pub links: Vec<(String, String)>,
 }
 
 impl Highlights {
     /// Creates a new empty collection of highlights.
-    pub fn new() -> Highlights {
-        Highlights {
+    pub fn new() -> Self {
+        Self {
             highlights: Vec::new(),
             links: Vec::new(),
         }
@@ -292,9 +296,12 @@ impl Highlights {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test::NviTest;
+    use std::collections::HashMap;
+
     use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::{test::NviTest, Value};
 
     #[test]
     fn test_validate_color() {
@@ -376,12 +383,7 @@ mod tests {
         highlights.create(&test.client).await.unwrap();
 
         // Get the highlight definitions
-        let hl: std::collections::HashMap<String, crate::Value> = test
-            .client
-            .nvim
-            .get_hl(0, std::collections::HashMap::new())
-            .await
-            .unwrap();
+        let hl: HashMap<String, Value> = test.client.nvim.get_hl(0, HashMap::new()).await.unwrap();
 
         // Check the highlight group
         let test_hl = hl.get("test_TestHl").unwrap().as_map().unwrap();

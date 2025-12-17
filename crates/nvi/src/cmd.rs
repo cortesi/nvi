@@ -1,24 +1,33 @@
 //! The standard Nvi command line interface.
 
+use std::{path::PathBuf, process::Command};
+
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-
 use tokio::sync::broadcast;
-
 use tracing_log::AsTrace;
-use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, prelude::*};
 
-use crate::{connect, demo::Demos, docs, error::Result, process, NviPlugin};
+use crate::{
+    connect,
+    demo::Demos,
+    docs,
+    error::{Error, Result},
+    process, NviPlugin,
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
+/// The CLI arguments
 struct Cli {
     #[command(subcommand)]
+    /// The command to execute
     command: Commands,
 }
 
 #[derive(Subcommand)]
+/// The available commands
 enum Commands {
     /// Connect to a Neovim instance on a socket
     Connect {
@@ -26,6 +35,7 @@ enum Commands {
         addr: String,
 
         #[command(flatten)]
+        /// Verbosity level
         verbose: Verbosity<InfoLevel>,
     },
     /// Show plugin documentation
@@ -62,10 +72,12 @@ enum Commands {
         no_clean: bool,
 
         #[command(flatten)]
+        /// Verbosity level
         verbose: Verbosity<InfoLevel>,
     },
 }
 
+/// Run the plugin with the given arguments.
 async fn inner_run<T>(plugin: T, demos: Option<Demos>) -> Result<()>
 where
     T: NviPlugin + Unpin + Sync + 'static,
@@ -73,9 +85,7 @@ where
     let cli = Cli::parse();
     match &cli.command {
         Commands::Connect { addr, verbose } => {
-            let fmt_layer = tracing_subscriber::fmt::layer()
-                .without_time()
-                .with_target(true);
+            let fmt_layer = fmt::layer().without_time().with_target(true);
             tracing_subscriber::registry()
                 .with(fmt_layer)
                 .with(verbose.log_level_filter().as_trace())
@@ -107,7 +117,7 @@ where
             let format = match fmt.to_lowercase().as_str() {
                 "markdown" => docs::Formats::Markdown,
                 "terminal" => docs::Formats::Terminal,
-                _ => return Err(crate::error::Error::User(format!("Invalid format: {fmt}"))),
+                _ => return Err(Error::User(format!("Invalid format: {fmt}"))),
             };
 
             println!("{}", docs::render_docs(format, &name, &docs, hl, methods)?);
@@ -118,17 +128,15 @@ where
             Ok(())
         }
         Commands::Nvim { socket, no_clean } => {
-            let socket = std::path::PathBuf::from(socket);
+            let socket = PathBuf::from(socket);
             let nvtask = process::start_nvim_cmdline(socket, !no_clean).await?;
             let neovim_handle = tokio::spawn(async move { nvtask.wait_with_output().await });
-            let err = neovim_handle
-                .await
-                .map_err(|e| crate::error::Error::Internal {
-                    msg: format!("Error waiting for Neovim process: {e}"),
-                });
+            let err = neovim_handle.await.map_err(|e| Error::Internal {
+                msg: format!("Error waiting for Neovim process: {e}"),
+            });
 
             // Reset terminal state
-            let _ = std::process::Command::new("reset").status();
+            drop(Command::new("reset").status());
 
             err??;
 
@@ -147,9 +155,7 @@ where
             no_clean,
             verbose,
         } => {
-            let fmt_layer = tracing_subscriber::fmt::layer()
-                .without_time()
-                .with_target(true);
+            let fmt_layer = fmt::layer().without_time().with_target(true);
             tracing_subscriber::registry()
                 .with(fmt_layer)
                 .with(verbose.log_level_filter().as_trace())
@@ -169,17 +175,17 @@ where
             let (plugin_result, neovim_result) = tokio::join!(plugin_task, neovim_handle);
 
             let plugin_result = plugin_result
-                .map_err(|e| crate::error::Error::Internal {
+                .map_err(|e| Error::Internal {
                     msg: format!("plugin task failed: {e}"),
                 })
                 .and_then(|r| r);
 
-            let _ = neovim_result.map_err(|e| crate::error::Error::Internal {
-                msg: format!("neovim task failed: {e}"),
-            });
+            if let Err(e) = neovim_result {
+                eprintln!("neovim task failed: {e}");
+            }
 
             // Reset terminal state
-            let _ = std::process::Command::new("reset").status();
+            drop(Command::new("reset").status());
 
             if let Err(e) = plugin_result {
                 eprintln!("Plugin error: {e}");

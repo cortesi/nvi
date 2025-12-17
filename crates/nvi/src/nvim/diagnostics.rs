@@ -3,7 +3,7 @@
 //! Includes types for configuring how diagnostics are displayed (e.g., virtual text, signs,
 //! floating windows) and functions for setting and resetting diagnostics.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
@@ -120,9 +120,13 @@ pub struct SetQfListOpts {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum VirtTextPos {
+    /// End of line.
     Eol,
+    /// Overlay.
     Overlay,
+    /// Right aligned.
     RightAlign,
+    /// Inline.
     Inline,
 }
 
@@ -130,29 +134,41 @@ pub enum VirtTextPos {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum SeverityFilter {
+    /// A single severity.
     Single(Severity),
+    /// A range of severities.
     Range {
+        /// Minimum severity.
         min: Option<Severity>,
+        /// Maximum severity.
         max: Option<Severity>,
     },
+    /// A list of severities.
     List(Vec<Severity>),
 }
 
 /// The diagnostic severity levels.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 pub enum Severity {
+    /// Error severity.
     Error,
     #[default]
+    /// Warning severity.
     Warn,
+    /// Information severity.
     Info,
+    /// Hint severity.
     Hint,
 }
 
 /// The source of virtual text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VirtualTextSource {
+    /// Always show source.
     True,
+    /// Never show source.
     False,
+    /// Show source if multiple diagnostics.
     IfMany,
 }
 
@@ -162,9 +178,9 @@ impl serde::Serialize for VirtualTextSource {
         S: serde::Serializer,
     {
         match self {
-            VirtualTextSource::True => serializer.serialize_bool(true),
-            VirtualTextSource::False => serializer.serialize_bool(false),
-            VirtualTextSource::IfMany => serializer.serialize_str("if_many"),
+            Self::True => serializer.serialize_bool(true),
+            Self::False => serializer.serialize_bool(false),
+            Self::IfMany => serializer.serialize_str("if_many"),
         }
     }
 }
@@ -182,9 +198,9 @@ impl<'de> serde::Deserialize<'de> for VirtualTextSource {
         }
 
         match VirtualTextSourceHelper::deserialize(deserializer)? {
-            VirtualTextSourceHelper::Bool(true) => Ok(VirtualTextSource::True),
-            VirtualTextSourceHelper::Bool(false) => Ok(VirtualTextSource::False),
-            VirtualTextSourceHelper::Str(s) if s == "if_many" => Ok(VirtualTextSource::IfMany),
+            VirtualTextSourceHelper::Bool(true) => Ok(Self::True),
+            VirtualTextSourceHelper::Bool(false) => Ok(Self::False),
+            VirtualTextSourceHelper::Str(s) if s == "if_many" => Ok(Self::IfMany),
             _ => Err(serde::de::Error::custom(
                 "Invalid value for VirtualTextSource",
             )),
@@ -196,8 +212,11 @@ impl<'de> serde::Deserialize<'de> for VirtualTextSource {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum FloatScope {
+    /// Show diagnostics from the current line.
     Line,
+    /// Show diagnostics from the whole buffer.
     Buffer,
+    /// Show diagnostics from the cursor position.
     Cursor,
 }
 
@@ -282,8 +301,11 @@ pub struct Float {
 #[allow(variant_size_differences)]
 #[allow(clippy::large_enum_variant)]
 pub enum JumpFloat {
+    /// Always open float.
     True,
+    /// Never open float.
     False,
+    /// Open float with options.
     Options(Float),
 }
 
@@ -293,9 +315,9 @@ impl serde::Serialize for JumpFloat {
         S: serde::Serializer,
     {
         match self {
-            JumpFloat::True => serializer.serialize_bool(true),
-            JumpFloat::False => serializer.serialize_bool(false),
-            JumpFloat::Options(float) => float.serialize(serializer),
+            Self::True => serializer.serialize_bool(true),
+            Self::False => serializer.serialize_bool(false),
+            Self::Options(float) => float.serialize(serializer),
         }
     }
 }
@@ -315,9 +337,9 @@ impl<'de> serde::Deserialize<'de> for JumpFloat {
         }
 
         match JumpFloatHelper::deserialize(deserializer)? {
-            JumpFloatHelper::Bool(true) => Ok(JumpFloat::True),
-            JumpFloatHelper::Bool(false) => Ok(JumpFloat::False),
-            JumpFloatHelper::Float(float) => Ok(JumpFloat::Options(float)),
+            JumpFloatHelper::Bool(true) => Ok(Self::True),
+            JumpFloatHelper::Bool(false) => Ok(Self::False),
+            JumpFloatHelper::Float(float) => Ok(Self::Options(float)),
         }
     }
 }
@@ -581,44 +603,46 @@ pub async fn diagnostic_reset(c: &mut Client, namespace: i64, bufnr: u64) -> Res
 
 #[cfg(test)]
 mod tests {
+    use serde::de::DeserializeOwned;
+
     use super::*;
 
-    fn test_idempotence<T>(value: T)
+    fn test_idempotence<T>(value: &T)
     where
-        T: serde::Serialize + serde::de::DeserializeOwned + std::fmt::Debug + PartialEq,
+        T: serde::Serialize + DeserializeOwned + Debug + PartialEq,
     {
-        let serialized = serde_rmpv::to_value(&value).unwrap();
+        let serialized = serde_rmpv::to_value(value).unwrap();
         let deserialized: T = serde_rmpv::from_value(&serialized).unwrap();
         let reserialized = serde_rmpv::to_value(&deserialized).unwrap();
 
-        assert_eq!(value, deserialized);
+        assert_eq!(*value, deserialized);
         assert_eq!(serialized, reserialized);
     }
 
     #[test]
     fn test_virt_text_pos_idempotence() {
-        test_idempotence(VirtTextPos::Eol);
-        test_idempotence(VirtTextPos::Overlay);
-        test_idempotence(VirtTextPos::RightAlign);
-        test_idempotence(VirtTextPos::Inline);
+        test_idempotence(&VirtTextPos::Eol);
+        test_idempotence(&VirtTextPos::Overlay);
+        test_idempotence(&VirtTextPos::RightAlign);
+        test_idempotence(&VirtTextPos::Inline);
     }
 
     #[test]
     fn test_severity_filter_idempotence() {
-        test_idempotence(SeverityFilter::Single(Severity::Error));
-        test_idempotence(SeverityFilter::Range {
+        test_idempotence(&SeverityFilter::Single(Severity::Error));
+        test_idempotence(&SeverityFilter::Range {
             min: Some(Severity::Warn),
             max: Some(Severity::Info),
         });
-        test_idempotence(SeverityFilter::List(vec![Severity::Error, Severity::Hint]));
-        test_idempotence(SeverityFilter::Single(Severity::Error));
+        test_idempotence(&SeverityFilter::List(vec![Severity::Error, Severity::Hint]));
+        test_idempotence(&SeverityFilter::Single(Severity::Error));
     }
 
     #[test]
     fn test_virtual_text_source_idempotence() {
-        test_idempotence(VirtualTextSource::True);
-        test_idempotence(VirtualTextSource::False);
-        test_idempotence(VirtualTextSource::IfMany);
+        test_idempotence(&VirtualTextSource::True);
+        test_idempotence(&VirtualTextSource::False);
+        test_idempotence(&VirtualTextSource::IfMany);
     }
 
     #[test]
@@ -636,7 +660,7 @@ mod tests {
             virt_text_win_col: Some(10),
             virt_text_hide: Some(true),
         };
-        test_idempotence(vt);
+        test_idempotence(&vt);
     }
 
     #[test]
@@ -655,7 +679,7 @@ mod tests {
                 severity: Some(SeverityFilter::Single(Severity::Error)),
             }),
         };
-        test_idempotence(opts);
+        test_idempotence(&opts);
     }
 
     #[test]
@@ -673,6 +697,6 @@ mod tests {
             user_data: None,
             namespace: 0,
         };
-        test_idempotence(diagnostic);
+        test_idempotence(&diagnostic);
     }
 }

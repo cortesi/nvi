@@ -8,12 +8,15 @@
 //! the connection.
 
 use std::{net::SocketAddr, path::Path};
-use tokio::sync::broadcast;
+
+use mrpc::{Client, ConnectionMakerFn, Server};
+use tokio::{signal, sync::broadcast};
 use tracing::{error, trace};
 
-use crate::error::Result;
-use crate::service::{NviPlugin, RpcConnection};
-use mrpc::{Client, ConnectionMakerFn, Server};
+use crate::{
+    error::Result,
+    service::{NviPlugin, RpcConnection},
+};
 
 /// Listen for incoming connections on a Unix domain socket.
 ///
@@ -47,7 +50,9 @@ where
             trace!("Shutdown signal received, stopping listener.");
         }
     }
-    let _ = std::fs::remove_file(path);
+    if let Err(e) = std::fs::remove_file(path) {
+        error!("Failed to remove socket file: {}", e);
+    }
     Ok(())
 }
 
@@ -132,6 +137,7 @@ where
     handle_client(shutdown_tx.subscribe(), client).await
 }
 
+/// Handle the client connection until shutdown or error.
 async fn handle_client<T: mrpc::Connection + Send + Sync + 'static>(
     mut shutdown_rx: broadcast::Receiver<()>,
     client: Client<T>,
@@ -145,7 +151,7 @@ async fn handle_client<T: mrpc::Connection + Send + Sync + 'static>(
             trace!("Shutdown signal received, closing connection.");
             Ok(())
         }
-        _ = tokio::signal::ctrl_c() => {
+        _ = signal::ctrl_c() => {
             trace!("Ctrl-C received, closing connection.");
             Ok(())
         }
@@ -154,12 +160,13 @@ async fn handle_client<T: mrpc::Connection + Send + Sync + 'static>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::lua_exec;
-    use crate::NviPlugin;
     use std::path::PathBuf;
+
     use tokio::sync::broadcast;
     use tracing_test::traced_test;
+
+    use super::*;
+    use crate::{lua_exec, test, Client, NviPlugin};
 
     #[derive(Clone)]
     struct TestPlugin {
@@ -172,7 +179,7 @@ mod tests {
             "TestPlugin".into()
         }
 
-        async fn connected(&mut self, client: &mut crate::Client) -> crate::error::Result<()> {
+        async fn connected(&mut self, client: &mut Client) -> Result<()> {
             self.tx.send(()).unwrap();
             client.shutdown();
             Ok(())
@@ -182,23 +189,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn it_listens() {
-        let (tx, _) = broadcast::channel(16);
-
-        // Start a listener on a socket
-        let tempdir = tempfile::tempdir().unwrap();
-        let socket_path = tempdir.path().join("listen.socket");
-        let itx = tx.clone();
-        let listener = listen_unix(itx.clone(), socket_path.clone(), move || TestPlugin {
-            tx: itx.clone(),
-        });
-        let ls = tokio::spawn(listener);
-
-        crate::test::wait_for_path(&socket_path).await.unwrap();
-
-        async fn tserv(
-            socket_path: PathBuf,
-            tx: broadcast::Sender<()>,
-        ) -> crate::error::Result<()> {
+        async fn tserv(socket_path: PathBuf, tx: broadcast::Sender<()>) -> Result<()> {
             #[derive(Clone)]
             struct SockConnectPlugin {
                 socket_path: PathBuf,
@@ -210,10 +201,7 @@ mod tests {
                     "SockConnectPlugin".into()
                 }
 
-                async fn connected(
-                    &mut self,
-                    client: &mut crate::Client,
-                ) -> crate::error::Result<()> {
+                async fn connected(&mut self, client: &mut Client) -> Result<()> {
                     trace!("client connected, sending sockconnect request");
                     let _ = lua_exec!(
                         client,
@@ -225,13 +213,24 @@ mod tests {
                 }
             }
 
-            let _handle = crate::test::run_plugin_with_shutdown(
-                SockConnectPlugin { socket_path },
-                tx.clone(),
-            )
-            .await;
+            test::run_plugin_with_shutdown(SockConnectPlugin { socket_path }, tx.clone())
+                .await
+                .unwrap();
             Ok(())
         }
+
+        let (tx, _) = broadcast::channel(16);
+
+        // Start a listener on a socket
+        let tempdir = tempfile::tempdir().unwrap();
+        let socket_path = tempdir.path().join("listen.socket");
+        let itx = tx.clone();
+        let listener = listen_unix(itx.clone(), socket_path.clone(), move || TestPlugin {
+            tx: itx.clone(),
+        });
+        let ls = tokio::spawn(listener);
+
+        test::wait_for_path(&socket_path).await.unwrap();
 
         // Now start a nvim instance, and connect to it with a client. Using the client, we
         // instruct nvim to connect back to the listener.
@@ -250,6 +249,6 @@ mod tests {
         let (tx, _) = broadcast::channel(16);
         let rtx = tx.clone();
         let s = TestPlugin { tx };
-        crate::test::run_plugin_with_shutdown(s, rtx).await.unwrap();
+        test::run_plugin_with_shutdown(s, rtx).await.unwrap();
     }
 }

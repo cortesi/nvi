@@ -1,4 +1,5 @@
-use std::{os::unix::process::CommandExt, process::Stdio};
+//! Utilities for managing Neovim processes.
+use std::{os::unix::process::CommandExt, path::PathBuf, process::Stdio};
 
 use nix::{
     sys::signal::{killpg, Signal},
@@ -6,17 +7,20 @@ use nix::{
 };
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
-    process::Command,
+    process::{Child, Command},
     select,
     sync::broadcast,
 };
 
-use crate::{error::Result, test::wait_for_path};
+use crate::{
+    error::{Error, Result},
+    test::wait_for_path,
+};
 
 /// Start a headless neovim process, redirecting stdout/stderr and waiting for termination signal.
 pub async fn start_nvim_headless(
     mut termrx: broadcast::Receiver<()>,
-    socket_path: std::path::PathBuf,
+    socket_path: PathBuf,
     clean: bool,
 ) -> Result<()> {
     let mut oscmd = std::process::Command::new("nvim");
@@ -46,7 +50,7 @@ pub async fn start_nvim_headless(
     loop {
         select! {
             _ = termrx.recv() => {
-                killpg(pgid, Signal::SIGTERM).map_err(|e| crate::error::Error::Internal {
+                killpg(pgid, Signal::SIGTERM).map_err(|e| Error::Internal {
                     msg: format!("could not kill process group {e}"),
                 })?;
                 child.wait().await?;
@@ -54,10 +58,10 @@ pub async fn start_nvim_headless(
             }
             result = child.wait() => {
                 return match result {
-                    Ok(status) => Err(crate::error::Error::Internal {
+                    Ok(status) => Err(Error::Internal {
                         msg: format!("Neovim process exited unexpectedly with status: {status}")
                     }),
-                    Err(e) => Err(crate::error::Error::Internal {
+                    Err(e) => Err(Error::Internal {
                         msg: format!("Error waiting for Neovim process: {e}")
                     }),
                 };
@@ -77,9 +81,9 @@ pub async fn start_nvim_headless(
 }
 
 /// Start an interactive nvim instance listening on the given socket path
-pub async fn start_nvim_cmdline<P>(socket_path: P, clean: bool) -> Result<tokio::process::Child>
+pub async fn start_nvim_cmdline<P>(socket_path: P, clean: bool) -> Result<Child>
 where
-    P: Into<std::path::PathBuf>,
+    P: Into<PathBuf>,
 {
     let path = socket_path.into();
     let mut oscmd = std::process::Command::new("nvim");

@@ -1,33 +1,46 @@
-use std::vec;
-
-use quote::{quote, ToTokens};
-use syn::{punctuated::Punctuated, spanned::Spanned, Expr, ExprLit, Lit, Meta, Token};
+//! Macros for the nvi library.
+use std::{result::Result as StdResult, vec};
 
 use macro_types::*;
 use proc_macro2_diagnostics::SpanDiagnosticExt;
+use quote::{quote, ToTokens};
+use syn::{punctuated::Punctuated, spanned::Spanned, Expr, ExprLit, Lit, Meta, Token};
 
-type Result<T> = std::result::Result<T, syn::Error>;
+/// Result type for macro operations
+type Result<T> = StdResult<T, syn::Error>;
 
+/// The name of the connected method
 const CONNECTED: &str = "connected";
+/// The name of the highlights method
 const HIGHLIGHTS: &str = "highlights";
 
+/// The name of the request attribute
 const RPC: &str = "request";
+/// The name of the notify attribute
 const RPC_NOTIFICATION: &str = "notify";
+/// The name of the autocmd attribute
 const RPC_AUTOCMD: &str = "autocmd";
+/// The name of the patterns argument for autocmd
 const RPC_AUTOCMD_PATTERNS: &str = "patterns";
+/// The name of the group argument for autocmd
 const RPC_AUTOCMD_GROUP: &str = "group";
+/// The name of the nested argument for autocmd
 const RPC_AUTOCMD_NESTED: &str = "nested";
 
 #[derive(Debug, Eq, PartialEq)]
+/// A parsed implementation block
 struct ImplBlock {
+    /// The name of the type being implemented
     name: String,
+    /// The methods in the impl block
     methods: Vec<Method>,
+    /// The run method (unused?)
     run: Option<Method>,
 }
 
 /// Output the invocation clause of a connect function
 /// Generate the invocation for the connected method implementation
-fn connected_invocation(m: &Method, type_name: syn::Ident) -> proc_macro2::TokenStream {
+fn connected_invocation(m: &Method, type_name: &syn::Ident) -> proc_macro2::TokenStream {
     let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
     match m.ret {
         Return::Void => quote! { #type_name::#method(self, client).await; },
@@ -124,6 +137,52 @@ fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
     }
 }
 
+/// Parse autocmd options
+fn parse_autocmd_options(
+    assign: &syn::ExprAssign,
+    patterns: &mut Vec<String>,
+    group: &mut Option<String>,
+    nested: &mut bool,
+) -> Result<()> {
+    if let Expr::Path(path) = &*assign.left {
+        let ident = path.path.get_ident().unwrap().to_string();
+        match ident.as_str() {
+            RPC_AUTOCMD_PATTERNS => {
+                if let Expr::Array(array) = &*assign.right {
+                    for pattern in array.elems.iter() {
+                        if let Expr::Lit(ExprLit {
+                            lit: Lit::Str(lit), ..
+                        }) = pattern
+                        {
+                            patterns.push(lit.value());
+                        }
+                    }
+                }
+            }
+            RPC_AUTOCMD_GROUP => {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(lit), ..
+                }) = &*assign.right
+                {
+                    *group = Some(lit.value());
+                }
+            }
+            RPC_AUTOCMD_NESTED => {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Bool(lit),
+                    ..
+                }) = &*assign.right
+                {
+                    *nested = lit.value();
+                }
+            }
+            _ => return Err(syn::Error::new(assign.span(), "invalid autocmd attribute")),
+        }
+    }
+    Ok(())
+}
+
+/// Parse the autocmd attribute
 fn parse_autocmd(a: &syn::Attribute) -> Result<Option<AutoCmd>> {
     if let Meta::List(list) = &a.meta {
         let mut patterns = vec![];
@@ -166,41 +225,7 @@ fn parse_autocmd(a: &syn::Attribute) -> Result<Option<AutoCmd>> {
         // Parse optional named arguments
         for meta in iter {
             if let Expr::Assign(assign) = meta {
-                if let Expr::Path(path) = &*assign.left {
-                    let ident = path.path.get_ident().unwrap().to_string();
-                    match ident.as_str() {
-                        RPC_AUTOCMD_PATTERNS => {
-                            if let Expr::Array(array) = &*assign.right {
-                                for pattern in array.elems.iter() {
-                                    if let Expr::Lit(ExprLit {
-                                        lit: Lit::Str(lit), ..
-                                    }) = pattern
-                                    {
-                                        patterns.push(lit.value());
-                                    }
-                                }
-                            }
-                        }
-                        RPC_AUTOCMD_GROUP => {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Str(lit), ..
-                            }) = &*assign.right
-                            {
-                                group = Some(lit.value());
-                            }
-                        }
-                        RPC_AUTOCMD_NESTED => {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Bool(lit),
-                                ..
-                            }) = &*assign.right
-                            {
-                                nested = lit.value();
-                            }
-                        }
-                        _ => return Err(syn::Error::new(meta.span(), "invalid autocmd attribute")),
-                    }
-                }
+                parse_autocmd_options(assign, &mut patterns, &mut group, &mut nested)?;
             }
         }
 
@@ -215,6 +240,7 @@ fn parse_autocmd(a: &syn::Attribute) -> Result<Option<AutoCmd>> {
     }
 }
 
+/// Parse a method definition
 fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     let mut method_type = None;
     let mut docs: Vec<String> = vec![];
@@ -452,6 +478,7 @@ fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBl
 }
 
 // Extract this to ease testing, since proc_macro::TokenStream can't cross proc-macro boundaries.
+/// Generate the implementation methods
 fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     imp.methods.iter().map(|m| {
         let name = &m.name;
@@ -516,9 +543,10 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
     })
 }
 
+/// Inner function for the nvi_plugin macro
 fn inner_nvi_plugin(
     _attr: proc_macro2::TokenStream,
-    input: proc_macro2::TokenStream,
+    input: &proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream> {
     // First parse the input as an impl block to verify basic syntax
     let impl_block = syn::parse2::<syn::ItemImpl>(input.clone())
@@ -544,7 +572,7 @@ fn inner_nvi_plugin(
         .ident
         .to_string();
 
-    let (impl_block, imp) = parse_impl(&input)?;
+    let (impl_block, imp) = parse_impl(input)?;
 
     // Collect impl block doc comments
     let mut docs = String::new();
@@ -607,7 +635,7 @@ fn inner_nvi_plugin(
         .methods
         .iter()
         .find(|x| x.method_type == MethodType::Connected)
-        .map(|x| connected_invocation(x, name.clone()))
+        .map(|x| connected_invocation(x, &name))
         .unwrap_or_else(|| quote! {});
 
     // Handle the highlights method
@@ -735,8 +763,8 @@ pub fn nvi_plugin(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let input_span = proc_macro2::TokenStream::from(input.clone());
-    match inner_nvi_plugin(_attr.into(), input_span.clone()) {
+    let input_span = proc_macro2::TokenStream::from(input);
+    match inner_nvi_plugin(_attr.into(), &input_span) {
         Ok(x) => x.into(),
         Err(e) => e.into_compile_error().into(),
     }
@@ -772,9 +800,10 @@ pub fn autocmd(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use pretty_assertions::assert_eq;
     use rust_format::{Formatter, RustFmt};
+
+    use super::*;
 
     #[test]
     fn test_doc_collection() {
@@ -789,7 +818,7 @@ mod tests {
             }
         };
 
-        let result = inner_nvi_plugin(quote! {}, s).unwrap();
+        let result = inner_nvi_plugin(quote! {}, &s).unwrap();
         let result_str = result.to_string();
         assert!(result_str.contains("First line of doc\\nSecond line of doc"));
     }
@@ -929,7 +958,7 @@ mod tests {
                 async fn test_void(&self) {}
             }
         };
-        assert!(inner_nvi_plugin(quote! {}, s).is_err());
+        assert!(inner_nvi_plugin(quote! {}, &s).is_err());
     }
 
     #[test]
@@ -1027,7 +1056,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_plugin(quote! {}, s).unwrap())
+                .format_tokens(inner_nvi_plugin(quote! {}, &s).unwrap())
                 .unwrap()
         );
     }
@@ -1067,7 +1096,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_plugin(quote! {}, s).unwrap())
+                .format_tokens(inner_nvi_plugin(quote! {}, &s).unwrap())
                 .unwrap()
         );
     }

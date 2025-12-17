@@ -1,13 +1,12 @@
 //! A Neovim client. This is the primary interface for interacting with Neovim from a service.
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use tokio::sync::broadcast;
 use tracing::trace;
 
 use crate::{
     error::{Error, Result},
-    highlights, lua, lua_exec, nvim,
+    highlights, lua, lua_exec, nvim, service,
 };
 
 /// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
@@ -22,17 +21,19 @@ pub struct Client {
     /// The MessagePack-RPC channel ID for this client. Channel ID 0 is global.
     pub channel_id: u64,
 
+    /// The channel used to signal shutdown.
     shutdown_tx: broadcast::Sender<()>,
 }
 
 impl Client {
+    /// Create a new Client.
     pub(crate) fn new(
         rpc_sender: mrpc::RpcSender,
         name: &str,
         channel_id: u64,
         shutdown_tx: broadcast::Sender<()>,
     ) -> Self {
-        Client {
+        Self {
             name: name.into(),
             nvim: nvim::NvimApi { rpc_sender },
             shutdown_tx,
@@ -49,14 +50,14 @@ impl Client {
     /// that will send an RPC message back to this client when called. The `kind` parameter
     /// specifies whether this is a request or notification method.
     async fn register_method<P>(
-        &mut self,
+        &self,
         kind: &str,
         namespace: &str,
         method: &str,
         params: &[P],
     ) -> Result<()>
     where
-        P: std::string::ToString,
+        P: ToString,
     {
         let arg_list = params
             .iter()
@@ -106,13 +107,13 @@ impl Client {
     ///
     /// test_module.test_fn("value", 3)
     pub(crate) async fn register_rpcrequest<P>(
-        &mut self,
+        &self,
         namespace: &str,
         method: &str,
         params: &[P],
     ) -> Result<()>
     where
-        P: std::string::ToString,
+        P: ToString,
     {
         self.register_method("rpcrequest", namespace, method, params)
             .await
@@ -134,13 +135,13 @@ impl Client {
     ///
     /// test_module.test_fn("value", 3)
     pub(crate) async fn register_rpcnotify<P>(
-        &mut self,
+        &self,
         namespace: &str,
         method: &str,
         params: &[P],
     ) -> Result<()>
     where
-        P: std::string::ToString,
+        P: ToString,
     {
         self.register_method("rpcnotify", namespace, method, params)
             .await
@@ -324,30 +325,27 @@ impl Client {
     }
 
     /// Wait for a plugin to reach running state.
-    pub async fn await_plugin(&self, name: &str, timeout: std::time::Duration) -> Result<()> {
+    pub async fn await_plugin(&self, name: &str, timeout: Duration) -> Result<()> {
         let start = std::time::Instant::now();
         loop {
             if start.elapsed() > timeout {
-                return Err(crate::error::Error::Internal {
+                return Err(Error::Internal {
                     msg: format!("Plugin failed to reach running state after {timeout:?}"),
                 });
             }
             let val = lua_exec!(
                 self,
-                &format!(
-                    "return {name}.{status}()",
-                    status = crate::service::STATUS_MESSAGE
-                )
+                &format!("return {name}.{status}()", status = service::STATUS_MESSAGE)
             )
             .await;
             if let Ok(val) = val {
                 if let Some(val) = val.as_str() {
-                    if val == crate::service::Status::Running.to_string() {
+                    if val == service::Status::Running.to_string() {
                         break;
                     }
                 }
             }
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
         Ok(())
     }
@@ -413,8 +411,6 @@ mod tests {
         (@inner $s:stmt) => { $s };
         ( $($s:stmt)+ ) => {
                 {
-                   let (tx, _) = broadcast::channel(16);
-
                    #[derive(Clone)]
                    struct TestPlugin {}
 
@@ -436,6 +432,7 @@ mod tests {
                            Ok(())
                        }
                    }
+                   let (tx, _) = broadcast::channel(16);
                    let rtx = tx.clone();
                    test::run_plugin_with_shutdown(TestPlugin {}, rtx)
                }
@@ -446,7 +443,7 @@ mod tests {
     #[traced_test]
     async fn it_gets_cwd() {
         qtest! {
-            async fn ret(c: &mut Client) -> Result<()> {
+            async fn ret(c: &Client) -> Result<()> {
                 c.getcwd().await?;
                 Ok(())
             }
@@ -455,47 +452,47 @@ mod tests {
         .unwrap();
     }
 
+    #[derive(Clone)]
+    struct RequestPlugin {}
+
+    #[async_trait]
+    impl crate::NviPlugin for RequestPlugin {
+        fn name(&self) -> String {
+            "RequestPlugin".into()
+        }
+
+        async fn connected(&mut self, client: &mut Client) -> Result<()> {
+            client
+                .register_rpcrequest("test_module", "test_fn", &["foo"])
+                .await
+                .unwrap();
+            Ok(())
+        }
+
+        async fn request(
+            &self,
+            client: &mut Client,
+            method: &str,
+            params: &[Value],
+        ) -> Result<Value, Value> {
+            if method == "test_fn" {
+                assert_eq!(params.len(), 1);
+                assert_eq!(params[0], Value::from(5));
+                Ok(params[0].clone())
+            } else {
+                client.shutdown();
+                Err(Value::Nil)
+            }
+        }
+    }
+
     #[tokio::test]
     #[traced_test]
     async fn it_registers_request() {
-        #[derive(Clone)]
-        struct TestPlugin {}
-
-        #[async_trait]
-        impl crate::NviPlugin for TestPlugin {
-            fn name(&self) -> String {
-                "TestPlugin".into()
-            }
-
-            async fn connected(&mut self, client: &mut Client) -> Result<()> {
-                client
-                    .register_rpcrequest("test_module", "test_fn", &["foo"])
-                    .await
-                    .unwrap();
-                Ok(())
-            }
-
-            async fn request(
-                &self,
-                client: &mut Client,
-                method: &str,
-                params: &[Value],
-            ) -> Result<Value, Value> {
-                if method == "test_fn" {
-                    assert_eq!(params.len(), 1);
-                    assert_eq!(params[0], Value::from(5));
-                    Ok(params[0].clone())
-                } else {
-                    client.shutdown();
-                    Err(Value::Nil)
-                }
-            }
-        }
-
         let nvit = test::NviTest::builder()
             .show_logs()
             .log_level(tracing::Level::DEBUG)
-            .with_plugin(TestPlugin {})
+            .with_plugin(RequestPlugin {})
             .run()
             .await
             .unwrap();
@@ -507,53 +504,47 @@ mod tests {
         nvit.finish().await.unwrap();
     }
 
+    #[derive(Clone)]
+    struct NotifyPlugin {}
+
+    #[async_trait]
+    impl crate::NviPlugin for NotifyPlugin {
+        fn name(&self) -> String {
+            "NotifyPlugin".into()
+        }
+
+        async fn connected(&mut self, client: &mut Client) -> Result<()> {
+            client
+                .register_rpcnotify("test_module", "test_fn", &["foo"])
+                .await
+                .unwrap();
+
+            let _: Value = client
+                .nvim
+                .exec_lua("return test_module.test_fn(5)", vec![])
+                .await
+                .unwrap();
+            client.shutdown();
+            Ok(())
+        }
+
+        async fn notify(&self, client: &mut Client, method: &str, params: &[Value]) -> Result<()> {
+            if method == "test_fn" {
+                assert_eq!(params.len(), 1);
+                assert_eq!(params[0], Value::from(5));
+            } else {
+                client.shutdown();
+            }
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     #[traced_test]
     async fn it_registers_notification() {
         let (tx, _) = broadcast::channel(16);
-
-        #[derive(Clone)]
-        struct TestPlugin {}
-
-        #[async_trait]
-        impl crate::NviPlugin for TestPlugin {
-            fn name(&self) -> String {
-                "TestPlugin".into()
-            }
-
-            async fn connected(&mut self, client: &mut Client) -> Result<()> {
-                client
-                    .register_rpcnotify("test_module", "test_fn", &["foo"])
-                    .await
-                    .unwrap();
-
-                let _: Value = client
-                    .nvim
-                    .exec_lua("return test_module.test_fn(5)", vec![])
-                    .await
-                    .unwrap();
-                client.shutdown();
-                Ok(())
-            }
-
-            async fn notify(
-                &self,
-                client: &mut Client,
-                method: &str,
-                params: &[Value],
-            ) -> Result<()> {
-                if method == "test_fn" {
-                    assert_eq!(params.len(), 1);
-                    assert_eq!(params[0], Value::from(5));
-                } else {
-                    client.shutdown();
-                }
-                Ok(())
-            }
-        }
-
         let rtx = tx.clone();
-        test::run_plugin_with_shutdown(TestPlugin {}, rtx)
+        test::run_plugin_with_shutdown(NotifyPlugin {}, rtx)
             .await
             .unwrap();
     }

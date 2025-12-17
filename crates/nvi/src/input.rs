@@ -40,7 +40,10 @@
 
 use std::fmt::{self, Write};
 
-use crate::{error::Error, error::Result, lua, lua_exec, Client, Value};
+use crate::{
+    error::{Error, Result},
+    lua, lua_exec, Client, Value,
+};
 
 /// A modifier key.
 #[derive(Debug, PartialEq, Clone)]
@@ -65,63 +68,61 @@ pub enum Mod {
 
 impl Mod {
     /// Creates a vector of Mod from a charmod number.
-    pub fn from_charmod(charmod: u8) -> Vec<Mod> {
+    pub fn from_charmod(charmod: u8) -> Vec<Self> {
         let mut mods = Vec::new();
 
         if charmod & 2 != 0 {
-            mods.push(Mod::Shift);
+            mods.push(Self::Shift);
         }
         if charmod & 4 != 0 {
-            mods.push(Mod::Control);
+            mods.push(Self::Control);
         }
         if charmod & 8 != 0 {
-            mods.push(Mod::Alt);
+            mods.push(Self::Alt);
         }
         if charmod & 16 != 0 {
-            mods.push(Mod::Meta);
+            mods.push(Self::Meta);
         }
         if charmod & 32 != 0 {
-            mods.push(Mod::DClick);
+            mods.push(Self::DClick);
         }
         if charmod & 64 != 0 {
-            mods.push(Mod::TClick);
+            mods.push(Self::TClick);
         }
         if charmod & 96 == 96 {
-            mods.push(Mod::QClick);
+            mods.push(Self::QClick);
         }
         if charmod & 128 != 0 {
-            mods.push(Mod::Super);
+            mods.push(Self::Super);
         }
 
         mods
     }
-}
 
-impl Mod {
     /// Returns the numeric value of the modifier.
     pub fn num(&self) -> u8 {
         match self {
-            Mod::Shift => 2,
-            Mod::Control => 4,
-            Mod::Alt => 8,
-            Mod::Meta => 16,
-            Mod::Super => 128,
-            Mod::DClick => 32,
-            Mod::TClick => 64,
-            Mod::QClick => 96,
+            Self::Shift => 2,
+            Self::Control => 4,
+            Self::Alt => 8,
+            Self::Meta => 16,
+            Self::Super => 128,
+            Self::DClick => 32,
+            Self::TClick => 64,
+            Self::QClick => 96,
         }
     }
 
     /// Returns the prefix representation of the modifier.
     fn to_prefix(&self) -> &'static str {
         match self {
-            Mod::Shift => "S-",
-            Mod::Control => "C-",
-            Mod::Alt => "M-",
-            Mod::Meta => "T-",
-            Mod::Super => "D-",
+            Self::Shift => "S-",
+            Self::Control => "C-",
+            Self::Alt => "M-",
+            Self::Meta => "T-",
+            Self::Super => "D-",
             // Mouse clicks don't have prefixes in key notation
-            Mod::DClick | Mod::TClick | Mod::QClick => "",
+            Self::DClick | Self::TClick | Self::QClick => "",
         }
     }
 }
@@ -131,89 +132,161 @@ impl Mod {
 #[strum(ascii_case_insensitive)]
 pub enum Keys {
     // Special keys
+    /// Null character
     Nul,
+    /// Backspace
     BS,
+    /// Tab
     Tab,
+    /// Newline
     NL,
+    /// Carriage Return
     CR,
+    /// Return key
     Return,
+    /// Enter key
     Enter,
+    /// Escape key
     Esc,
+    /// Space key
     Space,
+    /// Less than
     Lt,
+    /// Backslash
     Bslash,
+    /// Vertical bar
     Bar,
+    /// Delete
     Del,
+    /// Control Sequence Introducer
     CSI,
+    /// End of Line
     EOL,
+    /// Ignore
     Ignore,
+    /// No Operation
     NOP,
 
     // Cursor keys
+    /// Up arrow
     Up,
+    /// Down arrow
     Down,
+    /// Left arrow
     Left,
+    /// Right arrow
     Right,
 
     // Function keys
+    /// F1
     F1,
+    /// F2
     F2,
+    /// F3
     F3,
+    /// F4
     F4,
+    /// F5
     F5,
+    /// F6
     F6,
+    /// F7
     F7,
+    /// F8
     F8,
+    /// F9
     F9,
+    /// F10
     F10,
+    /// F11
     F11,
+    /// F12
     F12,
 
     // Navigation keys
+    /// Help
     Help,
+    /// Undo
     Undo,
+    /// Insert
     Insert,
+    /// Home
     Home,
+    /// End
     End,
+    /// Page Up
     PageUp,
+    /// Page Down
     PageDown,
 
     // Keypad keys
+    /// Keypad Up
     KUp,
+    /// Keypad Down
     KDown,
+    /// Keypad Left
     KLeft,
+    /// Keypad Right
     KRight,
+    /// Keypad Home
     KHome,
+    /// Keypad End
     KEnd,
+    /// Keypad Origin
     KOrigin,
+    /// Keypad Page Up
     KPageUp,
+    /// Keypad Page Down
     KPageDown,
+    /// Keypad Delete
     KDel,
+    /// Keypad Plus
     KPlus,
+    /// Keypad Minus
     KMinus,
+    /// Keypad Multiply
     KMultiply,
+    /// Keypad Divide
     KDivide,
+    /// Keypad Point
     KPoint,
+    /// Keypad Comma
     KComma,
+    /// Keypad Equal
     KEqual,
+    /// Keypad Enter
     KEnter,
+    /// Keypad 0
     K0,
+    /// Keypad 1
     K1,
+    /// Keypad 2
     K2,
+    /// Keypad 3
     K3,
+    /// Keypad 4
     K4,
+    /// Keypad 5
     K5,
+    /// Keypad 6
     K6,
+    /// Keypad 7
     K7,
+    /// Keypad 8
     K8,
+    /// Keypad 9
     K9,
 
     // Mouse
+    /// Left Mouse Button
     LeftMouse,
+    /// Right Mouse Button
     RightMouse,
+    /// Middle Mouse Button
     MiddleMouse,
 
     // Regular character
+    /// Regular character
     Char(char),
 }
 
@@ -221,7 +294,7 @@ impl Keys {
     /// Returns the official VIM name of the key.
     pub fn name(&self) -> String {
         match self {
-            Keys::Char(c) => c.to_string(),
+            Self::Char(c) => c.to_string(),
             other => {
                 let s = other.to_string();
                 if s.len() > 1 && s.starts_with('K') {
@@ -235,7 +308,7 @@ impl Keys {
 
     /// Parse a key name into a Keys variant.
     pub fn from_name(name: &str) -> Result<Self, Error> {
-        name.parse::<Keys>()
+        name.parse::<Self>()
             .map_err(|_| Error::User(format!("Invalid key name: {name}")))
     }
 }
@@ -243,7 +316,9 @@ impl Keys {
 /// A key press event, including a modifier and a key.
 #[derive(Debug, PartialEq, Clone)]
 pub struct KeyPress {
+    /// The modifiers pressed.
     pub modifers: Vec<Mod>,
+    /// The key pressed.
     pub key: Keys,
 }
 
@@ -269,16 +344,16 @@ impl fmt::Display for KeyPress {
 
 impl KeyPress {
     /// Normalizes control characters into their corresponding KeyPress representation
-    fn normalise(&self) -> KeyPress {
+    fn normalise(&self) -> Self {
         match (&self.key, &self.modifers) {
             // Control character (ASCII 1-26)
-            (Keys::Char(c), _) if *c as u32 <= 26 => KeyPress {
+            (Keys::Char(c), _) if *c as u32 <= 26 => Self {
                 modifers: vec![Mod::Control],
                 key: Keys::Char((*c as u8 + b'A' - 1) as char),
             },
             // Lowercase control combination
             (Keys::Char(c), mods) if mods.contains(&Mod::Control) && c.is_ascii_lowercase() => {
-                KeyPress {
+                Self {
                     modifers: self.modifers.clone(),
                     key: Keys::Char(c.to_ascii_uppercase()),
                 }
@@ -305,14 +380,14 @@ impl KeyPress {
                     Keys::from_name(key)?
                 };
 
-                return Ok(KeyPress {
+                return Ok(Self {
                     modifers: modifiers,
                     key,
                 }
                 .normalise());
             }
         } else if raw.len() == 1 {
-            return Ok(KeyPress {
+            return Ok(Self {
                 modifers: Vec::new(),
                 key: Keys::Char(raw.chars().next().unwrap()),
             }
@@ -396,6 +471,8 @@ pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use tokio::time::{sleep, Duration};
+
     use super::*;
     use crate::test::NviTest;
 
@@ -495,13 +572,13 @@ mod tests {
             let handle = tokio::spawn(async move {
                 loop {
                     feedkeys(&client2, &test_input).await.unwrap();
-                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                    sleep(Duration::from_millis(50)).await;
                 }
             });
             let key = get_keypress(&client1).await.unwrap();
             println!("Got key: {key:?}");
             handle.abort();
-            let _ = handle.await;
+            assert!(handle.await.unwrap_err().is_cancelled());
 
             assert_eq!(format!("{key}"), expected);
         }

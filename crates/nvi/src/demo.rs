@@ -1,28 +1,34 @@
 //! Functions for managing plugin demo functionality.
-use std::{process::Command as StdCommand, time::Duration};
+use std::{collections::HashMap, process::Command as StdCommand, time::Duration};
 
+use futures::future::BoxFuture;
 use tokio::sync::broadcast;
 
-use crate::{client::Client, connect::connect_unix, error::Result, process, NviPlugin};
+use crate::{
+    client::Client,
+    connect::connect_unix,
+    error::{Error, Result},
+    process, NviPlugin,
+};
 
+/// The timeout for waiting for the plugin to start.
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 /// A function that can be registered with the Demo struct.
-pub type DemoFunction = Box<
-    dyn Fn(&crate::client::Client) -> futures::future::BoxFuture<'static, crate::error::Result<()>>,
->;
+pub type DemoFunction = Box<dyn Fn(&Client) -> BoxFuture<'static, Result<()>>>;
 
 /// Holds a collection of named demo functions that can be executed with a Client.
 #[derive(Default)]
 pub struct Demos {
-    functions: std::collections::HashMap<String, DemoFunction>,
+    /// The map of demo functions.
+    functions: HashMap<String, DemoFunction>,
 }
 
 impl Demos {
     /// Creates a new Demo instance.
     pub fn new() -> Self {
         Self {
-            functions: std::collections::HashMap::new(),
+            functions: HashMap::new(),
         }
     }
 
@@ -34,9 +40,7 @@ impl Demos {
     }
 
     /// Helper to create a demo function that automatically handles client cloning.
-    pub fn demo_fn<F, Fut>(
-        f: F,
-    ) -> impl Fn(&Client) -> futures::future::BoxFuture<'static, Result<()>>
+    pub fn demo_fn<F, Fut>(f: F) -> impl Fn(&Client) -> BoxFuture<'static, Result<()>>
     where
         F: Fn(Client) -> Fut + 'static,
         Fut: futures::Future<Output = Result<()>> + Send + 'static,
@@ -75,7 +79,7 @@ impl Demos {
         let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
-        let client = crate::Client::new(rpc_client.sender.clone(), "demo", 0, shutdown_tx.clone());
+        let client = Client::new(rpc_client.sender.clone(), "demo", 0, shutdown_tx.clone());
 
         let plugin_shutdown = shutdown_tx.clone();
         let plugin_name = plugin.name();
@@ -87,21 +91,21 @@ impl Demos {
             let f = self
                 .functions
                 .get(demo_name)
-                .ok_or_else(|| crate::error::Error::User(format!("no such demo: {demo_name}")))?;
+                .ok_or_else(|| Error::User(format!("no such demo: {demo_name}")))?;
             demo_result = f(&client).await;
         }
 
         let (plugin_result, neovim_result) = tokio::join!(plugin_task, neovim_handle);
 
         let plugin_result = plugin_result
-            .map_err(|e| crate::error::Error::Internal {
+            .map_err(|e| Error::Internal {
                 msg: format!("plugin task failed: {e}"),
             })
             .and_then(|r| r);
 
-        let _ = neovim_result.map_err(|e| crate::error::Error::Internal {
-            msg: format!("neovim task failed: {e}"),
-        });
+        if let Err(e) = neovim_result {
+            eprintln!("neovim task failed: {e}");
+        }
 
         if let Err(e) = demo_result {
             eprintln!("Demo error: {e}");
@@ -111,7 +115,7 @@ impl Demos {
         }
 
         // Reset terminal state
-        let _ = StdCommand::new("reset").status();
+        drop(StdCommand::new("reset").status());
         Ok(())
     }
 }

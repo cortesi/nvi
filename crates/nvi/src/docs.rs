@@ -1,9 +1,15 @@
-use crate::error::Result;
-use crate::highlights;
-use crate::highlights::full_name;
-
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::absolute_paths)]
 use macro_types::{Method, MethodType};
 
+use crate::{
+    error::{Error, Result},
+    highlights,
+    highlights::full_name,
+};
+
+#[derive(Clone, Copy)]
 pub enum Formats {
     Markdown,
     Terminal,
@@ -53,6 +59,7 @@ fn render_text_terminal(
     methods: Vec<Method>,
 ) -> Result<String> {
     use std::io::Write;
+
     use termcolor::{Buffer, ColorSpec, WriteColor};
 
     let mut buffer = Buffer::ansi();
@@ -127,7 +134,7 @@ fn render_text_terminal(
         }
     }
 
-    String::from_utf8(buffer.into_inner()).map_err(|e| crate::error::Error::Internal {
+    String::from_utf8(buffer.into_inner()).map_err(|e| Error::Internal {
         msg: format!("Invalid UTF-8 in terminal output: {e}"),
     })
 }

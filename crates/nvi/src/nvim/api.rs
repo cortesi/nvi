@@ -1,14 +1,18 @@
 #![allow(clippy::needless_question_mark)]
 #![allow(clippy::needless_borrow)]
 #![allow(clippy::doc_lazy_continuation)]
-use super::opts;
-use super::types::*;
-use crate::error::Result;
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::absolute_paths)]
+use std::collections::HashMap;
+
 use mrpc::Value;
 use serde::Serialize;
 use serde_rmpv::{from_value, to_value};
-use std::collections::HashMap;
 use tracing::trace;
+
+use super::{opts, types::*};
+use crate::error::Result;
 #[derive(Clone, Debug)]
 /// Generated bindings for Neovim's MessagePack-RPC API.
 pub struct NvimApi {
