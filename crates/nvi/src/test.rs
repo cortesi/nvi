@@ -96,6 +96,8 @@ pub struct NviTest {
     logs: Arc<Mutex<Vec<String>>>,
     /// The tracing subscriber guard.
     _guard: Option<DefaultGuard>,
+    /// The temporary directory.
+    _tempdir: tempfile::TempDir,
 }
 
 struct LogWriter((Arc<Mutex<Vec<String>>>, bool));
@@ -128,6 +130,7 @@ impl NviTest {
 
         let tempdir = tempfile::tempdir()?;
         let socket_path = tempdir.path().join("nvim.socket");
+        println!("Socket path len: {} ({:?})", socket_path.to_string_lossy().len(), socket_path);
         let (shutdown_tx, _) = broadcast::channel(1);
 
         let sp = socket_path.clone();
@@ -148,6 +151,7 @@ impl NviTest {
             plugin_task,
             logs,
             _guard: Some(guard),
+            _tempdir: tempdir,
         })
     }
 
@@ -204,6 +208,7 @@ impl NviTest {
             plugin_task,
             logs,
             _guard: Some(guard),
+            _tempdir: tempdir,
         })
     }
 
