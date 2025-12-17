@@ -94,6 +94,9 @@ impl From<mrpc::RpcError> for Error {
             mrpc::RpcError::Connect { source } => Self::Connect {
                 msg: source.to_string(),
             },
+            mrpc::RpcError::Disconnect { source } => Self::Connect {
+                msg: format!("Disconnected: {:?}", source),
+            },
             e => Self::Internal {
                 msg: format!("{e:?}"),
             },

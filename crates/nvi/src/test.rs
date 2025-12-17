@@ -98,6 +98,8 @@ pub struct NviTest {
     _guard: Option<DefaultGuard>,
     /// The temporary directory.
     _tempdir: tempfile::TempDir,
+    /// Keep the rpc client alive
+    _rpc_client: mrpc::Client<()>
 }
 
 struct LogWriter((Arc<Mutex<Vec<String>>>, bool));
@@ -152,6 +154,7 @@ impl NviTest {
             logs,
             _guard: Some(guard),
             _tempdir: tempdir,
+            _rpc_client: rpc_client,
         })
     }
 
@@ -209,6 +212,7 @@ impl NviTest {
             logs,
             _guard: Some(guard),
             _tempdir: tempdir,
+            _rpc_client: rpc_client,
         })
     }
 
@@ -301,22 +305,49 @@ impl NviTest {
         })
     }
 
-    /// Send termination signal and await all tasks.
-    pub async fn finish(self) -> Result<()> {
-        let _ = self.shutdown_tx.send(()).unwrap();
-        self.nvim_task.await.map_err(|e| Error::Internal {
-            msg: format!("nvim task failed: {e}"),
-        })??;
-        self.plugin_task.await.map_err(|e| Error::Internal {
-            msg: format!("plugin task failed: {e}"),
-        })??;
-        Ok(())
-    }
-}
+            /// Send termination signal and await all tasks.
 
-/// Wait a short while for a path to exist. Returns an error after 500ms if the path has not
-/// appeared.
-pub async fn wait_for_path(path: &Path) -> Result<()> {
+            pub async fn finish(self) -> Result<()> {
+
+                let _ = self.shutdown_tx.send(()).unwrap();
+
+                self.nvim_task
+
+                    .await
+
+                    .map_err(|e| Error::Internal {
+
+                        msg: format!("nvim task failed: {e}"),
+
+                    })??;
+
+                self.plugin_task
+
+                    .await
+
+                    .map_err(|e| Error::Internal {
+
+                        msg: format!("plugin task failed: {e}"),
+
+                    })??;
+
+                Ok(())
+
+            }
+
+        }
+
+        
+
+        /// Wait a short while for a path to exist. Returns an error after 500ms if the path has not
+
+        /// appeared.
+
+        pub async fn wait_for_path(path: &Path) -> Result<()> {
+
+        
+
+    
     for _ in 0..10 {
         if path.exists() {
             return Ok(());
