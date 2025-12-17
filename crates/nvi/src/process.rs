@@ -7,8 +7,7 @@ use nix::{
 };
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
-    process::Command,
-    process::Child,
+    process::{Child, Command},
     select,
     sync::broadcast,
 };
@@ -80,7 +79,6 @@ pub async fn start_nvim_headless(
         }
     }
 }
-
 
 /// Start an interactive nvim instance listening on the given socket path
 pub async fn start_nvim_cmdline<P>(socket_path: P, clean: bool) -> Result<Child>

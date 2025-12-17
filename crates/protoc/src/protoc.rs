@@ -175,13 +175,6 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
 }
 
 /// Make an argument value
-fn mk_arg_value(p: &api::Parameter) -> TokenStream {
-    let name = Ident::new(&clean_name(&p.1), Span::call_site());
-    quote! {
-        to_value(&#name)?
-    }
-}
-
 /// Retrieves and formats the documentation for a given function name.
 /// Returns a vec of TokenStream, each representing a doc comment line.
 fn get_docs(name: &str) -> Vec<TokenStream> {
@@ -262,7 +255,16 @@ fn generate_function(f: &api::Function) -> TokenStream {
         quote! {}
     };
 
-    let arg_vals: Vec<TokenStream> = f.parameters.iter().map(mk_arg_value).collect();
+    let arg_names: Vec<Ident> = f
+        .parameters
+        .iter()
+        .map(|p| Ident::new(&clean_name(&p.1), Span::call_site()))
+        .collect();
+    let req_expr = match arg_names.as_slice() {
+        [] => quote! { NO_PARAMS },
+        [single] => quote! { #single },
+        _ => quote! { (#(#arg_names),*) },
+    };
 
     let doc_lines = get_docs(&f.name);
     let fn_def = quote! {
@@ -275,9 +277,9 @@ fn generate_function(f: &api::Function) -> TokenStream {
             #where_clause
         {
             #[allow(unused_variables)]
-            let ret = self.raw_request(#name, &[#(#arg_vals),*]).await?;
+            let req = #req_expr;
             #[allow(clippy::needless_question_mark)]
-            Ok(from_value(&ret)?)
+            Ok(self.rpc_call(#name, req).await?)
         }
     }
 }
@@ -299,13 +301,14 @@ pub fn protoc() -> Result<()> {
         use std::collections::HashMap;
 
         use mrpc::Value;
+        use serde::{Serialize, de::DeserializeOwned};
         use tracing::trace;
-        use serde_rmpv::{from_value, to_value};
-        use serde::Serialize;
 
         use crate::error::{Result};
         use super::types::*;
         use super::opts;
+
+        const NO_PARAMS: [(); 0] = [];
 
         #[derive(Clone, Debug)]
         /// Generated bindings for Neovim's MessagePack-RPC API.
@@ -314,6 +317,37 @@ pub fn protoc() -> Result<()> {
         }
 
         impl NvimApi {
+            /// Make a typed request over the MessagePack-RPC protocol.
+            pub async fn rpc_call<Req, Resp>(
+                &self,
+                method: &str,
+                req: Req,
+            ) -> Result<Resp, mrpc::RpcError>
+            where
+                Req: Serialize,
+                Resp: DeserializeOwned,
+            {
+                let params = mrpc::serialize_params(&req)?;
+                trace!("send request: {:?} {:?}", method, params);
+                let ret = self.rpc_sender.send_request(method, &params).await?;
+                trace!("got response for {:?}: {:?}", method, ret);
+                mrpc::deserialize_response(&ret)
+            }
+
+            /// Send a typed notification over the MessagePack-RPC protocol.
+            pub async fn rpc_notify<Req>(
+                &self,
+                method: &str,
+                req: Req,
+            ) -> Result<(), mrpc::RpcError>
+            where
+                Req: Serialize,
+            {
+                let params = mrpc::serialize_params(&req)?;
+                trace!("send notification: {:?} {:?}", method, params);
+                self.rpc_sender.send_notification(method, &params).await
+            }
+
             /// Make a raw request over the MessagePack-RPC protocol.
             pub async fn raw_request(
                 &self,

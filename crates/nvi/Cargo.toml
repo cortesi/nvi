@@ -12,7 +12,7 @@ doctest = false
 [dependencies]
 macro-types = { path = "../macro-types" }
 nvi-macros = { path = "../nvi-macros" }
-mrpc = { path = "/Users/cortesi/git/public/mrpc" }
+mrpc = { path = "../../../mrpc", features = ["serde"] }
 # mrpc = "0.0.6"
 
 tokio = {workspace=true, features=["full"]}
