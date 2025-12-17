@@ -105,7 +105,7 @@ impl NviTest {
         let plugin_task = tokio::spawn(async { Ok(()) });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
-        let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
+        let client = crate::Client::new(rpc_client.sender.clone(), "test", 0, shutdown_tx.clone());
 
         Ok(Self {
             client,
@@ -157,7 +157,7 @@ impl NviTest {
         // Connect to nvim and create a client
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
         // Channel ID 0 is the global channel
-        let client = crate::Client::new(rpc_client.sender, "test", 0, shutdown_tx.clone());
+        let client = crate::Client::new(rpc_client.sender.clone(), "test", 0, shutdown_tx.clone());
 
         if let Some(name) = plugin_name {
             client.await_plugin(&name, DEFAULT_TEST_TIMEOUT).await?;

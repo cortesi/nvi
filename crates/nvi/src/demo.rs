@@ -75,7 +75,7 @@ impl Demos {
         let neovim_handle = tokio::spawn(async move { neovim_task.wait_with_output().await });
 
         let rpc_client = mrpc::Client::connect_unix(&socket_path, ()).await?;
-        let client = crate::Client::new(rpc_client.sender, "demo", 0, shutdown_tx.clone());
+        let client = crate::Client::new(rpc_client.sender.clone(), "demo", 0, shutdown_tx.clone());
 
         let plugin_shutdown = shutdown_tx.clone();
         let plugin_name = plugin.name();
