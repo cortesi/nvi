@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 nvi = { path = "../crates/nvi"}
 nvi-macros = { path = "../crates/nvi-macros"}

@@ -334,7 +334,10 @@ impl Client {
             }
             let val = lua_exec!(
                 self,
-                &format!("return {name}.{status}()", status = crate::service::STATUS_MESSAGE)
+                &format!(
+                    "return {name}.{status}()",
+                    status = crate::service::STATUS_MESSAGE
+                )
             )
             .await;
             if let Ok(val) = val {

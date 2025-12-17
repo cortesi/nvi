@@ -107,11 +107,7 @@ where
             let format = match fmt.to_lowercase().as_str() {
                 "markdown" => docs::Formats::Markdown,
                 "terminal" => docs::Formats::Terminal,
-                _ => {
-                    return Err(crate::error::Error::User(format!(
-                        "Invalid format: {fmt}"
-                    )))
-                }
+                _ => return Err(crate::error::Error::User(format!("Invalid format: {fmt}"))),
             };
 
             println!("{}", docs::render_docs(format, &name, &docs, hl, methods)?);

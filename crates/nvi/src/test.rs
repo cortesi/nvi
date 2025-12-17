@@ -281,9 +281,7 @@ impl NviTest {
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         }
         Err(crate::error::Error::Internal {
-            msg: format!(
-                "Timeout waiting for log containing '{contains}' after {timeout:?}"
-            ),
+            msg: format!("Timeout waiting for log containing '{contains}' after {timeout:?}"),
         })
     }
 

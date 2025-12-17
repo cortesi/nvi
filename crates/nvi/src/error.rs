@@ -89,7 +89,9 @@ impl From<mrpc::RpcError> for Error {
     fn from(e: mrpc::RpcError) -> Self {
         match e {
             mrpc::RpcError::Service(e) => Error::RemoteError(e.value),
-            mrpc::RpcError::Connect(e) => Error::Connect { msg: e },
+            mrpc::RpcError::Connect { source } => Error::Connect {
+                msg: source.to_string(),
+            },
             e => Error::Internal {
                 msg: format!("{e:?}"),
             },
