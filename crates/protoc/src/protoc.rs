@@ -226,8 +226,12 @@ fn generate_function(f: &api::Function) -> TokenStream {
         where_bounds.push(quote! { #param: Serialize });
     }
 
-    // If the return type is Value, add a generic type parameter with DeserializeOwned bound
-    let ret_type = if matches!(f.return_type, api::Type::Object | api::Type::Dictionary) {
+    let ret_type = if let Some(ret_type) = overrides::get_return_override(name) {
+        ret_type
+    } else if matches!(
+        f.return_type,
+        api::Type::Array | api::Type::Object | api::Type::Dictionary
+    ) {
         let ret_param = Ident::new(
             if meta_count == 0 {
                 "T"
@@ -240,7 +244,7 @@ fn generate_function(f: &api::Function) -> TokenStream {
         where_bounds.push(quote! { #ret_param: serde::de::DeserializeOwned });
         quote! { #ret_param }
     } else {
-        overrides::get_return_override(name).unwrap_or_else(|| mk_return_type(&f.return_type))
+        mk_return_type(&f.return_type)
     };
 
     let generics = if !generic_params.is_empty() {

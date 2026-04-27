@@ -65,7 +65,10 @@ impl NvimApi {
     ///
     /// NOTE: When multiple patterns or events are provided, it will find all the
     /// autocommands that match any combination of them.
-    pub async fn get_autocmds(&self, opts: HashMap<String, Value>) -> Result<Vec<Value>> {
+    pub async fn get_autocmds<T>(&self, opts: HashMap<String, Value>) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = opts;
         #[allow(clippy::needless_question_mark)]
@@ -171,13 +174,16 @@ impl NvimApi {
     ///
     /// Out-of-bounds indices are clamped to the nearest valid value, unless
     /// strict_indexing is set.
-    pub async fn buf_get_lines(
+    pub async fn buf_get_lines<T>(
         &self,
         buf: &Buffer,
         start: i64,
         end: i64,
         strict_indexing: bool,
-    ) -> Result<Vec<Value>> {
+    ) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = (buf, start, end, strict_indexing);
         #[allow(clippy::needless_question_mark)]
@@ -231,7 +237,7 @@ impl NvimApi {
         start_col: i64,
         end_row: i64,
         end_col: i64,
-        replacement: Vec<Value>,
+        replacement: Vec<String>,
     ) -> Result<()> {
         #[allow(unused_variables)]
         let req = (buf, start_row, start_col, end_row, end_col, replacement);
@@ -247,7 +253,7 @@ impl NvimApi {
     /// are end-exclusive.
     ///
     /// Prefer |nvim_buf_get_lines()| when retrieving entire lines.
-    pub async fn buf_get_text(
+    pub async fn buf_get_text<T>(
         &self,
         buf: &Buffer,
         start_row: i64,
@@ -255,7 +261,10 @@ impl NvimApi {
         end_row: i64,
         end_col: i64,
         opts: HashMap<String, Value>,
-    ) -> Result<Vec<Value>> {
+    ) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = (buf, start_row, start_col, end_row, end_col, opts);
         #[allow(clippy::needless_question_mark)]
@@ -294,7 +303,10 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_buf_get_changedtick", req).await?)
     }
     /// Gets a list of buffer-local |mapping| definitions.
-    pub async fn buf_get_keymap(&self, buf: &Buffer, mode: &str) -> Result<Vec<Value>> {
+    pub async fn buf_get_keymap<T>(&self, buf: &Buffer, mode: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = (buf, mode);
         #[allow(clippy::needless_question_mark)]
@@ -411,7 +423,7 @@ impl NvimApi {
     /// See |mark-motions|.
     ///
     /// Marks are (1,0)-indexed. |api-indexing|
-    pub async fn buf_get_mark(&self, buf: &Buffer, name: &str) -> Result<Vec<Value>> {
+    pub async fn buf_get_mark(&self, buf: &Buffer, name: &str) -> Result<(i64, i64)> {
         #[allow(unused_variables)]
         let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
@@ -562,13 +574,16 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_namespaces", req).await?)
     }
     /// Gets the position (0-indexed) of an |extmark|.
-    pub async fn buf_get_extmark_by_id(
+    pub async fn buf_get_extmark_by_id<T>(
         &self,
         buf: &Buffer,
         ns_id: i64,
         id: i64,
         opts: HashMap<String, Value>,
-    ) -> Result<Vec<Value>> {
+    ) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = (buf, ns_id, id, opts);
         #[allow(clippy::needless_question_mark)]
@@ -591,17 +606,18 @@ impl NvimApi {
     /// Note: legacy signs placed through the |:sign| commands are implemented as
     /// extmarks and will show up here. Their details array will contain a
     /// sign_name field.
-    pub async fn buf_get_extmarks<T, U>(
+    pub async fn buf_get_extmarks<T, U, V>(
         &self,
         buf: &Buffer,
         ns_id: i64,
         start: T,
         end: U,
         opts: HashMap<String, Value>,
-    ) -> Result<Vec<Value>>
+    ) -> Result<V>
     where
         T: Serialize,
         U: Serialize,
+        V: serde::de::DeserializeOwned,
     {
         #[allow(unused_variables)]
         let req = (buf, ns_id, start, end, opts);
@@ -752,7 +768,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_option_info2", req).await?)
     }
     /// Gets the windows in a tabpage
-    pub async fn tabpage_list_wins(&self, tabpage: &TabPage) -> Result<Vec<Value>> {
+    pub async fn tabpage_list_wins(&self, tabpage: &TabPage) -> Result<Vec<Window>> {
         #[allow(unused_variables)]
         let req = tabpage;
         #[allow(clippy::needless_question_mark)]
@@ -1086,7 +1102,10 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_strwidth", req).await?)
     }
     /// Gets the paths contained in |runtime-search-path|.
-    pub async fn list_runtime_paths(&self) -> Result<Vec<Value>> {
+    pub async fn list_runtime_paths<T>(&self) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1100,7 +1119,10 @@ impl NvimApi {
     /// subdirectories regardless of platform.
     ///
     /// It is not an error to not find any files. An empty array is returned then.
-    pub async fn get_runtime_file(&self, name: &str, all: bool) -> Result<Vec<Value>> {
+    pub async fn get_runtime_file<T>(&self, name: &str, all: bool) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = (name, all);
         #[allow(clippy::needless_question_mark)]
@@ -1200,7 +1222,7 @@ impl NvimApi {
     ///
     /// Includes unlisted (unloaded/deleted) buffers, like :ls!. Use
     /// |nvim_buf_is_loaded()| to check if a buffer is loaded.
-    pub async fn list_bufs(&self) -> Result<Vec<Value>> {
+    pub async fn list_bufs(&self) -> Result<Vec<Buffer>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1221,7 +1243,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_set_current_buf", req).await?)
     }
     /// Gets the current list of window handles.
-    pub async fn list_wins(&self) -> Result<Vec<Value>> {
+    pub async fn list_wins(&self) -> Result<Vec<Window>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1282,7 +1304,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_chan_send", req).await?)
     }
     /// Gets the current list of tabpage handles.
-    pub async fn list_tabpages(&self) -> Result<Vec<Value>> {
+    pub async fn list_tabpages(&self) -> Result<Vec<TabPage>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1324,7 +1346,13 @@ impl NvimApi {
     /// |nvim_paste()|.
     ///
     /// Compare |:put| and |p| which are always linewise.
-    pub async fn put(&self, lines: Vec<Value>, typ: &str, after: bool, follow: bool) -> Result<()> {
+    pub async fn put(
+        &self,
+        lines: Vec<String>,
+        typ: &str,
+        after: bool,
+        follow: bool,
+    ) -> Result<()> {
         #[allow(unused_variables)]
         let req = (lines, typ, after, follow);
         #[allow(clippy::needless_question_mark)]
@@ -1377,7 +1405,10 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_mode", req).await?)
     }
     /// Gets a list of global (non-buffer-local) |mapping| definitions.
-    pub async fn get_keymap(&self, mode: &str) -> Result<Vec<Value>> {
+    pub async fn get_keymap<T>(&self, mode: &str) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = mode;
         #[allow(clippy::needless_question_mark)]
@@ -1451,21 +1482,24 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_chan_info", req).await?)
     }
     /// Get information about all open channels.
-    pub async fn list_chans(&self) -> Result<Vec<Value>> {
+    pub async fn list_chans(&self) -> Result<Vec<ChanInfo>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_list_chans", req).await?)
     }
     /// Gets a list of dictionaries representing attached UIs.
-    pub async fn list_uis(&self) -> Result<Vec<Value>> {
+    pub async fn list_uis<T>(&self) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_list_uis", req).await?)
     }
     /// Gets the immediate children of process pid.
-    pub async fn get_proc_children(&self, pid: i64) -> Result<Vec<Value>> {
+    pub async fn get_proc_children(&self, pid: i64) -> Result<Vec<i64>> {
         #[allow(unused_variables)]
         let req = pid;
         #[allow(clippy::needless_question_mark)]
@@ -1516,7 +1550,11 @@ impl NvimApi {
     /// Marks are (1,0)-indexed. |api-indexing|
     ///
     /// Note: Lowercase name (or other buffer-local mark) is an error.
-    pub async fn get_mark(&self, name: &str, opts: HashMap<String, Value>) -> Result<Vec<Value>> {
+    pub async fn get_mark(
+        &self,
+        name: &str,
+        opts: HashMap<String, Value>,
+    ) -> Result<(i64, i64, i64, String)> {
         #[allow(unused_variables)]
         let req = (name, opts);
         #[allow(clippy::needless_question_mark)]
@@ -1691,7 +1729,7 @@ impl NvimApi {
     /// Gets the (1,0)-indexed, buffer-relative cursor position for a given window
     /// (different windows showing the same buffer have independent cursor
     /// positions).
-    pub async fn win_get_cursor(&self, win: &Window) -> Result<Vec<Value>> {
+    pub async fn win_get_cursor(&self, win: &Window) -> Result<(i64, i64)> {
         #[allow(unused_variables)]
         let req = win;
         #[allow(clippy::needless_question_mark)]
@@ -1699,7 +1737,7 @@ impl NvimApi {
     }
     /// Sets the (1,0)-indexed cursor position in the window. This scrolls the
     /// window even if it is not the current one.
-    pub async fn win_set_cursor(&self, win: &Window, pos: Vec<Value>) -> Result<()> {
+    pub async fn win_set_cursor(&self, win: &Window, pos: (i64, i64)) -> Result<()> {
         #[allow(unused_variables)]
         let req = (win, pos);
         #[allow(clippy::needless_question_mark)]

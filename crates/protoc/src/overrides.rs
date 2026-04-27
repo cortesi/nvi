@@ -47,6 +47,17 @@ pub fn get_override(name: &str) -> Option<Override> {
             }],
             ret: None,
         },
+        "nvim_buf_get_mark" => Override {
+            args: vec![],
+            ret: Some(quote! { (i64, i64) }),
+        },
+        "nvim_buf_set_text" => Override {
+            args: vec![Arg {
+                name: "replacement".into(),
+                typ: quote! { Vec<String> },
+            }],
+            ret: None,
+        },
         "nvim_clear_autocmds" => Override {
             args: vec![Arg {
                 name: "opts".into(),
@@ -88,12 +99,47 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![],
             ret: Some(quote! { ChanInfo }),
         },
+        "nvim_get_mark" => Override {
+            args: vec![],
+            ret: Some(quote! { (i64, i64, i64, String) }),
+        },
+        "nvim_get_proc_children" => Override {
+            args: vec![],
+            ret: Some(quote! { Vec<i64> }),
+        },
+        "nvim_list_bufs" => Override {
+            args: vec![],
+            ret: Some(quote! { Vec<Buffer> }),
+        },
+        "nvim_list_chans" => Override {
+            args: vec![],
+            ret: Some(quote! { Vec<ChanInfo> }),
+        },
+        "nvim_list_tabpages" => Override {
+            args: vec![],
+            ret: Some(quote! { Vec<TabPage> }),
+        },
+        "nvim_list_wins" => Override {
+            args: vec![],
+            ret: Some(quote! { Vec<Window> }),
+        },
         "nvim_notify" => Override {
             args: vec![Arg {
                 name: "log_level".into(),
                 typ: quote! { u64 },
             }],
             ret: Some(quote! { () }),
+        },
+        "nvim_put" => Override {
+            args: vec![Arg {
+                name: "lines".into(),
+                typ: quote! { Vec<String> },
+            }],
+            ret: None,
+        },
+        "nvim_tabpage_list_wins" => Override {
+            args: vec![],
+            ret: Some(quote! { Vec<Window> }),
         },
         "nvim_open_win" => Override {
             args: vec![Arg {
@@ -120,10 +166,21 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![],
             ret: Some(quote! { WindowConf }),
         },
+        "nvim_win_get_cursor" => Override {
+            args: vec![],
+            ret: Some(quote! { (i64, i64) }),
+        },
         "nvim_win_set_config" => Override {
             args: vec![Arg {
                 name: "config".into(),
                 typ: quote! { WindowConf },
+            }],
+            ret: None,
+        },
+        "nvim_win_set_cursor" => Override {
+            args: vec![Arg {
+                name: "pos".into(),
+                typ: quote! { (i64, i64) },
             }],
             ret: None,
         },
