@@ -38,11 +38,19 @@ pub async fn start_nvim_headless(
         .stderr(Stdio::piped());
 
     let mut child = Command::from(oscmd).spawn()?;
-    let pgid = Pid::from_raw(child.id().unwrap() as i32);
+    let pgid = child
+        .id()
+        .map(|id| Pid::from_raw(id as i32))
+        .ok_or_else(|| Error::Internal {
+            msg: "Neovim process exited before its process ID was available".to_string(),
+        })?;
 
-    // Set up stdout and stderr readers
-    let stdout = child.stdout.take().expect("Failed to capture stdout");
-    let stderr = child.stderr.take().expect("Failed to capture stderr");
+    let stdout = child.stdout.take().ok_or_else(|| Error::Internal {
+        msg: "Neovim process stdout was not captured".to_string(),
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| Error::Internal {
+        msg: "Neovim process stderr was not captured".to_string(),
+    })?;
 
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();

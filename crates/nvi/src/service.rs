@@ -82,8 +82,16 @@ pub trait NviPlugin: Sync + Send + 'static {
                         let events = autocmd
                             .events
                             .iter()
-                            .map(|e| types::Event::from_str(e.as_str()).unwrap())
-                            .collect::<Vec<_>>();
+                            .map(|event| {
+                                types::Event::from_str(event.as_str()).map_err(|e| {
+                                    Error::Internal {
+                                        msg: format!(
+                                            "invalid autocmd event {event:?} for method {name:?}: {e}"
+                                        ),
+                                    }
+                                })
+                            })
+                            .collect::<Result<Vec<_>>>()?;
 
                         client
                             .autocmd_pattern(

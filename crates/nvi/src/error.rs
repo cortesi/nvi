@@ -4,8 +4,10 @@
 
 #![allow(clippy::absolute_paths)]
 
+use std::{convert::Infallible, io, result};
+
 /// Standard Result type for Nvi operations, defaulting to the Nvi Error type.
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+pub type Result<T, E = Error> = result::Result<T, E>;
 
 /// Nvi standard error types
 #[derive(thiserror::Error, Debug)]
@@ -73,14 +75,14 @@ impl From<rmpv::decode::Error> for Error {
     }
 }
 
-impl From<std::convert::Infallible> for Error {
-    fn from(_e: std::convert::Infallible) -> Self {
-        panic!("infallible")
+impl From<Infallible> for Error {
+    fn from(e: Infallible) -> Self {
+        match e {}
     }
 }
 
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
         Self::IO {
             msg: format!("{e}"),
         }
