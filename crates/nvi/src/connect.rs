@@ -9,7 +9,7 @@
 
 use std::{net::SocketAddr, path::Path};
 
-use mrpc::{Client, ConnectionMakerFn, Server};
+use mrpc::{Client, Server};
 use tokio::{signal, sync::broadcast};
 use tracing::{error, trace};
 
@@ -37,8 +37,9 @@ where
 {
     let path = path.as_ref();
     let itx = shutdown_tx.clone();
-    let maker = ConnectionMakerFn::new(move || RpcConnection::new(itx.clone(), make_plugin()));
-    let server = Server::from_maker(maker).unix(path).await?;
+    let server = Server::from_fn(move || RpcConnection::new(itx.clone(), make_plugin()))
+        .unix(path)
+        .await?;
     let mut shutdown_rx = shutdown_tx.subscribe();
     tokio::select! {
         result = server.run() => {
@@ -74,11 +75,12 @@ where
     F: Fn() -> T + Send + Sync + 'static,
 {
     let itx = shutdown_tx.clone();
-    let maker = ConnectionMakerFn::new(move || {
+    let server = Server::from_fn(move || {
         let plugin = make_plugin();
         RpcConnection::new(itx.clone(), plugin)
-    });
-    let server = Server::from_maker(maker).tcp(&addr.to_string()).await?;
+    })
+    .tcp(&addr.to_string())
+    .await?;
 
     let mut shutdown_rx = shutdown_tx.subscribe();
     tokio::select! {
@@ -138,10 +140,7 @@ where
 }
 
 /// Handle the client connection until shutdown or error.
-async fn handle_client<T: mrpc::Connection + Send + Sync + 'static>(
-    mut shutdown_rx: broadcast::Receiver<()>,
-    client: Client<T>,
-) -> Result<()> {
+async fn handle_client(mut shutdown_rx: broadcast::Receiver<()>, client: Client) -> Result<()> {
     tokio::select! {
         _ = client.join()  => {
             trace!("Client connection closed.");
