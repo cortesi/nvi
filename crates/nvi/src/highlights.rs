@@ -9,9 +9,9 @@ use std::fmt;
 use derive_setters::*;
 
 use crate::{
+    Color,
     error::{Error, Result},
     nvim::opts::SetHl,
-    Color,
 };
 
 /// Create a full highlight name by joining a prefix and highlight name with validation.
@@ -301,7 +301,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::{test::NviTest, Value};
+    use crate::{Value, test::NviTest};
 
     #[test]
     fn test_validate_color() {

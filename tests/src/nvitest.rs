@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use futures_util::future::FutureExt;
-use nvi::{error::Result, test::NviTest, Client};
+use nvi::{Client, error::Result, test::NviTest};
 use nvi_macros::nvi_plugin;
 use tokio::time::sleep;
 use tracing::info;

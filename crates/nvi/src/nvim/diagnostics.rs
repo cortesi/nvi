@@ -9,10 +9,10 @@ use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::{
+    Client, Value,
     error::{Error, Result},
     lua, lua_exec,
     nvim::types::Text,
-    Client, Value,
 };
 
 /// Options for getting diagnostics.

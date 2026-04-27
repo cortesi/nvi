@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use mrpc::Value;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tracing::trace;
 
 use super::{opts, types::*};

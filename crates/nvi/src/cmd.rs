@@ -9,11 +9,11 @@ use tracing_log::AsTrace;
 use tracing_subscriber::{fmt, prelude::*};
 
 use crate::{
-    connect,
+    NviPlugin, connect,
     demo::Demos,
     docs,
     error::{Error, Result},
-    process, NviPlugin,
+    process,
 };
 
 #[derive(Parser)]

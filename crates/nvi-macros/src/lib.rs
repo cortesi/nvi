@@ -3,8 +3,8 @@ use std::{result::Result as StdResult, vec};
 
 use macro_types::*;
 use proc_macro2_diagnostics::SpanDiagnosticExt;
-use quote::{quote, ToTokens};
-use syn::{punctuated::Punctuated, spanned::Spanned, Expr, ExprLit, Lit, Meta, Token};
+use quote::{ToTokens, quote};
+use syn::{Expr, ExprLit, Lit, Meta, Token, punctuated::Punctuated, spanned::Spanned};
 
 /// Result type for macro operations
 type Result<T> = StdResult<T, syn::Error>;
@@ -363,7 +363,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                                         return Err(syn::Error::new(
                                             method.span(),
                                             "invalid rpc method",
-                                        ))
+                                        ));
                                     }
                                 }
                             }
@@ -431,7 +431,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
                     return Err(syn::Error::new(
                         method.span(),
                         "highlights method must return either Highlights or Result<Highlights>",
-                    ))
+                    ));
                 }
             }
         }
@@ -461,10 +461,10 @@ fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBl
 
     let mut methods = vec![];
     for i in &v.items {
-        if let syn::ImplItem::Fn(m) = i {
-            if let Some(command) = parse_method(m)? {
-                methods.push(command);
-            }
+        if let syn::ImplItem::Fn(m) = i
+            && let Some(command) = parse_method(m)?
+        {
+            methods.push(command);
         }
     }
     Ok((
@@ -559,7 +559,7 @@ fn inner_nvi_plugin(
             return Err(syn::Error::new(
                 impl_block.self_ty.span(),
                 "Expected a struct or enum name",
-            ))
+            ));
         }
     };
 
@@ -577,18 +577,16 @@ fn inner_nvi_plugin(
     // Collect impl block doc comments
     let mut docs = String::new();
     for attr in &impl_block.attrs {
-        if attr.path().is_ident("doc") {
-            if let Meta::NameValue(meta) = &attr.meta {
-                if let Expr::Lit(ExprLit {
-                    lit: Lit::Str(s), ..
-                }) = &meta.value
-                {
-                    if !docs.is_empty() {
-                        docs.push('\n');
-                    }
-                    docs.push_str(s.value().trim());
-                }
+        if attr.path().is_ident("doc")
+            && let Meta::NameValue(meta) = &attr.meta
+            && let Expr::Lit(ExprLit {
+                lit: Lit::Str(s), ..
+            }) = &meta.value
+        {
+            if !docs.is_empty() {
+                docs.push('\n');
             }
+            docs.push_str(s.value().trim());
         }
     }
     let docs = docs; // Make docs immutable
@@ -659,7 +657,7 @@ fn inner_nvi_plugin(
     if imp.methods.is_empty() {
         return Err(syn::Error::new(
             input.span(),
-            "No RPC methods found in the implementation. Use #[request], #[notify], or #[autocmd] to mark RPC methods"
+            "No RPC methods found in the implementation. Use #[request], #[notify], or #[autocmd] to mark RPC methods",
         ));
     }
 

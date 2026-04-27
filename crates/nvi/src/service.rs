@@ -6,15 +6,15 @@ use std::{
 };
 
 use async_trait::async_trait;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 use tracing::{debug, trace, warn};
 
 use crate::{
+    Value,
     client::Client,
     error::{Error, Result},
     highlights, macro_types, nvim,
     nvim::types,
-    Value,
 };
 
 /// The message used to query the status of the plugin

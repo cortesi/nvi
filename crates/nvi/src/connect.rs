@@ -165,7 +165,7 @@ mod tests {
     use tracing_test::traced_test;
 
     use super::*;
-    use crate::{lua_exec, test, Client, NviPlugin};
+    use crate::{Client, NviPlugin, lua_exec, test};
 
     #[derive(Clone)]
     struct TestPlugin {

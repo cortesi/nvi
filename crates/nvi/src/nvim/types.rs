@@ -9,7 +9,7 @@ use std::fmt;
 
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_with::{serde_as, Bytes, NoneAsEmptyString};
+use serde_with::{Bytes, NoneAsEmptyString, serde_as};
 
 use super::opts;
 use crate::{client, error::Result};

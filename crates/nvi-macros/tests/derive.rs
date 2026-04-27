@@ -1,7 +1,7 @@
 //! Tests for nvi-macros.
 #[cfg(test)]
 mod tests {
-    use nvi::{error::Result, test, Client};
+    use nvi::{Client, error::Result, test};
     use nvi_macros::{notify, nvi_plugin, request};
     use tokio::sync::broadcast;
     use tracing_test::traced_test;

@@ -1,12 +1,13 @@
 use std::sync::{
-    atomic::{AtomicU32, Ordering},
     Arc,
+    atomic::{AtomicU32, Ordering},
 };
 
 use nvi::{
+    Client, NviPlugin,
     error::Result,
     nvim::{opts, types::Event},
-    test, Client, NviPlugin,
+    test,
 };
 use nvi_macros::*;
 use tokio::sync::broadcast;

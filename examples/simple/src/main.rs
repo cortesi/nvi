@@ -1,5 +1,5 @@
 //! A simple example plugin.
-use nvi::{cmd::run, error::Result, highlights::*, nvi_macros::*, AutocmdEvent, Client};
+use nvi::{AutocmdEvent, Client, cmd::run, error::Result, highlights::*, nvi_macros::*};
 
 #[derive(Default)]
 /// A simple plugin struct.

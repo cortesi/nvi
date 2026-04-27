@@ -41,8 +41,9 @@
 use std::fmt::{self, Write};
 
 use crate::{
+    Client, Value,
     error::{Error, Result},
-    lua, lua_exec, Client, Value,
+    lua, lua_exec,
 };
 
 /// A modifier key.
@@ -471,7 +472,7 @@ pub async fn feedkeys(client: &Client, keys: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     use super::*;
     use crate::test::NviTest;

@@ -1,10 +1,11 @@
 use nvi::{
+    Client,
     error::Result,
     nvim::{
         opts,
         types::{AutocmdEvent, Event},
     },
-    test, Client,
+    test,
 };
 use nvi_macros::{nvi_plugin, request};
 use tokio::sync::broadcast;

@@ -13,10 +13,10 @@ use tracing::subscriber::DefaultGuard;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::{
+    Client, NviPlugin,
     connect::connect_unix,
     error::{Error, Result},
     process::start_nvim_headless,
-    Client, NviPlugin,
 };
 
 /// Default timeout for log assertions
@@ -107,9 +107,9 @@ struct LogWriter((Arc<Mutex<Vec<String>>>, bool));
 impl std::io::Write for LogWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if let Ok(s) = String::from_utf8(buf.to_vec()) {
-            let mut logs = self.0 .0.lock().unwrap();
+            let mut logs = self.0.0.lock().unwrap();
             logs.push(s.clone());
-            if self.0 .1 {
+            if self.0.1 {
                 print!("{s}");
             }
         }

@@ -2,7 +2,7 @@
 use std::{os::unix::process::CommandExt, path::PathBuf, process::Stdio};
 
 use nix::{
-    sys::signal::{killpg, Signal},
+    sys::signal::{Signal, killpg},
     unistd::Pid,
 };
 use tokio::{

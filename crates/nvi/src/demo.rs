@@ -5,10 +5,11 @@ use futures::future::BoxFuture;
 use tokio::sync::broadcast;
 
 use crate::{
+    NviPlugin,
     client::Client,
     connect::connect_unix,
     error::{Error, Result},
-    process, NviPlugin,
+    process,
 };
 
 /// The timeout for waiting for the plugin to start.

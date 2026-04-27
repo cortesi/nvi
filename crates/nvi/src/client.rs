@@ -67,10 +67,7 @@ impl Client {
         let extra_sep = if !arg_list.is_empty() { ", " } else { "" };
         trace!(
             "nvi registering {}: {} {} {}",
-            kind,
-            namespace,
-            method,
-            arg_list
+            kind, namespace, method, arg_list
         );
         let channel_id = self.channel_id;
 
@@ -338,12 +335,11 @@ impl Client {
                 &format!("return {name}.{status}()", status = service::STATUS_MESSAGE)
             )
             .await;
-            if let Ok(val) = val {
-                if let Some(val) = val.as_str() {
-                    if val == service::Status::Running.to_string() {
-                        break;
-                    }
-                }
+            if let Ok(val) = val
+                && let Some(val) = val.as_str()
+                && val == service::Status::Running.to_string()
+            {
+                break;
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }

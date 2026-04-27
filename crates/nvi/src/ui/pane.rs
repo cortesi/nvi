@@ -1,9 +1,9 @@
 //! A window pane, which is a window and a buffer managed in concert. This is the base for
 //! non-editing interface windows.
 use crate::{
+    Client,
     error::Result,
     nvim::{opts, types, types::WindowConf},
-    Client,
 };
 
 /// A quick way to position a window relative to another window or the editor.

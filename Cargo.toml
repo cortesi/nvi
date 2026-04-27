@@ -1,12 +1,12 @@
 
 [workspace.package]
 version = "0.0.1"
-edition = "2021"
+edition = "2024"
 authors = ["Aldo Cortesi <aldo@corte.si>"]
 
 [workspace]
 resolver = "2"
-members = ["crates/*", "examples/*", "tests"]
+members = ["crates/*", "examples/*", "tests", "xtask"]
 
 [workspace.dependencies]
 tokio = "1.38.0"
