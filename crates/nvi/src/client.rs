@@ -1,5 +1,5 @@
 //! A Neovim client. This is the primary interface for interacting with Neovim from a service.
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use tokio::sync::broadcast;
 use tracing::trace;
@@ -150,9 +150,10 @@ impl Client {
         let _ = self.shutdown_tx.send(());
     }
 
-    /// Send an nvim_notify notification, with a specified log level.
+    /// Send a Neovim notification with a specified log level.
     pub async fn notify(&self, level: nvim::types::LogLevel, msg: &str) -> Result<()> {
-        self.nvim.notify(msg, level.to_u64(), HashMap::new()).await
+        lua_exec!(self, "vim.notify(...)", msg, level.to_u64()).await?;
+        Ok(())
     }
 
     /// Send an nvim_notify notification with a log level of `LogLevel::Trace`.

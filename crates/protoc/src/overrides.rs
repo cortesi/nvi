@@ -31,13 +31,20 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![
                 Arg {
                     name: "buf".into(),
-                    typ: quote! { Buffer },
+                    typ: quote! { &Buffer },
                 },
                 Arg {
                     name: "opts".into(),
                     typ: quote! { opts::BufDelete },
                 },
             ],
+            ret: None,
+        },
+        "nvim_buf_set_lines" => Override {
+            args: vec![Arg {
+                name: "replacement".into(),
+                typ: quote! { Vec<String> },
+            }],
             ret: None,
         },
         "nvim_clear_autocmds" => Override {

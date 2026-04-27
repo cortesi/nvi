@@ -138,28 +138,28 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_exec_autocmds", req).await?)
     }
     /// Returns the number of lines in the given buffer.
-    pub async fn buf_line_count(&self, buffer: &Buffer) -> Result<i64> {
+    pub async fn buf_line_count(&self, buf: &Buffer) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_line_count", req).await?)
     }
     /// Activates buffer-update events on a channel, or as Lua callbacks.
     pub async fn buf_attach(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         send_buffer: bool,
         opts: HashMap<String, Value>,
     ) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = (buffer, send_buffer, opts);
+        let req = (buf, send_buffer, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_attach", req).await?)
     }
     /// Deactivates buffer-update events on the channel.
-    pub async fn buf_detach(&self, buffer: &Buffer) -> Result<bool> {
+    pub async fn buf_detach(&self, buf: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_detach", req).await?)
     }
@@ -173,13 +173,13 @@ impl NvimApi {
     /// strict_indexing is set.
     pub async fn buf_get_lines(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         start: i64,
         end: i64,
         strict_indexing: bool,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
-        let req = (buffer, start, end, strict_indexing);
+        let req = (buf, start, end, strict_indexing);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_lines", req).await?)
     }
@@ -196,14 +196,14 @@ impl NvimApi {
     /// strict_indexing is set.
     pub async fn buf_set_lines(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         start: i64,
         end: i64,
         strict_indexing: bool,
         replacement: Vec<String>,
     ) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, start, end, strict_indexing, replacement);
+        let req = (buf, start, end, strict_indexing, replacement);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_lines", req).await?)
     }
@@ -226,15 +226,15 @@ impl NvimApi {
     /// text at cursor.
     pub async fn buf_set_text(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         start_row: i64,
         start_col: i64,
         end_row: i64,
         end_col: i64,
-        replacement: Vec<String>,
+        replacement: Vec<Value>,
     ) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, start_row, start_col, end_row, end_col, replacement);
+        let req = (buf, start_row, start_col, end_row, end_col, replacement);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_text", req).await?)
     }
@@ -249,15 +249,15 @@ impl NvimApi {
     /// Prefer |nvim_buf_get_lines()| when retrieving entire lines.
     pub async fn buf_get_text(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         start_row: i64,
         start_col: i64,
         end_row: i64,
         end_col: i64,
         opts: HashMap<String, Value>,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
-        let req = (buffer, start_row, start_col, end_row, end_col, opts);
+        let req = (buf, start_row, start_col, end_row, end_col, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_text", req).await?)
     }
@@ -270,104 +270,100 @@ impl NvimApi {
     ///
     /// Unlike |line2byte()|, throws error for out-of-bounds indexing. Returns -1
     /// for unloaded buffer.
-    pub async fn buf_get_offset(&self, buffer: &Buffer, index: i64) -> Result<i64> {
+    pub async fn buf_get_offset(&self, buf: &Buffer, index: i64) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = (buffer, index);
+        let req = (buf, index);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_offset", req).await?)
     }
     /// Gets a buffer-scoped (b:) variable.
-    pub async fn buf_get_var<T>(&self, buffer: &Buffer, name: &str) -> Result<T>
+    pub async fn buf_get_var<T>(&self, buf: &Buffer, name: &str) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
     {
         #[allow(unused_variables)]
-        let req = (buffer, name);
+        let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_var", req).await?)
     }
     /// Gets a changed tick of a buffer
-    pub async fn buf_get_changedtick(&self, buffer: &Buffer) -> Result<i64> {
+    pub async fn buf_get_changedtick(&self, buf: &Buffer) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_changedtick", req).await?)
     }
     /// Gets a list of buffer-local |mapping| definitions.
-    pub async fn buf_get_keymap(
-        &self,
-        buffer: &Buffer,
-        mode: &str,
-    ) -> Result<Vec<HashMap<String, Value>>> {
+    pub async fn buf_get_keymap(&self, buf: &Buffer, mode: &str) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
-        let req = (buffer, mode);
+        let req = (buf, mode);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_keymap", req).await?)
     }
     /// Sets a buffer-local |mapping| for the given mode.
     pub async fn buf_set_keymap(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         mode: &str,
         lhs: &str,
         rhs: &str,
         opts: HashMap<String, Value>,
     ) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, mode, lhs, rhs, opts);
+        let req = (buf, mode, lhs, rhs, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_keymap", req).await?)
     }
     /// Unmaps a buffer-local |mapping| for the given mode.
-    pub async fn buf_del_keymap(&self, buffer: &Buffer, mode: &str, lhs: &str) -> Result<()> {
+    pub async fn buf_del_keymap(&self, buf: &Buffer, mode: &str, lhs: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, mode, lhs);
+        let req = (buf, mode, lhs);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_del_keymap", req).await?)
     }
     /// Sets a buffer-scoped (b:) variable
-    pub async fn buf_set_var<T>(&self, buffer: &Buffer, name: &str, value: T) -> Result<()>
+    pub async fn buf_set_var<T>(&self, buf: &Buffer, name: &str, value: T) -> Result<()>
     where
         T: Serialize,
     {
         #[allow(unused_variables)]
-        let req = (buffer, name, value);
+        let req = (buf, name, value);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_var", req).await?)
     }
     /// Removes a buffer-scoped (b:) variable
-    pub async fn buf_del_var(&self, buffer: &Buffer, name: &str) -> Result<()> {
+    pub async fn buf_del_var(&self, buf: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, name);
+        let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_del_var", req).await?)
     }
     /// Gets the full file name for the buffer
-    pub async fn buf_get_name(&self, buffer: &Buffer) -> Result<String> {
+    pub async fn buf_get_name(&self, buf: &Buffer) -> Result<String> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_name", req).await?)
     }
     /// Sets the full file name for a buffer, like :file_f
-    pub async fn buf_set_name(&self, buffer: &Buffer, name: &str) -> Result<()> {
+    pub async fn buf_set_name(&self, buf: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, name);
+        let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_name", req).await?)
     }
     /// Checks if a buffer is valid and loaded. See |api-buffer| for more info
     /// about unloaded buffers.
-    pub async fn buf_is_loaded(&self, buffer: &Buffer) -> Result<bool> {
+    pub async fn buf_is_loaded(&self, buf: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_is_loaded", req).await?)
     }
     /// Deletes the buffer. See |:bwipeout|
-    pub async fn buf_delete(&self, buffer: &Buffer, opts: opts::BufDelete) -> Result<()> {
+    pub async fn buf_delete(&self, buf: &Buffer, opts: opts::BufDelete) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, opts);
+        let req = (buf, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_delete", req).await?)
     }
@@ -375,9 +371,9 @@ impl NvimApi {
     ///
     /// Note: Even if a buffer is valid it may have been unloaded. See |api-buffer|
     /// for more info about unloaded buffers.
-    pub async fn buf_is_valid(&self, buffer: &Buffer) -> Result<bool> {
+    pub async fn buf_is_valid(&self, buf: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_is_valid", req).await?)
     }
@@ -385,9 +381,9 @@ impl NvimApi {
     ///
     /// Note: only deletes marks set in the buffer, if the mark is not set in the
     /// buffer it will return false.
-    pub async fn buf_del_mark(&self, buffer: &Buffer, name: &str) -> Result<bool> {
+    pub async fn buf_del_mark(&self, buf: &Buffer, name: &str) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = (buffer, name);
+        let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_del_mark", req).await?)
     }
@@ -399,14 +395,14 @@ impl NvimApi {
     /// Note: Passing 0 as line deletes the mark
     pub async fn buf_set_mark(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         name: &str,
         line: i64,
         col: i64,
         opts: HashMap<String, Value>,
     ) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = (buffer, name, line, col, opts);
+        let req = (buf, name, line, col, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_mark", req).await?)
     }
@@ -415,9 +411,9 @@ impl NvimApi {
     /// See |mark-motions|.
     ///
     /// Marks are (1,0)-indexed. |api-indexing|
-    pub async fn buf_get_mark(&self, buffer: &Buffer, name: &str) -> Result<Vec<i64>> {
+    pub async fn buf_get_mark(&self, buf: &Buffer, name: &str) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
-        let req = (buffer, name);
+        let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_mark", req).await?)
     }
@@ -462,14 +458,14 @@ impl NvimApi {
     pub async fn create_user_command<T>(
         &self,
         name: &str,
-        command: T,
+        cmd: T,
         opts: HashMap<String, Value>,
     ) -> Result<()>
     where
         T: Serialize,
     {
         #[allow(unused_variables)]
-        let req = (name, command, opts);
+        let req = (name, cmd, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_create_user_command", req).await?)
     }
@@ -483,16 +479,16 @@ impl NvimApi {
     /// Creates a buffer-local command `user-commands`.
     pub async fn buf_create_user_command<T>(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         name: &str,
-        command: T,
+        cmd: T,
         opts: HashMap<String, Value>,
     ) -> Result<()>
     where
         T: Serialize,
     {
         #[allow(unused_variables)]
-        let req = (buffer, name, command, opts);
+        let req = (buf, name, cmd, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_create_user_command", req).await?)
     }
@@ -500,9 +496,9 @@ impl NvimApi {
     ///
     /// Only commands created with `:command-buffer` or
     /// `nvim_buf_create_user_command()` can be deleted with this function.
-    pub async fn buf_del_user_command(&self, buffer: &Buffer, name: &str) -> Result<()> {
+    pub async fn buf_del_user_command(&self, buf: &Buffer, name: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, name);
+        let req = (buf, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_del_user_command", req).await?)
     }
@@ -521,13 +517,28 @@ impl NvimApi {
     /// Gets a map of buffer-local |user-commands|.
     pub async fn buf_get_commands(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         opts: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>> {
         #[allow(unused_variables)]
-        let req = (buffer, opts);
+        let req = (buf, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_commands", req).await?)
+    }
+    /// Tells Nvim when a terminal event has occurred
+    ///
+    /// The following terminal events are supported:
+    /// * termresponse: The terminal sent an OSC or DCS response sequence to
+    /// Nvim. The payload is the received response. Sets |v:termresponse| and
+    /// fires |TermResponse|.
+    pub async fn ui_term_event<T>(&self, event: &str, value: T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        #[allow(unused_variables)]
+        let req = (event, value);
+        #[allow(clippy::needless_question_mark)]
+        Ok(self.rpc_call("nvim_ui_term_event", req).await?)
     }
     /// Creates a new namespace or gets an existing one.
     ///
@@ -553,13 +564,13 @@ impl NvimApi {
     /// Gets the position (0-indexed) of an |extmark|.
     pub async fn buf_get_extmark_by_id(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         ns_id: i64,
         id: i64,
         opts: HashMap<String, Value>,
-    ) -> Result<Vec<i64>> {
+    ) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
-        let req = (buffer, ns_id, id, opts);
+        let req = (buf, ns_id, id, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_extmark_by_id", req).await?)
     }
@@ -582,7 +593,7 @@ impl NvimApi {
     /// sign_name field.
     pub async fn buf_get_extmarks<T, U>(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         ns_id: i64,
         start: T,
         end: U,
@@ -593,7 +604,7 @@ impl NvimApi {
         U: Serialize,
     {
         #[allow(unused_variables)]
-        let req = (buffer, ns_id, start, end, opts);
+        let req = (buf, ns_id, start, end, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_get_extmarks", req).await?)
     }
@@ -614,57 +625,23 @@ impl NvimApi {
     /// range (no highlighting).
     pub async fn buf_set_extmark(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         ns_id: i64,
         line: i64,
         col: i64,
         opts: HashMap<String, Value>,
     ) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = (buffer, ns_id, line, col, opts);
+        let req = (buf, ns_id, line, col, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_set_extmark", req).await?)
     }
     /// Removes an extmark.
-    pub async fn buf_del_extmark(&self, buffer: &Buffer, ns_id: i64, id: i64) -> Result<bool> {
+    pub async fn buf_del_extmark(&self, buf: &Buffer, ns_id: i64, id: i64) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = (buffer, ns_id, id);
+        let req = (buf, ns_id, id);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_del_extmark", req).await?)
-    }
-    /// Adds a highlight to buffer.
-    ///
-    /// Useful for plugins that dynamically generate highlights to a buffer (like
-    /// a semantic highlighter or linter). The function adds a single highlight to
-    /// a buffer. Unlike `matchaddpos()` highlights follow changes to line
-    /// numbering (as lines are inserted/removed above the highlighted line), like
-    /// signs and marks do.
-    ///
-    /// Namespaces are used for batch deletion/updating of a set of highlights. To
-    /// create a namespace, use `nvim_create_namespace()` which returns a
-    /// namespace id. Pass it in to this function as ns_id to add highlights to
-    /// the namespace. All highlights in the same namespace can then be cleared
-    /// with single call to `nvim_buf_clear_namespace()`. If the highlight never
-    /// will be deleted by an API call, pass ns_id = -1.
-    ///
-    /// As a shorthand, ns_id = 0 can be used to create a new namespace for the
-    /// highlight, the allocated id is then returned. If hl_group is the empty
-    /// string no highlight is added, but a new ns_id is still returned. This is
-    /// supported for backwards compatibility, new code should use
-    /// `nvim_create_namespace()` to create a new empty namespace.
-    pub async fn buf_add_highlight(
-        &self,
-        buffer: &Buffer,
-        ns_id: i64,
-        hl_group: &str,
-        line: i64,
-        col_start: i64,
-        col_end: i64,
-    ) -> Result<i64> {
-        #[allow(unused_variables)]
-        let req = (buffer, ns_id, hl_group, line, col_start, col_end);
-        #[allow(clippy::needless_question_mark)]
-        Ok(self.rpc_call("nvim_buf_add_highlight", req).await?)
     }
     /// Clears namespaced objects (highlights, extmarks, virtual text) from a
     /// region.
@@ -673,13 +650,13 @@ impl NvimApi {
     /// buffer, specify line_start=0 and line_end=-1.
     pub async fn buf_clear_namespace(
         &self,
-        buffer: &Buffer,
+        buf: &Buffer,
         ns_id: i64,
         line_start: i64,
         line_end: i64,
     ) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (buffer, ns_id, line_start, line_end);
+        let req = (buf, ns_id, line_start, line_end);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_buf_clear_namespace", req).await?)
     }
@@ -775,7 +752,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_option_info2", req).await?)
     }
     /// Gets the windows in a tabpage
-    pub async fn tabpage_list_wins(&self, tabpage: &TabPage) -> Result<Vec<Window>> {
+    pub async fn tabpage_list_wins(&self, tabpage: &TabPage) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = tabpage;
         #[allow(clippy::needless_question_mark)]
@@ -835,6 +812,17 @@ impl NvimApi {
         let req = tabpage;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_tabpage_is_valid", req).await?)
+    }
+    pub async fn open_tabpage(
+        &self,
+        buf: &Buffer,
+        enter: bool,
+        config: HashMap<String, Value>,
+    ) -> Result<TabPage> {
+        #[allow(unused_variables)]
+        let req = (buf, enter, config);
+        #[allow(clippy::needless_question_mark)]
+        Ok(self.rpc_call("nvim_open_tabpage", req).await?)
     }
     /// Activates UI events on the channel.
     ///
@@ -928,20 +916,11 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_ui_pum_set_bounds", req).await?)
     }
-    /// Tells Nvim when a terminal event has occurred
-    ///
-    /// The following terminal events are supported:
-    /// * termresponse: The terminal sent an OSC or DCS response sequence to
-    /// Nvim. The payload is the received response. Sets |v:termresponse| and
-    /// fires |TermResponse|.
-    pub async fn ui_term_event<T>(&self, event: &str, value: T) -> Result<()>
-    where
-        T: Serialize,
-    {
+    pub async fn ui_send(&self, content: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (event, value);
+        let req = content;
         #[allow(clippy::needless_question_mark)]
-        Ok(self.rpc_call("nvim_ui_term_event", req).await?)
+        Ok(self.rpc_call("nvim_ui_send", req).await?)
     }
     /// Gets a highlight group by name
     ///
@@ -1098,24 +1077,6 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_exec_lua", req).await?)
     }
-    /// Notify the user with a message.
-    ///
-    /// Relays the call to vim.notify . By default forwards your message in the
-    /// echo area but can be overridden to trigger desktop notifications.
-    pub async fn notify<T>(
-        &self,
-        msg: &str,
-        log_level: u64,
-        opts: HashMap<String, Value>,
-    ) -> Result<T>
-    where
-        T: serde::de::DeserializeOwned,
-    {
-        #[allow(unused_variables)]
-        let req = (msg, log_level, opts);
-        #[allow(clippy::needless_question_mark)]
-        Ok(self.rpc_call("nvim_notify", req).await?)
-    }
     /// Calculates the number of display cells occupied by text. Control
     /// characters including <Tab> count as one cell.
     pub async fn strwidth(&self, text: &str) -> Result<i64> {
@@ -1125,7 +1086,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_strwidth", req).await?)
     }
     /// Gets the paths contained in |runtime-search-path|.
-    pub async fn list_runtime_paths(&self) -> Result<Vec<String>> {
+    pub async fn list_runtime_paths(&self) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1139,7 +1100,7 @@ impl NvimApi {
     /// subdirectories regardless of platform.
     ///
     /// It is not an error to not find any files. An empty array is returned then.
-    pub async fn get_runtime_file(&self, name: &str, all: bool) -> Result<Vec<String>> {
+    pub async fn get_runtime_file(&self, name: &str, all: bool) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = (name, all);
         #[allow(clippy::needless_question_mark)]
@@ -1221,46 +1182,25 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_set_vvar", req).await?)
     }
     /// Echo a message.
-    pub async fn echo(
+    pub async fn echo<T>(
         &self,
         chunks: Vec<Value>,
         history: bool,
         opts: HashMap<String, Value>,
-    ) -> Result<()> {
+    ) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         #[allow(unused_variables)]
         let req = (chunks, history, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_echo", req).await?)
     }
-    /// Writes a message to the Vim output buffer. Does not append \n, the
-    /// message is buffered (will not display) until a linefeed is written.
-    pub async fn out_write(&self, str: &str) -> Result<()> {
-        #[allow(unused_variables)]
-        let req = str;
-        #[allow(clippy::needless_question_mark)]
-        Ok(self.rpc_call("nvim_out_write", req).await?)
-    }
-    /// Writes a message to the Vim error buffer. Does not append \n, the
-    /// message is buffered (will not display) until a linefeed is written.
-    pub async fn err_write(&self, str: &str) -> Result<()> {
-        #[allow(unused_variables)]
-        let req = str;
-        #[allow(clippy::needless_question_mark)]
-        Ok(self.rpc_call("nvim_err_write", req).await?)
-    }
-    /// Writes a message to the Vim error buffer. Appends \n, so the buffer is
-    /// flushed (and displayed).
-    pub async fn err_writeln(&self, str: &str) -> Result<()> {
-        #[allow(unused_variables)]
-        let req = str;
-        #[allow(clippy::needless_question_mark)]
-        Ok(self.rpc_call("nvim_err_writeln", req).await?)
-    }
     /// Gets the current list of buffer handles
     ///
     /// Includes unlisted (unloaded/deleted) buffers, like :ls!. Use
     /// |nvim_buf_is_loaded()| to check if a buffer is loaded.
-    pub async fn list_bufs(&self) -> Result<Vec<Buffer>> {
+    pub async fn list_bufs(&self) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1274,14 +1214,14 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_current_buf", req).await?)
     }
     /// Sets the current buffer.
-    pub async fn set_current_buf(&self, buffer: &Buffer) -> Result<()> {
+    pub async fn set_current_buf(&self, buf: &Buffer) -> Result<()> {
         #[allow(unused_variables)]
-        let req = buffer;
+        let req = buf;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_set_current_buf", req).await?)
     }
     /// Gets the current list of window handles.
-    pub async fn list_wins(&self) -> Result<Vec<Window>> {
+    pub async fn list_wins(&self) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1295,9 +1235,9 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_current_win", req).await?)
     }
     /// Sets the current window.
-    pub async fn set_current_win(&self, window: &Window) -> Result<()> {
+    pub async fn set_current_win(&self, win: &Window) -> Result<()> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_set_current_win", req).await?)
     }
@@ -1321,9 +1261,9 @@ impl NvimApi {
     /// then display it using |nvim_open_win()|, and then call this function. Then
     /// |nvim_chan_send()| can be called immediately to process sequences in a
     /// virtual terminal having the intended size.
-    pub async fn open_term(&self, buffer: &Buffer, opts: HashMap<String, Value>) -> Result<i64> {
+    pub async fn open_term(&self, buf: &Buffer, opts: HashMap<String, Value>) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = (buffer, opts);
+        let req = (buf, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_open_term", req).await?)
     }
@@ -1342,7 +1282,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_chan_send", req).await?)
     }
     /// Gets the current list of tabpage handles.
-    pub async fn list_tabpages(&self) -> Result<Vec<TabPage>> {
+    pub async fn list_tabpages(&self) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
         #[allow(clippy::needless_question_mark)]
@@ -1384,13 +1324,7 @@ impl NvimApi {
     /// |nvim_paste()|.
     ///
     /// Compare |:put| and |p| which are always linewise.
-    pub async fn put(
-        &self,
-        lines: Vec<String>,
-        typ: &str,
-        after: bool,
-        follow: bool,
-    ) -> Result<()> {
+    pub async fn put(&self, lines: Vec<Value>, typ: &str, after: bool, follow: bool) -> Result<()> {
         #[allow(unused_variables)]
         let req = (lines, typ, after, follow);
         #[allow(clippy::needless_question_mark)]
@@ -1443,7 +1377,7 @@ impl NvimApi {
         Ok(self.rpc_call("nvim_get_mode", req).await?)
     }
     /// Gets a list of global (non-buffer-local) |mapping| definitions.
-    pub async fn get_keymap(&self, mode: &str) -> Result<Vec<HashMap<String, Value>>> {
+    pub async fn get_keymap(&self, mode: &str) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
         let req = mode;
         #[allow(clippy::needless_question_mark)]
@@ -1623,9 +1557,9 @@ impl NvimApi {
     /// Prefer `nvim_cmd()` or `nvim_exec2()` instead. To modify an Ex command in
     /// a structured way before executing it, modify the result of
     /// `nvim_parse_cmd()` then pass it to `nvim_cmd()`.
-    pub async fn command(&self, command: &str) -> Result<()> {
+    pub async fn command(&self, cmd: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = command;
+        let req = cmd;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_command", req).await?)
     }
@@ -1672,10 +1606,10 @@ impl NvimApi {
         &self,
         expr: &str,
         flags: &str,
-        highlight: bool,
+        hl: bool,
     ) -> Result<HashMap<String, Value>> {
         #[allow(unused_variables)]
-        let req = (expr, flags, highlight);
+        let req = (expr, flags, hl);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_parse_expression", req).await?)
     }
@@ -1712,14 +1646,9 @@ impl NvimApi {
     /// values so floats are fully within the main screen grid. External GUIs
     /// could let floats hover outside of the main window like a tooltip, but this
     /// should not be used to specify arbitrary WM screen positions.
-    pub async fn open_win(
-        &self,
-        buffer: &Buffer,
-        enter: bool,
-        config: WindowConf,
-    ) -> Result<Window> {
+    pub async fn open_win(&self, buf: &Buffer, enter: bool, config: WindowConf) -> Result<Window> {
         #[allow(unused_variables)]
-        let req = (buffer, enter, config);
+        let req = (buf, enter, config);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_open_win", req).await?)
     }
@@ -1728,9 +1657,9 @@ impl NvimApi {
     ///
     /// When reconfiguring a window, absent option keys will not be changed.
     /// row/col and relative must be reconfigured together.
-    pub async fn win_set_config(&self, window: &Window, config: WindowConf) -> Result<()> {
+    pub async fn win_set_config(&self, win: &Window, config: WindowConf) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, config);
+        let req = (win, config);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_config", req).await?)
     }
@@ -1739,124 +1668,124 @@ impl NvimApi {
     /// The returned value may be given to `nvim_open_win()`.
     ///
     /// relative is empty for normal windows.
-    pub async fn win_get_config(&self, window: &Window) -> Result<WindowConf> {
+    pub async fn win_get_config(&self, win: &Window) -> Result<WindowConf> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_config", req).await?)
     }
     /// Gets the current buffer in a window
-    pub async fn win_get_buf(&self, window: &Window) -> Result<Buffer> {
+    pub async fn win_get_buf(&self, win: &Window) -> Result<Buffer> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_buf", req).await?)
     }
     /// Sets the current buffer in a window, without side effects
-    pub async fn win_set_buf(&self, window: &Window, buffer: &Buffer) -> Result<()> {
+    pub async fn win_set_buf(&self, win: &Window, buf: &Buffer) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, buffer);
+        let req = (win, buf);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_buf", req).await?)
     }
     /// Gets the (1,0)-indexed, buffer-relative cursor position for a given window
     /// (different windows showing the same buffer have independent cursor
     /// positions).
-    pub async fn win_get_cursor(&self, window: &Window) -> Result<Vec<i64>> {
+    pub async fn win_get_cursor(&self, win: &Window) -> Result<Vec<Value>> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_cursor", req).await?)
     }
     /// Sets the (1,0)-indexed cursor position in the window. This scrolls the
     /// window even if it is not the current one.
-    pub async fn win_set_cursor(&self, window: &Window, pos: Vec<i64>) -> Result<()> {
+    pub async fn win_set_cursor(&self, win: &Window, pos: Vec<Value>) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, pos);
+        let req = (win, pos);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_cursor", req).await?)
     }
     /// Gets the window height
-    pub async fn win_get_height(&self, window: &Window) -> Result<i64> {
+    pub async fn win_get_height(&self, win: &Window) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_height", req).await?)
     }
     /// Sets the window height.
-    pub async fn win_set_height(&self, window: &Window, height: i64) -> Result<()> {
+    pub async fn win_set_height(&self, win: &Window, height: i64) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, height);
+        let req = (win, height);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_height", req).await?)
     }
     /// Gets the window width
-    pub async fn win_get_width(&self, window: &Window) -> Result<i64> {
+    pub async fn win_get_width(&self, win: &Window) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_width", req).await?)
     }
     /// Sets the window width. This will only succeed if the screen is split
     /// vertically.
-    pub async fn win_set_width(&self, window: &Window, width: i64) -> Result<()> {
+    pub async fn win_set_width(&self, win: &Window, width: i64) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, width);
+        let req = (win, width);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_width", req).await?)
     }
     /// Gets a window-scoped (w:) variable
-    pub async fn win_get_var<T>(&self, window: &Window, name: &str) -> Result<T>
+    pub async fn win_get_var<T>(&self, win: &Window, name: &str) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
     {
         #[allow(unused_variables)]
-        let req = (window, name);
+        let req = (win, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_var", req).await?)
     }
     /// Sets a window-scoped (w:) variable
-    pub async fn win_set_var<T>(&self, window: &Window, name: &str, value: T) -> Result<()>
+    pub async fn win_set_var<T>(&self, win: &Window, name: &str, value: T) -> Result<()>
     where
         T: Serialize,
     {
         #[allow(unused_variables)]
-        let req = (window, name, value);
+        let req = (win, name, value);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_var", req).await?)
     }
     /// Removes a window-scoped (w:) variable
-    pub async fn win_del_var(&self, window: &Window, name: &str) -> Result<()> {
+    pub async fn win_del_var(&self, win: &Window, name: &str) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, name);
+        let req = (win, name);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_del_var", req).await?)
     }
     /// Gets the window position in display cells. First position is zero.
-    pub async fn win_get_position(&self, window: &Window) -> Result<(i64, i64)> {
+    pub async fn win_get_position(&self, win: &Window) -> Result<(i64, i64)> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_position", req).await?)
     }
     /// Gets the window tabpage
-    pub async fn win_get_tabpage(&self, window: &Window) -> Result<TabPage> {
+    pub async fn win_get_tabpage(&self, win: &Window) -> Result<TabPage> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_tabpage", req).await?)
     }
     /// Gets the window number
-    pub async fn win_get_number(&self, window: &Window) -> Result<i64> {
+    pub async fn win_get_number(&self, win: &Window) -> Result<i64> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_get_number", req).await?)
     }
     /// Checks if a window is valid
-    pub async fn win_is_valid(&self, window: &Window) -> Result<bool> {
+    pub async fn win_is_valid(&self, win: &Window) -> Result<bool> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_is_valid", req).await?)
     }
@@ -1866,16 +1795,16 @@ impl NvimApi {
     /// Like |:hide| the buffer becomes hidden unless another window is editing
     /// it, or bufhidden is unload, delete or wipe as opposed to |:close|
     /// or |nvim_win_close()|, which will close the buffer.
-    pub async fn win_hide(&self, window: &Window) -> Result<()> {
+    pub async fn win_hide(&self, win: &Window) -> Result<()> {
         #[allow(unused_variables)]
-        let req = window;
+        let req = win;
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_hide", req).await?)
     }
     /// Closes the window (like |:close| with a |window-ID|).
-    pub async fn win_close(&self, window: &Window, force: bool) -> Result<()> {
+    pub async fn win_close(&self, win: &Window, force: bool) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, force);
+        let req = (win, force);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_close", req).await?)
     }
@@ -1884,9 +1813,9 @@ impl NvimApi {
     /// highlights (ns=0) when missing.
     ///
     /// This takes precedence over the winhighlight option.
-    pub async fn win_set_hl_ns(&self, window: &Window, ns_id: i64) -> Result<()> {
+    pub async fn win_set_hl_ns(&self, win: &Window, ns_id: i64) -> Result<()> {
         #[allow(unused_variables)]
-        let req = (window, ns_id);
+        let req = (win, ns_id);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_hl_ns", req).await?)
     }
@@ -1902,11 +1831,11 @@ impl NvimApi {
     /// Line indexing is similar to `nvim_buf_get_text()`.
     pub async fn win_text_height(
         &self,
-        window: &Window,
+        win: &Window,
         opts: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>> {
         #[allow(unused_variables)]
-        let req = (window, opts);
+        let req = (win, opts);
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_text_height", req).await?)
     }
