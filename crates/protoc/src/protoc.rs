@@ -20,8 +20,9 @@ fn clean_name(name: &str) -> String {
     name
 }
 
-/// Takes the function name, a parameter, and the current meta variable count. Returns the argument
-/// and a boolean indicating whether the argument is a meta variable.
+/// Takes the function name, a parameter, and the current meta variable count.
+/// Returns the argument and a boolean indicating whether the argument is a meta
+/// variable.
 fn generate_argument(func: &str, p: &api::Parameter, meta_count: i32) -> (TokenStream, bool) {
     let argname = clean_name(&p.1);
     let name = Ident::new(&argname, Span::call_site());

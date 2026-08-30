@@ -1,5 +1,5 @@
-/// To generate these values, I inspect the output of `nvim --api-info`, like so:
-///  
+/// To generate these values, I inspect the output of `nvim --api-info`, like
+/// so:
 /// ```sh
 // nvim --api-info | msgpack2json | jq
 /// ```

@@ -4,8 +4,8 @@ use quote::quote;
 /// A map for rewriting identifiers in arguments to avoid built-ins
 pub const IDENT_MAP: &[(&str, &str)] = &[("fn", "func"), ("type", "typ")];
 
-/// Skip these, because they have LuaRef parameters, that don't seem to be supported on the client
-/// yet.
+/// Skip these, because they have LuaRef parameters, that don't seem to be
+/// supported on the client yet.
 pub const SKIP_FUNCTIONS: &[&str] = &["nvim_buf_call", "nvim_win_call"];
 
 /// An argument override

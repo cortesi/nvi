@@ -8,6 +8,7 @@ authors.workspace = true
 workspace = true
 
 [lib]
+doctest = false
 proc-macro = true
 
 [dependencies]

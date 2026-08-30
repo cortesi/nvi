@@ -449,7 +449,8 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     }))
 }
 
-/// Parse an impl block, and extract the methods marked with `request` or `notify`.
+/// Parse an impl block, and extract the methods marked with `request` or
+/// `notify`.
 fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlock)> {
     let v = syn::parse2::<syn::ItemImpl>(input.clone())?;
     let tp = match *v.clone().self_ty {
@@ -477,7 +478,8 @@ fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBl
     ))
 }
 
-// Extract this to ease testing, since proc_macro::TokenStream can't cross proc-macro boundaries.
+// Extract this to ease testing, since proc_macro::TokenStream can't cross
+// proc-macro boundaries.
 /// Generate the implementation methods
 fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     imp.methods.iter().map(|m| {
@@ -754,8 +756,8 @@ fn inner_nvi_plugin(
     .to_token_stream())
 }
 
-/// Add this attribute to the *impl* block for the `NviPlugin` trait to derive implementations for
-/// the `message` and `notification` methods.
+/// Add this attribute to the *impl* block for the `NviPlugin` trait to derive
+/// implementations for the `message` and `notification` methods.
 #[proc_macro_attribute]
 pub fn nvi_plugin(
     _attr: proc_macro::TokenStream,
@@ -777,8 +779,8 @@ pub fn request(
     input
 }
 
-/// Mark a method as an RPC notification. Notification methods do not return a value,
-/// so must return `Result<()>` or be void.
+/// Mark a method as an RPC notification. Notification methods do not return a
+/// value, so must return `Result<()>` or be void.
 #[proc_macro_attribute]
 pub fn notify(
     _attr: proc_macro::TokenStream,

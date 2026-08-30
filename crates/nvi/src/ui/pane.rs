@@ -1,5 +1,5 @@
-//! A window pane, which is a window and a buffer managed in concert. This is the base for
-//! non-editing interface windows.
+//! A window pane, which is a window and a buffer managed in concert. This is
+//! the base for non-editing interface windows.
 use crate::{
     Client,
     error::Result,
@@ -87,14 +87,16 @@ impl Text {
         Self { lines }
     }
 
-    /// Creates a blank content area of specified width and height, filled with spaces.
+    /// Creates a blank content area of specified width and height, filled with
+    /// spaces.
     pub fn blank(width: usize, height: usize) -> Self {
         let line = " ".repeat(width);
         let lines = vec![line; height];
         Self { lines }
     }
 
-    /// Creates a content area of specified width and height with text centered in both dimensions.
+    /// Creates a content area of specified width and height with text centered
+    /// in both dimensions.
     pub fn center(width: usize, height: usize, text: &str) -> Self {
         let text_lines: Vec<&str> = text.lines().collect();
         let text_height = text_lines.len();
@@ -128,9 +130,9 @@ impl Text {
     }
 }
 
-/// A window pane, which is a window and a buffer managed in concert. This struct is intended for
-/// interface windows, especially floats - that is, windows that aren't used for editing text
-/// directly.
+/// A window pane, which is a window and a buffer managed in concert. This
+/// struct is intended for interface windows, especially floats - that is,
+/// windows that aren't used for editing text directly.
 #[derive(Clone, Debug)]
 pub struct Pane {
     /// The window handle.
@@ -195,14 +197,15 @@ impl PaneBuilder {
         }
     }
 
-    /// Adds a highlight group mapping for the window. All mappings are applied to the window
-    /// through the `winhl` option.
+    /// Adds a highlight group mapping for the window. All mappings are applied
+    /// to the window through the `winhl` option.
     pub fn winhl(mut self, from: &str, to: &str) -> Self {
         self.highlights.push((from.to_string(), to.to_string()));
         self
     }
 
-    /// Sets a base window configuration. Other builder methods will override these settings.
+    /// Sets a base window configuration. Other builder methods will override
+    /// these settings.
     pub fn with_window_conf(mut self, conf: WindowConf) -> Self {
         self.window_conf = Some(conf);
         self
@@ -240,7 +243,8 @@ impl PaneBuilder {
         self
     }
 
-    /// Builds the pane with the configured options, creating the underlying buffer and window.
+    /// Builds the pane with the configured options, creating the underlying
+    /// buffer and window.
     pub async fn build(self, client: &mut Client, content: Text) -> Result<Pane> {
         let buffer = client.nvim.create_buf(false, true).await?;
 

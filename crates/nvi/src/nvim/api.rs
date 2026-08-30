@@ -63,8 +63,8 @@ impl NvimApi {
     /// - Matches all criteria
     /// - All commands from one group
     ///
-    /// NOTE: When multiple patterns or events are provided, it will find all the
-    /// autocommands that match any combination of them.
+    /// NOTE: When multiple patterns or events are provided, it will find all
+    /// the autocommands that match any combination of them.
     pub async fn get_autocmds<T>(&self, opts: HashMap<String, Value>) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
@@ -168,9 +168,9 @@ impl NvimApi {
     }
     /// Gets a line-range from the buffer.
     ///
-    /// Indexing is zero-based, end-exclusive. Negative indices are interpreted as
-    /// length+1+index: -1 refers to the index past the end. So to get the last
-    /// element use start=-2 and end=-1.
+    /// Indexing is zero-based, end-exclusive. Negative indices are interpreted
+    /// as length+1+index: -1 refers to the index past the end. So to get
+    /// the last element use start=-2 and end=-1.
     ///
     /// Out-of-bounds indices are clamped to the nearest valid value, unless
     /// strict_indexing is set.
@@ -191,9 +191,9 @@ impl NvimApi {
     }
     /// Sets (replaces) a line-range in the buffer.
     ///
-    /// Indexing is zero-based, end-exclusive. Negative indices are interpreted as
-    /// length+1+index: -1 refers to the index past the end. So to change or
-    /// delete the last element use start=-2 and end=-1.
+    /// Indexing is zero-based, end-exclusive. Negative indices are interpreted
+    /// as length+1+index: -1 refers to the index past the end. So to change
+    /// or delete the last element use start=-2 and end=-1.
     ///
     /// To insert lines at a given index, set start and end to the same index.
     /// To delete a range of lines, set replacement to an empty array.
@@ -219,8 +219,8 @@ impl NvimApi {
     /// of a line, as extmarks will be preserved on non-modified parts of the
     /// touched lines.
     ///
-    /// Indexing is zero-based. Row indices are end-inclusive, and column indices
-    /// are end-exclusive.
+    /// Indexing is zero-based. Row indices are end-inclusive, and column
+    /// indices are end-exclusive.
     ///
     /// To insert text at a given (row, column) location, use
     /// start_row = end_row = row and start_col = end_col = col. To delete the
@@ -246,11 +246,11 @@ impl NvimApi {
     }
     /// Gets a range from the buffer.
     ///
-    /// This differs from |nvim_buf_get_lines()| in that it allows retrieving only
-    /// portions of a line.
+    /// This differs from |nvim_buf_get_lines()| in that it allows retrieving
+    /// only portions of a line.
     ///
-    /// Indexing is zero-based. Row indices are end-inclusive, and column indices
-    /// are end-exclusive.
+    /// Indexing is zero-based. Row indices are end-inclusive, and column
+    /// indices are end-exclusive.
     ///
     /// Prefer |nvim_buf_get_lines()| when retrieving entire lines.
     pub async fn buf_get_text<T>(
@@ -277,8 +277,8 @@ impl NvimApi {
     /// last line gives the total byte-count of the buffer. A final EOL byte is
     /// counted if it would be written, see eol.
     ///
-    /// Unlike |line2byte()|, throws error for out-of-bounds indexing. Returns -1
-    /// for unloaded buffer.
+    /// Unlike |line2byte()|, throws error for out-of-bounds indexing. Returns
+    /// -1 for unloaded buffer.
     pub async fn buf_get_offset(&self, buf: &Buffer, index: i64) -> Result<i64> {
         #[allow(unused_variables)]
         let req = (buf, index);
@@ -381,8 +381,8 @@ impl NvimApi {
     }
     /// Checks if a buffer is valid.
     ///
-    /// Note: Even if a buffer is valid it may have been unloaded. See |api-buffer|
-    /// for more info about unloaded buffers.
+    /// Note: Even if a buffer is valid it may have been unloaded. See
+    /// |api-buffer| for more info about unloaded buffers.
     pub async fn buf_is_valid(&self, buf: &Buffer) -> Result<bool> {
         #[allow(unused_variables)]
         let req = buf;
@@ -391,8 +391,8 @@ impl NvimApi {
     }
     /// Deletes a named mark in the buffer. See |mark-motions|.
     ///
-    /// Note: only deletes marks set in the buffer, if the mark is not set in the
-    /// buffer it will return false.
+    /// Note: only deletes marks set in the buffer, if the mark is not set in
+    /// the buffer it will return false.
     pub async fn buf_del_mark(&self, buf: &Buffer, name: &str) -> Result<bool> {
         #[allow(unused_variables)]
         let req = (buf, name);
@@ -444,12 +444,12 @@ impl NvimApi {
     }
     /// Executes an Ex command.
     ///
-    /// Unlike `nvim_command()` this command takes a structured Dict instead of a
-    /// String. This allows for easier construction and manipulation of an Ex
-    /// command. This also allows for things such as having spaces inside a
-    /// command argument, expanding filenames in a command that otherwise does not
-    /// expand filenames, etc. Command arguments may also be Number, Boolean or
-    /// String.
+    /// Unlike `nvim_command()` this command takes a structured Dict instead of
+    /// a String. This allows for easier construction and manipulation of an
+    /// Ex command. This also allows for things such as having spaces inside
+    /// a command argument, expanding filenames in a command that otherwise
+    /// does not expand filenames, etc. Command arguments may also be
+    /// Number, Boolean or String.
     ///
     /// The first argument may also be used instead of count for commands that
     /// support it in order to make their usage simpler. For example, instead of
@@ -593,8 +593,8 @@ impl NvimApi {
     /// buffer positions (inclusive, 0-indexed |api-indexing|).
     ///
     /// Region can be given as (row,col) tuples, or valid extmark ids (whose
-    /// positions define the bounds). 0 and -1 are understood as (0,0) and (-1,-1)
-    /// respectively.
+    /// positions define the bounds). 0 and -1 are understood as (0,0) and
+    /// (-1,-1) respectively.
     ///
     /// If end is less than start, traversal works backwards. (Useful with
     /// limit, to get the first marks prior to a given position.)
@@ -603,9 +603,9 @@ impl NvimApi {
     /// the overlap option might be useful. Otherwise only the start position of
     /// an extmark will be considered.
     ///
-    /// Note: legacy signs placed through the |:sign| commands are implemented as
-    /// extmarks and will show up here. Their details array will contain a
-    /// sign_name field.
+    /// Note: legacy signs placed through the |:sign| commands are implemented
+    /// as extmarks and will show up here. Their details array will contain
+    /// a sign_name field.
     pub async fn buf_get_extmarks<T, U, V>(
         &self,
         buf: &Buffer,
@@ -627,10 +627,10 @@ impl NvimApi {
     /// Creates or updates an extmark.
     ///
     /// By default a new extmark is created when no id is passed in, but it is
-    /// also possible to create a new mark by passing in a previously unused id or
-    /// move an existing mark by passing in its id. The caller must then keep
-    /// track of existing and unused ids itself. (Useful over RPC, to avoid
-    /// waiting for the return value.)
+    /// also possible to create a new mark by passing in a previously unused id
+    /// or move an existing mark by passing in its id. The caller must then
+    /// keep track of existing and unused ids itself. (Useful over RPC, to
+    /// avoid waiting for the return value.)
     ///
     /// Using the optional arguments, it is possible to use this to highlight a
     /// range of text, and also to associate virtual text to the mark.
@@ -681,26 +681,26 @@ impl NvimApi {
     /// This is a very general purpose interface for having Lua callbacks being
     /// triggered during the redraw code.
     ///
-    /// The expected usage is to set |extmarks| for the currently redrawn buffer.
-    /// |nvim_buf_set_extmark()| can be called to add marks on a per-window or
-    /// per-lines basis. Use the ephemeral key to only use the mark for the
-    /// current screen redraw (the callback will be called again for the next
-    /// redraw).
+    /// The expected usage is to set |extmarks| for the currently redrawn
+    /// buffer. |nvim_buf_set_extmark()| can be called to add marks on a
+    /// per-window or per-lines basis. Use the ephemeral key to only use the
+    /// mark for the current screen redraw (the callback will be called
+    /// again for the next redraw).
     ///
     /// Note: this function should not be called often. Rather, the callbacks
     /// themselves can be used to throttle unneeded callbacks. the on_start
     /// callback can return false to disable the provider until the next redraw.
     /// Similarly, return false in on_win will skip the on_line calls for
     /// that window (but any extmarks set in on_win will still be used). A
-    /// plugin managing multiple sources of decoration should ideally only set one
-    /// provider, and merge the sources internally. You can use multiple ns_id
-    /// for the extmarks set/modified inside the callback anyway.
+    /// plugin managing multiple sources of decoration should ideally only set
+    /// one provider, and merge the sources internally. You can use multiple
+    /// ns_id for the extmarks set/modified inside the callback anyway.
     ///
     /// Note: doing anything other than setting extmarks is considered
     /// experimental. Doing things like changing options are not explicitly
-    /// forbidden, but is likely to have unexpected consequences (such as 100% CPU
-    /// consumption). Doing vim.rpcnotify should be OK, but vim.rpcrequest is
-    /// quite dubious for the moment.
+    /// forbidden, but is likely to have unexpected consequences (such as 100%
+    /// CPU consumption). Doing vim.rpcnotify should be OK, but
+    /// vim.rpcrequest is quite dubious for the moment.
     ///
     /// Note: It is not allowed to remove or update extmarks in on_line
     /// callbacks.
@@ -714,10 +714,11 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_set_decoration_provider", req).await?)
     }
-    /// Gets the value of an option. The behavior of this function matches that of
-    /// |:set|: the local value of an option is returned if it exists; otherwise,
-    /// the global value is returned. Local values always correspond to the
-    /// current buffer or window, unless buf or win is set in {opts}.
+    /// Gets the value of an option. The behavior of this function matches that
+    /// of |:set|: the local value of an option is returned if it exists;
+    /// otherwise, the global value is returned. Local values always
+    /// correspond to the current buffer or window, unless buf or win is set
+    /// in {opts}.
     pub async fn get_option_value<T>(&self, name: &str, opts: HashMap<String, Value>) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
@@ -727,9 +728,9 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_get_option_value", req).await?)
     }
-    /// Sets the value of an option. The behavior of this function matches that of
-    /// |:set|: for global-local options, both the global and local value are set
-    /// unless otherwise specified with {scope}.
+    /// Sets the value of an option. The behavior of this function matches that
+    /// of |:set|: for global-local options, both the global and local value are
+    /// set unless otherwise specified with {scope}.
     ///
     /// Note the options {win} and {buf} cannot be used together.
     pub async fn set_option_value<T>(
@@ -756,7 +757,8 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_get_all_options_info", req).await?)
     }
-    /// Gets the option information for one option from arbitrary buffer or window
+    /// Gets the option information for one option from arbitrary buffer or
+    /// window
     pub async fn get_option_info2(
         &self,
         name: &str,
@@ -917,9 +919,9 @@ impl NvimApi {
     /// Note that this method is not to be confused with
     /// |nvim_ui_pum_set_height()|, which sets the number of visible items in the
     /// popup menu, while this function sets the bounding box of the popup menu,
-    /// including visual elements such as borders and sliders. Floats need not use
-    /// the same font size, nor be anchored to exact grid corners, so one can set
-    /// floating-point numbers to the popup menu geometry.
+    /// including visual elements such as borders and sliders. Floats need not
+    /// use the same font size, nor be anchored to exact grid corners, so
+    /// one can set floating-point numbers to the popup menu geometry.
     pub async fn ui_pum_set_bounds(
         &self,
         width: f64,
@@ -949,8 +951,8 @@ impl NvimApi {
     }
     /// Gets all or specific highlight groups in a namespace.
     ///
-    /// Note: When the link attribute is defined in the highlight definition map,
-    /// other attributes will not be taking effect (see |:hi-link|).
+    /// Note: When the link attribute is defined in the highlight definition
+    /// map, other attributes will not be taking effect (see |:hi-link|).
     pub async fn get_hl(
         &self,
         ns_id: i64,
@@ -987,8 +989,8 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_get_hl_ns", req).await?)
     }
-    /// Set active namespace for highlights defined with |nvim_set_hl()|. This can
-    /// be set for a single window, see |nvim_win_set_hl_ns()|.
+    /// Set active namespace for highlights defined with |nvim_set_hl()|. This
+    /// can be set for a single window, see |nvim_win_set_hl_ns()|.
     pub async fn set_hl_ns(&self, ns_id: i64) -> Result<()> {
         #[allow(unused_variables)]
         let req = ns_id;
@@ -1065,8 +1067,8 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_input_mouse", req).await?)
     }
-    /// Replaces terminal codes and |keycodes| (<CR>, <Esc>, ...) in a string with
-    /// the internal representation.
+    /// Replaces terminal codes and |keycodes| (<CR>, <Esc>, ...) in a string
+    /// with the internal representation.
     pub async fn replace_termcodes(
         &self,
         str: &str,
@@ -1118,7 +1120,8 @@ impl NvimApi {
     /// scheme files. Always use forward slashes (/) in the search pattern for
     /// subdirectories regardless of platform.
     ///
-    /// It is not an error to not find any files. An empty array is returned then.
+    /// It is not an error to not find any files. An empty array is returned
+    /// then.
     pub async fn get_runtime_file<T>(&self, name: &str, all: bool) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
@@ -1273,16 +1276,18 @@ impl NvimApi {
     /// Open a terminal instance in a buffer
     ///
     /// By default (and currently the only option) the terminal will not be
-    /// connected to an external process. Instead, input sent on the channel will
-    /// be echoed directly by the terminal. This is useful to display ANSI
-    /// terminal sequences returned as part of a rpc message, or similar.
+    /// connected to an external process. Instead, input sent on the channel
+    /// will be echoed directly by the terminal. This is useful to display
+    /// ANSI terminal sequences returned as part of a rpc message, or
+    /// similar.
     ///
-    /// Note: to directly initiate the terminal using the right size, display the
-    /// buffer in a configured window before calling this. For instance, for a
-    /// floating display, first create an empty buffer using |nvim_create_buf()|,
-    /// then display it using |nvim_open_win()|, and then call this function. Then
-    /// |nvim_chan_send()| can be called immediately to process sequences in a
-    /// virtual terminal having the intended size.
+    /// Note: to directly initiate the terminal using the right size, display
+    /// the buffer in a configured window before calling this. For instance,
+    /// for a floating display, first create an empty buffer using
+    /// |nvim_create_buf()|, then display it using |nvim_open_win()|, and
+    /// then call this function. Then |nvim_chan_send()| can be called
+    /// immediately to process sequences in a virtual terminal having the
+    /// intended size.
     pub async fn open_term(&self, buf: &Buffer, opts: HashMap<String, Value>) -> Result<i64> {
         #[allow(unused_variables)]
         let req = (buf, opts);
@@ -1330,7 +1335,8 @@ impl NvimApi {
     /// to |nvim_input()| which is subject to mappings/events and is thus much
     /// slower).
     ///
-    /// Invokes the |vim.paste()| handler, which handles each mode appropriately.
+    /// Invokes the |vim.paste()| handler, which handles each mode
+    /// appropriately.
     ///
     /// Errors (nomodifiable, vim.paste() failure, …) are reflected in err
     /// but do not affect the return value (which is strictly decided by
@@ -1441,8 +1447,8 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_del_keymap", req).await?)
     }
-    /// Returns a 2-tuple (Array), where item 0 is the current channel id and item
-    /// 1 is the |api-metadata| map (Dict).
+    /// Returns a 2-tuple (Array), where item 0 is the current channel id and
+    /// item 1 is the |api-metadata| map (Dict).
     pub async fn get_api_info(&self) -> Result<(u64, ApiInfo)> {
         #[allow(unused_variables)]
         let req = NO_PARAMS;
@@ -1456,11 +1462,11 @@ impl NvimApi {
     /// orchestration.
     ///
     /// Can be called more than once; the caller should merge old info if
-    /// appropriate. Example: library first identifies the channel, then a plugin
-    /// using that library later identifies itself.
+    /// appropriate. Example: library first identifies the channel, then a
+    /// plugin using that library later identifies itself.
     ///
-    /// Note: Something is better than nothing. You do not need to include all the
-    /// fields.
+    /// Note: Something is better than nothing. You do not need to include all
+    /// the fields.
     pub async fn set_client_info(
         &self,
         name: &str,
@@ -1517,11 +1523,11 @@ impl NvimApi {
     }
     /// Selects an item in the completion popup menu.
     ///
-    /// If neither |ins-completion| nor |cmdline-completion| popup menu is active
-    /// this API call is silently ignored. Useful for an external UI using
-    /// |ui-popupmenu| to control the popup menu with the mouse. Can also be used
-    /// in a mapping; use <Cmd> |:map-cmd| or a Lua mapping to ensure the mapping
-    /// does not end completion mode.
+    /// If neither |ins-completion| nor |cmdline-completion| popup menu is
+    /// active this API call is silently ignored. Useful for an external UI
+    /// using |ui-popupmenu| to control the popup menu with the mouse. Can also
+    /// be used in a mapping; use <Cmd> |:map-cmd| or a Lua mapping to
+    /// ensure the mapping does not end completion mode.
     pub async fn select_popupmenu_item(
         &self,
         item: i64,
@@ -1592,8 +1598,8 @@ impl NvimApi {
     ///
     /// On execution error: fails with Vimscript error, updates v:errmsg.
     ///
-    /// Prefer `nvim_cmd()` or `nvim_exec2()` instead. To modify an Ex command in
-    /// a structured way before executing it, modify the result of
+    /// Prefer `nvim_cmd()` or `nvim_exec2()` instead. To modify an Ex command
+    /// in a structured way before executing it, modify the result of
     /// `nvim_parse_cmd()` then pass it to `nvim_cmd()`.
     pub async fn command(&self, cmd: &str) -> Result<()> {
         #[allow(unused_variables)]
@@ -1656,9 +1662,9 @@ impl NvimApi {
     ///
     /// Floats are windows that are drawn above the split layout, at some anchor
     /// position in some other window. Floats can be drawn internally or by
-    /// external GUI with the |ui-multigrid| extension. External windows are only
-    /// supported with multigrid GUIs, and are displayed as separate top-level
-    /// windows.
+    /// external GUI with the |ui-multigrid| extension. External windows are
+    /// only supported with multigrid GUIs, and are displayed as separate
+    /// top-level windows.
     ///
     /// For a general overview of floats, see |api-floatwin|.
     ///
@@ -1680,10 +1686,11 @@ impl NvimApi {
     /// (used by non-multigrid UIs) will always round down to nearest integer.
     ///
     /// Out-of-bounds values, and configurations that make the float not fit
-    /// inside the main editor, are allowed. The builtin implementation truncates
-    /// values so floats are fully within the main screen grid. External GUIs
-    /// could let floats hover outside of the main window like a tooltip, but this
-    /// should not be used to specify arbitrary WM screen positions.
+    /// inside the main editor, are allowed. The builtin implementation
+    /// truncates values so floats are fully within the main screen grid.
+    /// External GUIs could let floats hover outside of the main window like
+    /// a tooltip, but this should not be used to specify arbitrary WM
+    /// screen positions.
     pub async fn open_win(&self, buf: &Buffer, enter: bool, config: WindowConf) -> Result<Window> {
         #[allow(unused_variables)]
         let req = (buf, enter, config);
@@ -1726,9 +1733,9 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_buf", req).await?)
     }
-    /// Gets the (1,0)-indexed, buffer-relative cursor position for a given window
-    /// (different windows showing the same buffer have independent cursor
-    /// positions).
+    /// Gets the (1,0)-indexed, buffer-relative cursor position for a given
+    /// window (different windows showing the same buffer have independent
+    /// cursor positions).
     pub async fn win_get_cursor(&self, win: &Window) -> Result<(i64, i64)> {
         #[allow(unused_variables)]
         let req = win;
@@ -1857,14 +1864,15 @@ impl NvimApi {
         #[allow(clippy::needless_question_mark)]
         Ok(self.rpc_call("nvim_win_set_hl_ns", req).await?)
     }
-    /// Computes the number of screen lines occupied by a range of text in a given
-    /// window. Works for off-screen text and takes folds into account.
+    /// Computes the number of screen lines occupied by a range of text in a
+    /// given window. Works for off-screen text and takes folds into
+    /// account.
     ///
     /// Diff filler or virtual lines above a line are counted as a part of that
     /// line, unless the line is on start_row and start_vcol is specified.
     ///
-    /// Diff filler or virtual lines below the last buffer line are counted in the
-    /// result when end_row is omitted.
+    /// Diff filler or virtual lines below the last buffer line are counted in
+    /// the result when end_row is omitted.
     ///
     /// Line indexing is similar to `nvim_buf_get_text()`.
     pub async fn win_text_height(

@@ -1,8 +1,8 @@
 //! Utilities for defining highlight groups in Neovim.
 //!
-//! This module provides types and functions for creating and managing Neovim highlight groups
-//! with type safety and validation. It supports both direct highlight definitions and links
-//! between groups.
+//! This module provides types and functions for creating and managing Neovim
+//! highlight groups with type safety and validation. It supports both direct
+//! highlight definitions and links between groups.
 
 use std::fmt;
 
@@ -14,9 +14,11 @@ use crate::{
     nvim::opts::SetHl,
 };
 
-/// Create a full highlight name by joining a prefix and highlight name with validation.
+/// Create a full highlight name by joining a prefix and highlight name with
+/// validation.
 ///
-/// Both the prefix and name are validated according to Neovim highlight group naming rules.
+/// Both the prefix and name are validated according to Neovim highlight group
+/// naming rules.
 pub fn full_name(prefix: &str, name: &str) -> Result<String> {
     check_group_name(prefix)?;
     check_group_name(name)?;
@@ -81,9 +83,11 @@ impl fmt::Display for Hl {
     }
 }
 
-/// Validates that a string is a valid RGB color specification of the form "#xxxxxx".
+/// Validates that a string is a valid RGB color specification of the form
+/// "#xxxxxx".
 ///
-/// The color must start with '#' and be followed by exactly 6 hexadecimal digits.
+/// The color must start with '#' and be followed by exactly 6 hexadecimal
+/// digits.
 pub fn validate_color(color: &str) -> Result<()> {
     if !color.starts_with('#') || color.len() != 7 {
         return Err(Error::User(format!(
@@ -99,8 +103,8 @@ pub fn validate_color(color: &str) -> Result<()> {
 }
 
 /// Validates a highlight group name according to Neovim rules.
-/// Group names must consist of ASCII letters, digits, underscores, dots, hyphens, or `@`,
-/// and must be no longer than 200 bytes.
+/// Group names must consist of ASCII letters, digits, underscores, dots,
+/// hyphens, or `@`, and must be no longer than 200 bytes.
 ///
 /// :help group-name
 pub(crate) fn check_group_name(name: &str) -> Result<()> {
@@ -122,9 +126,9 @@ pub(crate) fn check_group_name(name: &str) -> Result<()> {
 
 /// A highlight group definition supporting both terminal and GUI attributes.
 ///
-/// This structure represents a subset of Neovim highlight attributes that work consistently
-/// across both terminal and GUI environments. It omits legacy attributes like "standout"
-/// and GUI-specific features like underdotted text.
+/// This structure represents a subset of Neovim highlight attributes that work
+/// consistently across both terminal and GUI environments. It omits legacy
+/// attributes like "standout" and GUI-specific features like underdotted text.
 #[derive(Debug, Clone, PartialEq, Eq, Setters, Default)]
 #[setters(strip_option, into)]
 pub struct Hl {
@@ -165,7 +169,8 @@ impl Hl {
 
     /// Sets the foreground color of the highlight.
     ///
-    /// The color can be specified as any type that can be converted into a `Color`.
+    /// The color can be specified as any type that can be converted into a
+    /// `Color`.
     pub fn fg<T>(mut self, fg: T) -> Result<Self>
     where
         T: TryInto<Color>,
@@ -177,7 +182,8 @@ impl Hl {
 
     /// Sets the background color of the highlight.
     ///
-    /// The color can be specified as any type that can be converted into a `Color`.
+    /// The color can be specified as any type that can be converted into a
+    /// `Color`.
     pub fn bg<T>(mut self, bg: T) -> Result<Self>
     where
         T: TryInto<Color>,
@@ -187,7 +193,8 @@ impl Hl {
         Ok(self)
     }
 
-    /// Converts this highlight definition to a Neovim-compatible SetHl structure.
+    /// Converts this highlight definition to a Neovim-compatible SetHl
+    /// structure.
     pub fn to_sethl(&self) -> crate::nvim::opts::SetHl {
         SetHl {
             fg: self.fg.map(|c| c.rgb_hex()),
@@ -217,8 +224,8 @@ impl Hl {
 
 /// A collection of highlight definitions and links.
 ///
-/// This structure manages a set of highlight groups and links between them, allowing
-/// for bulk creation and management of related highlights.
+/// This structure manages a set of highlight groups and links between them,
+/// allowing for bulk creation and management of related highlights.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Highlights {
     /// A list of highlight definitions.
@@ -262,8 +269,9 @@ impl Highlights {
 
     /// Creates all highlights and links in the collection.
     ///
-    /// The client's name is prepended to all highlight group names to provide namespacing.
-    /// This allows the same highlight definitions to be created with different prefixes.
+    /// The client's name is prepended to all highlight group names to provide
+    /// namespacing. This allows the same highlight definitions to be
+    /// created with different prefixes.
     pub async fn create(&self, client: &crate::Client) -> crate::error::Result<()> {
         let ns_id = 0; // Use the default namespace
 

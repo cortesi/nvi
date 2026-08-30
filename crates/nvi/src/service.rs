@@ -32,20 +32,22 @@ pub enum Status {
     Running,
 }
 
-/// The `NviPlugin` trait is the way Nvi plugins are defined. Usually this is done with the
-/// `nvi_plugin` attribute macro, which generates the required methods for the trait.
+/// The `NviPlugin` trait is the way Nvi plugins are defined. Usually this is
+/// done with the `nvi_plugin` attribute macro, which generates the required
+/// methods for the trait.
 #[allow(unused_variables)]
 #[async_trait]
 pub trait NviPlugin: Sync + Send + 'static {
     fn name(&self) -> String;
 
-    /// Return the highlight groups for this service. Highlight group names have the plugin name
-    /// prepended (as in `Client::hl_name`) before creation.
+    /// Return the highlight groups for this service. Highlight group names have
+    /// the plugin name prepended (as in `Client::hl_name`) before creation.
     fn highlights(&self) -> Result<highlights::Highlights> {
         Ok(highlights::Highlights::default())
     }
 
-    /// Inspect the service methods, as derived with the `nvi_plugin` attribute macro.
+    /// Inspect the service methods, as derived with the `nvi_plugin` attribute
+    /// macro.
     fn inspect(&self) -> Vec<macro_types::Method> {
         vec![]
     }
@@ -55,9 +57,10 @@ pub trait NviPlugin: Sync + Send + 'static {
         Ok("".into())
     }
 
-    /// Bootstrapping that happens after connecting to the remote service, but before the run
-    /// method is called. This method should execute and exit. Typically, this method will be
-    /// derived with the `nvim_service` annotation, and should not be over-ridden by the user.
+    /// Bootstrapping that happens after connecting to the remote service, but
+    /// before the run method is called. This method should execute and
+    /// exit. Typically, this method will be derived with the `nvim_service`
+    /// annotation, and should not be over-ridden by the user.
     async fn bootstrap(&self, client: &mut Client) -> Result<()> {
         let methods = self.inspect();
         for method in methods {
@@ -105,8 +108,10 @@ pub trait NviPlugin: Sync + Send + 'static {
                             .await?;
                     }
                 }
-                macro_types::MethodType::Connected => (), // Nothing to register for connected methods
-                macro_types::MethodType::Highlights => (), // Nothing to register for highlights methods
+                macro_types::MethodType::Connected => (), /* Nothing to register for connected */
+                // methods
+                macro_types::MethodType::Highlights => (), /* Nothing to register for highlights
+                                                            * methods */
             }
         }
         client
@@ -117,15 +122,15 @@ pub trait NviPlugin: Sync + Send + 'static {
         Ok(())
     }
 
-    /// Handle a generic notification from the remote service. Typcially, this method will be
-    /// derived with the `nvim_service` annotation.
+    /// Handle a generic notification from the remote service. Typcially, this
+    /// method will be derived with the `nvim_service` annotation.
     async fn notify(&self, client: &mut Client, method: &str, params: &[Value]) -> Result<()> {
         warn!("unhandled notification: {:?}", method);
         Ok(())
     }
 
-    /// Handle a generic request from the remote service. Typcially, this method will be
-    /// derived with the `nvim_service` annotation.
+    /// Handle a generic request from the remote service. Typcially, this method
+    /// will be derived with the `nvim_service` annotation.
     async fn request(
         &self,
         client: &mut Client,
@@ -136,8 +141,9 @@ pub trait NviPlugin: Sync + Send + 'static {
         Err(Value::Nil)
     }
 
-    /// Handle a generic notification from the remote service, with a mutable receiver. Typcially,
-    /// this method will be derived with the `nvim_service` annotation.
+    /// Handle a generic notification from the remote service, with a mutable
+    /// receiver. Typcially, this method will be derived with the
+    /// `nvim_service` annotation.
     async fn notify_mut(
         &mut self,
         client: &mut Client,
@@ -148,8 +154,9 @@ pub trait NviPlugin: Sync + Send + 'static {
         Ok(())
     }
 
-    /// Handle a generic request from the remote service, with a mutable receiver. Typcially, this
-    /// method will be derived with the `nvim_service` annotation.
+    /// Handle a generic request from the remote service, with a mutable
+    /// receiver. Typcially, this method will be derived with the
+    /// `nvim_service` annotation.
     async fn request_mut(
         &mut self,
         client: &mut Client,
@@ -160,8 +167,8 @@ pub trait NviPlugin: Sync + Send + 'static {
         Err(Value::Nil)
     }
 
-    /// This method is run on first connecting to the remote service. A loop may be run here that
-    /// persists for the life of the connection.
+    /// This method is run on first connecting to the remote service. A loop may
+    /// be run here that persists for the life of the connection.
     async fn connected(&mut self, client: &mut Client) -> Result<()> {
         Ok(())
     }

@@ -1,14 +1,18 @@
-//! This module does the surprisingly complicated job of bringing type safety and order to the
-//! chaos of Vim keypresses.
+//! This module does the surprisingly complicated job of bringing type safety
+//! and order to the chaos of Vim keypresses.
 //!
-//! - We have a standard structure for reprsenting key presses - a key and a set of modifiers.
-//! - Our standard structure has a uniform string representation that mirrors Vim's key notation.
-//! - We go to considerable lengths to make sure that functions for reading and writing input are
-//!   symmetric - that is,if you write keypresses with feedkeys, you can be sure to get them back
-//!   in the same format with getchar (modulo normalization).
-//! - We normalize control characters into their corresponding KeyPress representation, e.g.
-//!   Control-A is represented as <C-A>, not as \x01.
-//! - We normalize the case of control characters, so that <C-a> is the same as <C-A>.
+//! - We have a standard structure for reprsenting key presses - a key and a set
+//!   of modifiers.
+//! - Our standard structure has a uniform string representation that mirrors
+//!   Vim's key notation.
+//! - We go to considerable lengths to make sure that functions for reading and
+//!   writing input are symmetric - that is,if you write keypresses with
+//!   feedkeys, you can be sure to get them back in the same format with getchar
+//!   (modulo normalization).
+//! - We normalize control characters into their corresponding KeyPress
+//!   representation, e.g. Control-A is represented as <C-A>, not as \x01.
+//! - We normalize the case of control characters, so that <C-a> is the same as
+//!   <C-A>.
 //!
 //! The string format for keypresses is:
 //!
@@ -344,7 +348,8 @@ impl fmt::Display for KeyPress {
 }
 
 impl KeyPress {
-    /// Normalizes control characters into their corresponding KeyPress representation
+    /// Normalizes control characters into their corresponding KeyPress
+    /// representation
     fn normalise(&self) -> Self {
         match (&self.key, &self.modifers) {
             // Control character (ASCII 1-26)

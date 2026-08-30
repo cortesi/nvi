@@ -1,4 +1,5 @@
-//! A Neovim client. This is the primary interface for interacting with Neovim from a service.
+//! A Neovim client. This is the primary interface for interacting with Neovim
+//! from a service.
 use std::{path::PathBuf, time::Duration};
 
 use tokio::sync::broadcast;
@@ -9,9 +10,10 @@ use crate::{
     highlights, lua, lua_exec, nvim, service,
 };
 
-/// A client to Neovim. A `Client` object is passed to every method invocation in a `NviService`.
-/// It exposes the full auto-generated API for Neovim on its `nvim` field, and provides a set of
-/// higher-level methods directly on the `Client` object.
+/// A client to Neovim. A `Client` object is passed to every method invocation
+/// in a `NviService`. It exposes the full auto-generated API for Neovim on its
+/// `nvim` field, and provides a set of higher-level methods directly on the
+/// `Client` object.
 #[derive(Clone, Debug)]
 pub struct Client {
     /// The name of the plugin.
@@ -46,9 +48,10 @@ impl Client {
         lua!(self, "return vim.fn.getcwd()",).await
     }
 
-    /// Register an RPC method in Neovim. This creates a Lua function under the specified namespace
-    /// that will send an RPC message back to this client when called. The `kind` parameter
-    /// specifies whether this is a request or notification method.
+    /// Register an RPC method in Neovim. This creates a Lua function under the
+    /// specified namespace that will send an RPC message back to this
+    /// client when called. The `kind` parameter specifies whether this is a
+    /// request or notification method.
     async fn register_method<P>(
         &self,
         kind: &str,
@@ -88,13 +91,15 @@ impl Client {
         Ok(())
     }
 
-    /// Register an RPC request method for use in Neovim. This sets a globally-avaialable Lua
-    /// function under the specified namespace. When this function is called, an RPC message is
-    /// sent back to the current addon.
+    /// Register an RPC request method for use in Neovim. This sets a
+    /// globally-avaialable Lua function under the specified namespace. When
+    /// this function is called, an RPC message is sent back to the current
+    /// addon.
     ///
     /// # Example
     ///
-    /// client.register_rpcrequest("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    /// client.register_rpcrequest("test_module", "test_fn", &["arg1",
+    /// "arg2"]).await.unwrap();
     ///
     /// After this call, the following Lua function will be available in Neovim:
     ///
@@ -116,13 +121,15 @@ impl Client {
             .await
     }
 
-    /// Register an RPC notification method for use in Neovim. This sets a globally-avaialable Lua
-    /// function under the specified namespace. When this function is called, an RPC message is
-    /// sent back to the current addon.
+    /// Register an RPC notification method for use in Neovim. This sets a
+    /// globally-avaialable Lua function under the specified namespace. When
+    /// this function is called, an RPC message is sent back to the current
+    /// addon.
     ///
     /// # Example
     ///
-    /// client.register_rpcnotify("test_module", "test_fn", &["arg1", "arg2"]).await.unwrap();
+    /// client.register_rpcnotify("test_module", "test_fn", &["arg1",
+    /// "arg2"]).await.unwrap();
     ///
     /// After this call, the following Lua function will be available in Neovim:
     ///
@@ -144,7 +151,8 @@ impl Client {
             .await
     }
 
-    /// Shutdown the service, causing it to exit cleanly and disconnect from Neovim.
+    /// Shutdown the service, causing it to exit cleanly and disconnect from
+    /// Neovim.
     pub fn shutdown(&self) {
         trace!("shutdown request from client");
         let _ = self.shutdown_tx.send(());
@@ -193,14 +201,16 @@ impl Client {
     ) -> Result<u64> {
         // Vim autocommands can return values through several mechanisms:
         //
-        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to control
-        //    autocommand lifecycle
-        // 2. Special variables in the input object that get modified (v:swapchoice, v:fcs_choice,
-        //    v:event.abort) to control Vim behavior
-        // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd, FileWriteCmd, etc.)
+        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to
+        //    control autocommand lifecycle
+        // 2. Special variables in the input object that get modified (v:swapchoice,
+        //    v:fcs_choice, v:event.abort) to control Vim behavior
+        // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd,
+        //    FileWriteCmd, etc.)
         // 4. Event data modifications (CompleteChanged event)
         //
-        // Modifying variables in the input object specifically is not covered by the current API.
+        // Modifying variables in the input object specifically is not covered by the
+        // current API.
 
         if events.is_empty() {
             return Err(Error::Internal {
@@ -222,8 +232,9 @@ impl Client {
         let bufno: u64 = buffer.into();
 
         let namespace = &self.name;
-        // We execute a Lua function here because we need to specify a callback function for the
-        // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
+        // We execute a Lua function here because we need to specify a callback function
+        // for the rpcrequest. At the moment, we can't specify callbacks through
+        // the msgpack-rpc API.
         let ret: u64 = self
             .nvim
             .exec_lua(
@@ -261,14 +272,16 @@ impl Client {
     ) -> Result<u64> {
         // Vim autocommands can return values through several mechanisms:
         //
-        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to control
-        //    autocommand lifecycle
-        // 2. Special variables in the input object that get modified (v:swapchoice, v:fcs_choice,
-        //    v:event.abort) to control Vim behavior
-        // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd, FileWriteCmd, etc.)
+        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to
+        //    control autocommand lifecycle
+        // 2. Special variables in the input object that get modified (v:swapchoice,
+        //    v:fcs_choice, v:event.abort) to control Vim behavior
+        // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd,
+        //    FileWriteCmd, etc.)
         // 4. Event data modifications (CompleteChanged event)
         //
-        // Modifying variables in the input object specifically is not covered by the current API.
+        // Modifying variables in the input object specifically is not covered by the
+        // current API.
 
         if events.is_empty() {
             return Err(Error::Internal {
@@ -295,8 +308,9 @@ impl Client {
         };
 
         let namespace = &self.name;
-        // We execute a Lua function here because we need to specify a callback function for the
-        // rpcrequest. At the moment, we can't specify callbacks through the msgpack-rpc API.
+        // We execute a Lua function here because we need to specify a callback function
+        // for the rpcrequest. At the moment, we can't specify callbacks through
+        // the msgpack-rpc API.
         let ret: u64 = self
             .nvim
             .exec_lua(
@@ -380,14 +394,15 @@ impl Client {
         lua!(self, "vim.cmd('redrawtabline')").await
     }
 
-    /// Calculates a highlight group name for this plugin. This essentially prepends the plugin
-    /// name to the group name, separated by an _. This means the prefix is the snake_case version,
-    /// e.g. for the group "Normal", the result might be:
+    /// Calculates a highlight group name for this plugin. This essentially
+    /// prepends the plugin name to the group name, separated by an _. This
+    /// means the prefix is the snake_case version, e.g. for the group
+    /// "Normal", the result might be:
     ///
     ///     my_plugin_Normal
     ///
-    /// This departs from the camelcase convention for highlight group names, but it gives us a
-    /// consistent way to namespace over all features.
+    /// This departs from the camelcase convention for highlight group names,
+    /// but it gives us a consistent way to namespace over all features.
     pub fn hl_name(&self, group: &str) -> Result<String> {
         let name = format!("{}_{group}", self.name);
         highlights::check_group_name(&name)?;

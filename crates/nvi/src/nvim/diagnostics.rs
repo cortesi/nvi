@@ -1,7 +1,8 @@
 //! Structures and functions for working with Neovim diagnostics.
 //!
-//! Includes types for configuring how diagnostics are displayed (e.g., virtual text, signs,
-//! floating windows) and functions for setting and resetting diagnostics.
+//! Includes types for configuring how diagnostics are displayed (e.g., virtual
+//! text, signs, floating windows) and functions for setting and resetting
+//! diagnostics.
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -64,7 +65,8 @@ pub struct FloatOpts {
     pub bufnr: Option<u64>,
     /// Limit diagnostics to the given namespace.
     pub namespace: Option<i64>,
-    /// Show diagnostics from the whole buffer, current line, or cursor position.
+    /// Show diagnostics from the whole buffer, current line, or cursor
+    /// position.
     pub scope: Option<FloatScope>,
     /// Position to use rather than the cursor position.
     pub pos: Option<FloatPos>,
@@ -235,7 +237,8 @@ pub struct VirtualText {
     /// Append diagnostic message with suffix
     pub suffix: Option<String>,
     /// Function to format the diagnostic message
-    pub format: Option<String>, // This should be a function in Neovim, but we'll use a string for now
+    pub format: Option<String>, /* This should be a function in Neovim, but we'll use a string
+                                 * for now */
     /// Highlight mode for virtual text
     pub hl_mode: Option<String>,
     /// List of [text, highlight_group] pairs
@@ -285,7 +288,8 @@ pub struct Float {
     /// Include the diagnostic source in the message
     pub source: Option<bool>,
     /// Function to format the diagnostic message
-    pub format: Option<String>, // This should be a function in Neovim, but we'll use a string for now
+    pub format: Option<String>, /* This should be a function in Neovim, but we'll use a string
+                                 * for now */
     /// Prefix each diagnostic in the floating window
     pub prefix: Option<Text>,
     /// Suffix each diagnostic in the floating window
@@ -430,7 +434,8 @@ pub async fn diagnostic_config<T>(
 
 /// Get current diagnostics for a buffer.
 ///
-/// * `bufnr` - Optional buffer number. If None, gets diagnostics for all buffers.
+/// * `bufnr` - Optional buffer number. If None, gets diagnostics for all
+///   buffers.
 /// * `opts` - Optional settings to filter the diagnostics.
 ///
 /// Returns a vector of Diagnostic structs.

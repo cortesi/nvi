@@ -1,11 +1,12 @@
-//! Functions to listen for and establish connections between Nvi plugins and Neovim instances.
+//! Functions to listen for and establish connections between Nvi plugins and
+//! Neovim instances.
 //!
 //! Provides two main connection patterns:
 //! - Listen for incoming connections on Unix domain sockets and TCP ports
 //! - Connect to a running Neovim instance through Unix domain sockets and TCP
 //!
-//! Each function takes a shutdown broadcast channel that can be used to gracefully terminate
-//! the connection.
+//! Each function takes a shutdown broadcast channel that can be used to
+//! gracefully terminate the connection.
 
 use std::{net::SocketAddr, path::Path};
 
@@ -20,8 +21,9 @@ use crate::{
 
 /// Listen for incoming connections on a Unix domain socket.
 ///
-/// Creates a Unix domain socket at the specified path and listens for incoming connections.
-/// For each connection, creates a new plugin instance using the provided factory function.
+/// Creates a Unix domain socket at the specified path and listens for incoming
+/// connections. For each connection, creates a new plugin instance using the
+/// provided factory function.
 ///
 /// * `shutdown_tx` - Broadcast channel for shutdown signals
 /// * `path` - Path where the Unix domain socket will be created
@@ -60,7 +62,8 @@ where
 /// Listen for incoming connections on a TCP socket.
 ///
 /// Binds to the specified address and listens for incoming TCP connections.
-/// For each connection, creates a new plugin instance using the provided factory function.
+/// For each connection, creates a new plugin instance using the provided
+/// factory function.
 ///
 /// * `shutdown_tx` - Broadcast channel for shutdown signals
 /// * `addr` - TCP socket address to bind to
@@ -98,8 +101,8 @@ where
 
 /// Connect to a Neovim instance through a Unix domain socket.
 ///
-/// Establishes a connection to an existing Neovim instance via a Unix domain socket
-/// and starts the plugin.
+/// Establishes a connection to an existing Neovim instance via a Unix domain
+/// socket and starts the plugin.
 ///
 /// * `shutdown_tx` - Broadcast channel for shutdown signals
 /// * `path` - Path to the Unix domain socket to connect to
@@ -231,15 +234,15 @@ mod tests {
 
         test::wait_for_path(&socket_path).await.unwrap();
 
-        // Now start a nvim instance, and connect to it with a client. Using the client, we
-        // instruct nvim to connect back to the listener.
+        // Now start a nvim instance, and connect to it with a client. Using the client,
+        // we instruct nvim to connect back to the listener.
         let ts = tokio::spawn(tserv(socket_path.clone(), tx.clone()));
         ts.await.unwrap().unwrap();
 
         ls.await.unwrap().unwrap();
 
-        // We only get here if the listener has been connected to, and has sent the termination
-        // signal.
+        // We only get here if the listener has been connected to, and has sent
+        // the termination signal.
     }
 
     #[tokio::test]

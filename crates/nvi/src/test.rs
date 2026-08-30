@@ -121,9 +121,10 @@ impl std::io::Write for LogWriter {
 }
 
 impl NviTest {
-    /// Start a neovim instance and plugin in separate tasks. Returns a handle that can be used to control
-    /// and monitor the test instance. After this method returns, the plugin is guaranteed to have
-    /// completed it's connected() method and be in a running state.
+    /// Start a neovim instance and plugin in separate tasks. Returns a handle
+    /// that can be used to control and monitor the test instance. After
+    /// this method returns, the plugin is guaranteed to have completed it's
+    /// connected() method and be in a running state.
     pub(crate) async fn new_without_plugin(
         show_logs: bool,
         log_level: tracing::Level,
@@ -229,7 +230,8 @@ impl NviTest {
         );
     }
 
-    /// Create a new NviTest builder - the recommended way to create a test instance
+    /// Create a new NviTest builder - the recommended way to create a test
+    /// instance
     pub fn builder() -> NviTestBuilder {
         NviTestBuilder::default()
     }
@@ -262,8 +264,8 @@ impl NviTest {
         (logs, guard)
     }
 
-    /// Execute two closures concurrently, returning the result of the first when it completes and
-    /// abandoning the second.
+    /// Execute two closures concurrently, returning the result of the first
+    /// when it completes and abandoning the second.
     pub async fn concurrent<T, A, B>(&self, a: A, b: B) -> Result<T>
     where
         T: Send + 'static,
@@ -284,12 +286,14 @@ impl NviTest {
         Ok(result)
     }
 
-    /// Wait for a log message containing the given string to appear, with a default timeout of 5 seconds
+    /// Wait for a log message containing the given string to appear, with a
+    /// default timeout of 5 seconds
     pub async fn await_log(&self, contains: &str) -> Result<()> {
         self.await_log_timeout(contains, DEFAULT_TEST_TIMEOUT).await
     }
 
-    /// Wait for a log message containing the given string to appear, with a timeout
+    /// Wait for a log message containing the given string to appear, with a
+    /// timeout
     pub async fn await_log_timeout(&self, contains: &str, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         while start.elapsed() < timeout {
@@ -336,10 +340,11 @@ pub async fn wait_for_path(path: &Path) -> Result<()> {
     })
 }
 
-/// Run a test service, starting a neovim headless instance and connecting to it. When a signal is
-/// received on the broadcast channel, all tasks are stopped. This variant takes the shutdown
-/// signal as an argument, for cases where the caller wants to pass the signal into the plugin
-/// itself. This is mostly useful for Nvi's internal tests.
+/// Run a test service, starting a neovim headless instance and connecting to
+/// it. When a signal is received on the broadcast channel, all tasks are
+/// stopped. This variant takes the shutdown signal as an argument, for cases
+/// where the caller wants to pass the signal into the plugin itself. This is
+/// mostly useful for Nvi's internal tests.
 pub async fn run_plugin_with_shutdown<T>(nvi: T, shutdown_tx: broadcast::Sender<()>) -> Result<()>
 where
     T: NviPlugin + Unpin + Sync + 'static,

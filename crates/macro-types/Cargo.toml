@@ -8,3 +8,6 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+
+[lib]
+doctest = false

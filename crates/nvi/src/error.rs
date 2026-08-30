@@ -1,6 +1,7 @@
 //! Error handling for Nvi.
 //!
-//! This module provides the standard error types and Result type used throughout Nvi.
+//! This module provides the standard error types and Result type used
+//! throughout Nvi.
 
 #![allow(clippy::absolute_paths)]
 

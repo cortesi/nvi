@@ -1,6 +1,6 @@
-//! A compendium of types for working with the Neovim msgrpc API. The types here hew quite closely
-//! to the neovim API itself, without attempting to add higher-level abstractions, apart from
-//! obvious, simple helper methods.
+//! A compendium of types for working with the Neovim msgrpc API. The types here
+//! hew quite closely to the neovim API itself, without attempting to add
+//! higher-level abstractions, apart from obvious, simple helper methods.
 
 #![allow(missing_docs)]
 #![allow(clippy::absolute_paths)]
@@ -32,7 +32,8 @@ fn u8_array_to_u64(bytes: &[u8]) -> u64 {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename = "_ExtStruct")]
-/// A Neovim buffer handle. Buffers are containers that hold the content of files being edited.
+/// A Neovim buffer handle. Buffers are containers that hold the content of
+/// files being edited.
 pub struct Buffer(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
 
 impl Buffer {
@@ -278,7 +279,8 @@ pub enum Event {
     BufReadPre,
     /// When starting to edit a file that doesn't exist
     BufNewFile,
-    /// When starting to edit a new buffer, after reading the file into the buffer
+    /// When starting to edit a new buffer, after reading the file into the
+    /// buffer
     BufRead,
     /// After reading a file into a buffer
     BufReadPost,
@@ -294,9 +296,11 @@ pub enum Event {
     BufWritePost,
     /// Before writing the whole buffer to a file (should do the writing)
     BufWriteCmd,
-    /// Before unloading a buffer, when the text in the buffer is going to be freed
+    /// Before unloading a buffer, when the text in the buffer is going to be
+    /// freed
     BufUnload,
-    /// State of channel changed, for instance the client of a RPC channel described itself
+    /// State of channel changed, for instance the client of a RPC channel
+    /// described itself
     ChanInfo,
     /// Just after a channel was opened
     ChanOpen,
@@ -322,7 +326,8 @@ pub enum Event {
     CompleteDonePre,
     /// After Insert mode completion is done
     CompleteDone,
-    /// When the user doesn't press a key for the time specified with `updatetime`
+    /// When the user doesn't press a key for the time specified with
+    /// `updatetime`
     CursorHold,
     /// Like `CursorHold`, but in Insert mode
     CursorHoldI,
@@ -402,11 +407,13 @@ pub enum Event {
     QuickFixCmdPre,
     /// After a quickfix command is run
     QuickFixCmdPost,
-    /// When using `:quit`, `:wq` or `:qall`, before deciding whether it closes the current window
+    /// When using `:quit`, `:wq` or `:qall`, before deciding whether it closes
+    /// the current window
     QuitPre,
     /// When a reply from a Vim that functions as server was received
     RemoteReply,
-    /// After making a search with `n` or `N` if the search wraps around the document
+    /// After making a search with `n` or `N` if the search wraps around the
+    /// document
     SearchWrapped,
     /// When a macro starts recording
     RecordingEnter,
@@ -422,7 +429,8 @@ pub enum Event {
     ShellCmdPost,
     /// After Nvim receives a signal
     Signal,
-    /// After executing a shell command with `:{range}!cmd`, `:w !cmd` or `:r !cmd`
+    /// After executing a shell command with `:{range}!cmd`, `:w !cmd` or `:r
+    /// !cmd`
     ShellFilterPost,
     /// Before sourcing a Vimscript/Lua file
     SourcePre,
@@ -466,9 +474,11 @@ pub enum Event {
     TextChanged,
     /// After a change was made to the text in the current buffer in Insert mode
     TextChangedI,
-    /// After a change was made to the text in the current buffer in Insert mode, only when the popup menu is visible
+    /// After a change was made to the text in the current buffer in Insert
+    /// mode, only when the popup menu is visible
     TextChangedP,
-    /// After a change was made to the text in the current buffer in Terminal-mode
+    /// After a change was made to the text in the current buffer in
+    /// Terminal-mode
     TextChangedT,
     /// Just after a yank or deleting command
     TextYankPost,
@@ -502,12 +512,12 @@ pub enum Event {
     WinResized,
 }
 
-/// A group specification, used in many command options. Groups can be specified as either a string
-/// name, or as a numeric ID.
+/// A group specification, used in many command options. Groups can be specified
+/// as either a string name, or as a numeric ID.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
-/// A group specification, used in many command options. Groups can be specified as either a string
-/// name, or as a numeric ID.
+/// A group specification, used in many command options. Groups can be specified
+/// as either a string name, or as a numeric ID.
 pub enum Group {
     Name(String),
     Id(u64),
@@ -724,8 +734,8 @@ mod tests {
             )]))
         );
 
-        // Don't just directly test against the serialization format here, because maps are arrays
-        // and order may differ.
+        // Don't just directly test against the serialization format here, because maps
+        // are arrays and order may differ.
         let v2 = serde_rmpv::from_value(&serde_rmpv::to_value(&ret).unwrap()).unwrap();
         assert_eq!(ret, v2);
     }

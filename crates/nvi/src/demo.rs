@@ -18,7 +18,8 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 /// A function that can be registered with the Demo struct.
 pub type DemoFunction = Box<dyn Fn(&Client) -> BoxFuture<'static, Result<()>>>;
 
-/// Holds a collection of named demo functions that can be executed with a Client.
+/// Holds a collection of named demo functions that can be executed with a
+/// Client.
 #[derive(Default)]
 pub struct Demos {
     /// The map of demo functions.
@@ -40,7 +41,8 @@ impl Demos {
         names
     }
 
-    /// Helper to create a demo function that automatically handles client cloning.
+    /// Helper to create a demo function that automatically handles client
+    /// cloning.
     pub fn demo_fn<F, Fut>(f: F) -> impl Fn(&Client) -> BoxFuture<'static, Result<()>>
     where
         F: Fn(Client) -> Fut + 'static,
@@ -54,7 +56,8 @@ impl Demos {
 
     /// Adds a named function to the demo collection.
     ///
-    /// The function receives a cloned Client instance, so it can be moved into an async block.
+    /// The function receives a cloned Client instance, so it can be moved into
+    /// an async block.
     pub fn add<F, Fut>(&mut self, name: impl Into<String>, f: F)
     where
         F: Fn(Client) -> Fut + 'static,
@@ -66,8 +69,8 @@ impl Demos {
 
     /// Run a named demo function with a plugin instance.
     ///
-    /// This starts an interactive Neovim instance, connects the plugin to it, runs the demo,
-    /// and then shuts everything down.
+    /// This starts an interactive Neovim instance, connects the plugin to it,
+    /// runs the demo, and then shuts everything down.
     pub async fn run<T>(&self, demo_name: &str, plugin: T) -> Result<()>
     where
         T: NviPlugin + Send + Sync + Unpin + 'static,

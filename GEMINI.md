@@ -272,17 +272,10 @@ repaired.
 
 ## Formatting
 
-If you have nightly available, and `rustfmt-nightly.toml` format code with:
-
-
-```bash
-cargo +nightly fmt --all -- --config-path ./rustfmt-nightly.toml
-```
-
-Otherwise, format with:
+Format and lint the workspace with:
 
 ```bash
-cargo +nightly fmt --all
+nanocode tidy
 ```
 
 ALWAYS format before committing.
@@ -292,13 +285,7 @@ ALWAYS format before committing.
 After completing changes, execute all tests using:
 
 ```bash
-cargo nextest run --all --all-features
-```
-
-If nextest is not installed, fall back to:
-
-```bash
-cargo test --all --all-features
+nanocode test
 ```
 
 Tests should always be placed in a "test" module when colocated with code.
@@ -412,5 +399,4 @@ ruskel reqwest --search status --search-spec doc
 ```
 
 </rust>
-
 

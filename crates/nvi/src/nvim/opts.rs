@@ -1,6 +1,7 @@
-//! This module contains the optional argument structures for methods in the generated API. These
-//! are the final arguments in API functions named `opts`. They are not included in the rendered
-//! protocol description, so we have to write them by hand.
+//! This module contains the optional argument structures for methods in the
+//! generated API. These are the final arguments in API functions named `opts`.
+//! They are not included in the rendered protocol description, so we have to
+//! write them by hand.
 
 use derive_setters::*;
 use serde_derive::{Deserialize, Serialize};
@@ -107,7 +108,8 @@ pub struct CreateAutocmd {
     /// Vimscript function name to call when the event is triggered
     #[serde(skip_serializing_if = "Option::is_none")]
     pub callback: Option<String>,
-    /// Vim command to execute when the event is triggered. Can't be used with callback.
+    /// Vim command to execute when the event is triggered. Can't be used with
+    /// callback.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
     /// Run the command only once

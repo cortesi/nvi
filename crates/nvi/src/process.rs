@@ -17,7 +17,8 @@ use crate::{
     test::wait_for_path,
 };
 
-/// Start a headless neovim process, redirecting stdout/stderr and waiting for termination signal.
+/// Start a headless neovim process, redirecting stdout/stderr and waiting for
+/// termination signal.
 pub async fn start_nvim_headless(
     mut termrx: broadcast::Receiver<()>,
     socket_path: PathBuf,
