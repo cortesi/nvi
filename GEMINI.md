@@ -275,7 +275,7 @@ repaired.
 Format and lint the workspace with:
 
 ```bash
-nanocode tidy
+ncode tidy
 ```
 
 ALWAYS format before committing.
@@ -285,7 +285,7 @@ ALWAYS format before committing.
 After completing changes, execute all tests using:
 
 ```bash
-nanocode test
+ncode test
 ```
 
 Tests should always be placed in a "test" module when colocated with code.
