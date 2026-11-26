@@ -188,47 +188,41 @@ mod tests {
         }
     }
 
+    /// A plugin that asks Neovim to connect back to a listener socket.
+    #[derive(Clone)]
+    struct SockConnectPlugin {
+        socket_path: PathBuf,
+    }
+
+    #[async_trait::async_trait]
+    impl NviPlugin for SockConnectPlugin {
+        fn name(&self) -> String {
+            "SockConnectPlugin".into()
+        }
+
+        async fn connected(&mut self, client: &mut Client) -> Result<()> {
+            trace!("client connected, sending sockconnect request");
+            lua_exec!(
+                client,
+                "vim.fn.sockconnect('pipe', ..., {rpc = true})",
+                self.socket_path.as_os_str().to_string_lossy()
+            )
+            .await?;
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     #[traced_test]
     async fn it_listens() {
-        async fn tserv(socket_path: PathBuf, tx: broadcast::Sender<()>) -> Result<()> {
-            #[derive(Clone)]
-            struct SockConnectPlugin {
-                socket_path: PathBuf,
-            }
-
-            #[async_trait::async_trait]
-            impl NviPlugin for SockConnectPlugin {
-                fn name(&self) -> String {
-                    "SockConnectPlugin".into()
-                }
-
-                async fn connected(&mut self, client: &mut Client) -> Result<()> {
-                    trace!("client connected, sending sockconnect request");
-                    let _ = lua_exec!(
-                        client,
-                        "vim.fn.sockconnect('pipe', ...,  {{rpc = true}});",
-                        self.socket_path.as_os_str().to_string_lossy()
-                    )
-                    .await?;
-                    Ok(())
-                }
-            }
-
-            test::run_plugin_with_shutdown(SockConnectPlugin { socket_path }, tx.clone())
-                .await
-                .unwrap();
-            Ok(())
-        }
-
         let (tx, _) = broadcast::channel(16);
+        let (connected_tx, mut connected_rx) = broadcast::channel(1);
 
         // Start a listener on a socket
         let tempdir = tempfile::tempdir().unwrap();
         let socket_path = tempdir.path().join("listen.socket");
-        let itx = tx.clone();
-        let listener = listen_unix(itx.clone(), socket_path.clone(), move || TestPlugin {
-            tx: itx.clone(),
+        let listener = listen_unix(tx.clone(), socket_path.clone(), move || TestPlugin {
+            tx: connected_tx.clone(),
         });
         let ls = tokio::spawn(listener);
 
@@ -236,13 +230,17 @@ mod tests {
 
         // Now start a nvim instance, and connect to it with a client. Using the
         // client, we instruct nvim to connect back to the listener.
-        let ts = tokio::spawn(tserv(socket_path.clone(), tx.clone()));
-        ts.await.unwrap().unwrap();
+        let plugin = SockConnectPlugin {
+            socket_path: socket_path.clone(),
+        };
+        test::run_plugin_with_shutdown(plugin, tx.clone())
+            .await
+            .unwrap();
 
         ls.await.unwrap().unwrap();
-
-        // We only get here if the listener has been connected to, and has sent
-        // the termination signal.
+        connected_rx
+            .try_recv()
+            .expect("the listener plugin connected");
     }
 
     #[tokio::test]
