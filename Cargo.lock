@@ -944,9 +944,7 @@ dependencies = [
  "proc-macro2-diagnostics",
  "quote",
  "rust-format",
- "structmeta",
  "syn 3.0.10",
- "thiserror",
  "tokio",
  "tracing",
  "tracing-test",
@@ -1405,29 +1403,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "structmeta"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1928169e45d0db7a0bd4af36ef36a8fd74d4a977b312ce677f3c9e8184988771"
-dependencies = [
- "proc-macro2",
- "quote",
- "structmeta-derive",
- "syn 3.0.10",
-]
-
-[[package]]
-name = "structmeta-derive"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e73ed3c93a468f184110d8f686710ac284ae3a474269fa856647658b04bea25"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.10",
-]
 
 [[package]]
 name = "strum"
