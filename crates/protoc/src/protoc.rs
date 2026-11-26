@@ -184,29 +184,19 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
     }
 }
 
-/// Make an argument value
 /// Retrieves and formats the documentation for a given function name.
 /// Returns a vec of TokenStream, each representing a doc comment line.
 fn get_docs(name: &str) -> Vec<TokenStream> {
-    let docs = docs::DOCS.iter().find(|(n, _)| *n == name).map(|(_, doc)| {
-        let lines: Vec<_> = doc.lines().map(|line| line.trim()).collect();
-        // Find first and last non-empty line
-        let start = lines.iter().position(|line| !line.is_empty()).unwrap_or(0);
-        let end = lines.iter().rposition(|line| !line.is_empty()).unwrap_or(0);
-
-        // Only take the lines between start and end (inclusive)
-        if start <= end {
-            lines[start..=end]
-                .iter()
-                .map(|&line| format!(" {line}"))
-                .map(|line| quote!(#[doc = #line]))
-                .collect()
-        } else {
-            Vec::new()
-        }
-    });
-
-    docs.unwrap_or_default()
+    let Some((_, doc)) = docs::DOCS.iter().find(|(n, _)| *n == name) else {
+        return Vec::new();
+    };
+    doc.trim()
+        .lines()
+        .map(|line| {
+            let line = format!(" {}", line.trim());
+            quote!(#[doc = #line])
+        })
+        .collect()
 }
 
 /// Generate a function definition
