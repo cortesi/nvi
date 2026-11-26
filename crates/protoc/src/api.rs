@@ -1,13 +1,14 @@
-/// To generate these values, I inspect the output of `nvim --api-info`, like
-/// so:
-/// ```sh
-// nvim --api-info | msgpack2json | jq
-/// ```
+//! To generate these values, I inspect the output of `nvim --api-info`, like
+//! so:
+//! ```sh
+//! nvim --api-info | msgpack2json | jq
+//! ```
+
 use std::{collections::HashMap, fmt, process::Command};
 
 use anyhow::{Context, Result, bail};
 use regex::Regex;
-use serde::de::IntoDeserializer;
+use serde::de::{Error, IntoDeserializer};
 use serde_derive::Deserialize;
 
 /// The type of a Neovim API parameter or return value
@@ -85,14 +86,17 @@ impl<'de> serde::Deserialize<'de> for Type {
     where
         D: serde::Deserializer<'de>,
     {
-        let re = Regex::new(r"^ArrayOf\((\w+)(?:, (\d+))?\)$").unwrap();
+        let re =
+            Regex::new(r"^ArrayOf\((\w+)(?:, (\d+))?\)$").expect("the ArrayOf pattern is valid");
         let s = String::deserialize(deserializer)?;
         if let Some(captures) = re.captures(&s) {
             Ok(Self::ArrayOf {
-                typ: Box::new(Self::deserialize(
-                    captures.get(1).unwrap().as_str().into_deserializer(),
-                )?),
-                length: captures.get(2).map(|m| m.as_str().parse().unwrap()),
+                typ: Box::new(Self::deserialize(captures[1].into_deserializer())?),
+                length: captures
+                    .get(2)
+                    .map(|m| m.as_str().parse())
+                    .transpose()
+                    .map_err(D::Error::custom)?,
             })
         } else {
             Self::deserialize(s.into_deserializer())
