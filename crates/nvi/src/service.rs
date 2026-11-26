@@ -1,9 +1,5 @@
 //! Service implementation for Nvi plugins.
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, str::FromStr, sync::Mutex};
 
 use async_trait::async_trait;
 use tokio::sync::{RwLock, broadcast};
@@ -184,11 +180,11 @@ where
     /// The channel used to signal shutdown
     shutdown_tx: broadcast::Sender<()>,
     /// The channel ID for this connection
-    channel_id: Arc<Mutex<Option<u64>>>,
+    channel_id: Mutex<Option<u64>>,
     /// A map of method names to their mutability
     methods: HashMap<String, bool>,
     /// The status of the connection
-    status: Arc<Mutex<Status>>,
+    status: Mutex<Status>,
 }
 
 impl<T> RpcConnection<T>
@@ -206,9 +202,9 @@ where
         Self {
             plugin: RwLock::new(plugin),
             shutdown_tx,
-            channel_id: Arc::new(Mutex::new(None)),
+            channel_id: Mutex::new(None),
             methods: method_mutability,
-            status: Arc::new(Mutex::new(Status::Stopped)),
+            status: Mutex::new(Status::Stopped),
         }
     }
 
