@@ -10,6 +10,14 @@ fn format_with_prettyplease(code: TokenStream) -> Result<String> {
     Ok(prettyplease::unparse(&file))
 }
 
+/// Names for the generic type parameters of a generated function, in order.
+const GENERIC_NAMES: [&str; 4] = ["T", "U", "V", "W"];
+
+/// The identifier of the generic type parameter at `index`.
+fn generic_name(index: usize) -> Ident {
+    Ident::new(GENERIC_NAMES[index], Span::call_site())
+}
+
 /// Clean a name to be a valid identifier
 fn clean_name(name: &str) -> String {
     let mut name = name.to_string();
@@ -24,11 +32,11 @@ fn clean_name(name: &str) -> String {
 /// Takes the function name, a parameter, and the current meta variable count.
 /// Returns the argument and a boolean indicating whether the argument is a meta
 /// variable.
-fn generate_argument(func: &str, p: &api::Parameter, meta_count: i32) -> (TokenStream, bool) {
+fn generate_argument(func: &str, p: &api::Parameter, meta_count: usize) -> (TokenStream, bool) {
     let argname = clean_name(&p.1);
     let name = Ident::new(&argname, Span::call_site());
 
-    let metavar = Ident::new(vec!["T", "U", "V"][meta_count as usize], Span::call_site());
+    let metavar = generic_name(meta_count);
     if let Some(t) = overrides::get_arg_type(func, &argname) {
         (
             quote! {
@@ -223,7 +231,7 @@ fn generate_function(f: &api::Function) -> TokenStream {
 
     // Add serialize bounds for meta variables from arguments
     for i in 0..meta_count {
-        let param = Ident::new(vec!["T", "U", "V"][i as usize], Span::call_site());
+        let param = generic_name(i);
         generic_params.push(param.clone());
         where_bounds.push(quote! { #param: Serialize });
     }
@@ -234,14 +242,7 @@ fn generate_function(f: &api::Function) -> TokenStream {
         f.return_type,
         api::Type::Array | api::Type::Object | api::Type::Dictionary
     ) {
-        let ret_param = Ident::new(
-            if meta_count == 0 {
-                "T"
-            } else {
-                vec!["U", "V", "W"][meta_count as usize - 1]
-            },
-            Span::call_site(),
-        );
+        let ret_param = generic_name(meta_count);
         generic_params.push(ret_param.clone());
         where_bounds.push(quote! { #ret_param: serde::de::DeserializeOwned });
         quote! { #ret_param }
