@@ -152,8 +152,13 @@ fn parse_autocmd_options(
     nested: &mut bool,
 ) -> Result<()> {
     if let Expr::Path(path) = &*assign.left {
-        let ident = path.path.get_ident().unwrap().to_string();
-        match ident.as_str() {
+        let Some(ident) = path.path.get_ident() else {
+            return Err(syn::Error::new(
+                assign.left.span(),
+                "invalid autocmd attribute",
+            ));
+        };
+        match ident.to_string().as_str() {
             RPC_AUTOCMD_PATTERNS => {
                 if let Expr::Array(array) = &*assign.right {
                     for pattern in array.elems.iter() {
@@ -1179,6 +1184,21 @@ mod tests {
                 nested: true,
             })
         );
+    }
+
+    #[test]
+    fn it_rejects_autocmd_path_options() {
+        let s = quote! {
+            impl Test {
+                #[autocmd(["BufEnter"], a::b = 1)]
+                async fn test_autocmd(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let err = parse_impl(&s).unwrap_err();
+        assert_eq!(err.to_string(), "invalid autocmd attribute");
     }
 
     #[test]
