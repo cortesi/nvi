@@ -13,7 +13,7 @@ macro_rules! lua {
         $client.nvim.exec_lua(
             $code,
             vec![
-                $(serde_rmpv::to_value(&$arg)?),*
+                $($crate::serde_rmpv::to_value(&$arg)?),*
             ],
         )
     };
@@ -29,7 +29,7 @@ macro_rules! lua_exec {
         $client.nvim.exec_lua::<$crate::Value>(
             $code,
             vec![
-                $(serde_rmpv::to_value(&$arg)?),*
+                $($crate::serde_rmpv::to_value(&$arg)?),*
             ],
         )
     };

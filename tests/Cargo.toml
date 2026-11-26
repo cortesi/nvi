@@ -12,7 +12,6 @@ nvi.workspace = true
 nvi-macros.workspace = true
 async-trait.workspace = true
 futures-util.workspace = true
-serde-rmpv.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 tracing-test = { workspace = true, features = ["no-env-filter"] }

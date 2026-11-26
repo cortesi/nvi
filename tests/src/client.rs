@@ -72,3 +72,21 @@ async fn api_nvim_get_chan_info() {
     let (tx, _) = broadcast::channel(16);
     test::run_plugin_with_shutdown(T {}, tx).await.unwrap();
 }
+
+#[tokio::test]
+async fn lua_macro_passes_arguments() {
+    #[derive(Clone)]
+    struct T {}
+
+    #[nvi_plugin]
+    impl T {
+        async fn connected(&self, c: &Client) -> Result<()> {
+            let sum: i64 = nvi::lua!(c, "return select(1, ...) + select(2, ...)", 2, 3).await?;
+            assert_eq!(sum, 5);
+            c.shutdown();
+            Ok(())
+        }
+    }
+    let (tx, _) = broadcast::channel(16);
+    test::run_plugin_with_shutdown(T {}, tx).await.unwrap();
+}

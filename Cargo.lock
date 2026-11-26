@@ -1515,7 +1515,6 @@ dependencies = [
  "futures-util",
  "nvi",
  "nvi-macros",
- "serde-rmpv",
  "tokio",
  "tracing",
  "tracing-test",
