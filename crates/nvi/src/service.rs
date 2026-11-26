@@ -222,52 +222,32 @@ where
         )
     }
 
-    /// Handle an error that occurred during a notification
-    async fn handle_notification_error(
+    /// Log a failed handler call, report it to the user through Neovim, and
+    /// convert it to a service error. `kind` names the handler type, and
+    /// `detail` describes the error.
+    async fn report_error(
         &self,
+        kind: &str,
+        error_name: &str,
         method: &str,
-        e: Error,
+        detail: String,
         sender: mrpc::RpcSender,
-    ) -> mrpc::Result<()> {
-        warn!("error handling notification: {:?}", e);
+    ) -> mrpc::RpcError {
+        warn!("error handling {kind}: {detail}");
         let client = self.make_client(&self.plugin.read().await.name(), sender);
         if let Err(notify_err) = client
             .notify(
                 types::LogLevel::Warn,
-                &format!("nvi notify error: {method} - {e:?}"),
+                &format!("nvi {kind} error: {method} - {detail}"),
             )
             .await
         {
-            warn!("error sending notify error notification: {:?}", notify_err);
+            warn!("error sending {kind} error notification: {:?}", notify_err);
         }
-        Err(mrpc::RpcError::Service(mrpc::ServiceError {
-            name: "NviNotifyError".to_string(),
-            value: Value::String(format!("{e:?}").into()),
-        }))
-    }
-
-    /// Handle an error that occurred during a request
-    async fn handle_request_error(
-        &self,
-        method: &str,
-        e: Value,
-        sender: mrpc::RpcSender,
-    ) -> mrpc::Result<Value> {
-        warn!("error handling request: {:?}", e);
-        let client = self.make_client(&self.plugin.read().await.name(), sender);
-        if let Err(notify_err) = client
-            .notify(
-                types::LogLevel::Warn,
-                &format!("nvi request error: {method} - {e:?}"),
-            )
-            .await
-        {
-            warn!("error sending request error notification: {:?}", notify_err);
-        }
-        Err(mrpc::RpcError::Service(mrpc::ServiceError {
-            name: "NviRequestError".to_string(),
-            value: Value::String(format!("{e:?}").into()),
-        }))
+        mrpc::RpcError::Service(mrpc::ServiceError {
+            name: error_name.to_string(),
+            value: Value::String(detail.into()),
+        })
     }
 }
 
@@ -339,7 +319,15 @@ where
 
         match result {
             Ok(v) => Ok(v),
-            Err(e) => self.handle_request_error(method, e, sender).await,
+            Err(e) => Err(self
+                .report_error(
+                    "request",
+                    "NviRequestError",
+                    method,
+                    format!("{e:?}"),
+                    sender,
+                )
+                .await),
         }
     }
 
@@ -365,7 +353,9 @@ where
 
         match result {
             Ok(()) => Ok(()),
-            Err(e) => self.handle_notification_error(method, e, sender).await,
+            Err(e) => Err(self
+                .report_error("notify", "NviNotifyError", method, format!("{e:?}"), sender)
+                .await),
         }
     }
 }

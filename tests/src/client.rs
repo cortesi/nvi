@@ -1,6 +1,6 @@
 use nvi::{
     Client,
-    error::Result,
+    error::{Error, Result},
     nvim::{
         opts,
         types::{AutocmdEvent, Event},
@@ -89,4 +89,35 @@ async fn lua_macro_passes_arguments() {
     }
     let (tx, _) = broadcast::channel(16);
     test::run_plugin_with_shutdown(T {}, tx).await.unwrap();
+}
+
+#[tokio::test]
+async fn request_errors_reach_the_caller() {
+    #[derive(Clone)]
+    struct T {}
+
+    #[nvi_plugin]
+    impl T {
+        #[request]
+        async fn fail(&self, _: &Client) -> Result<()> {
+            Err(Error::User("boom".into()))
+        }
+    }
+
+    let nvit = test::NviTest::builder()
+        .with_plugin(T {})
+        .run()
+        .await
+        .unwrap();
+    let client = &nvit.client;
+    nvi::lua_exec!(client, "return t.fail()").await.unwrap_err();
+    let messages: String = nvi::lua!(
+        client,
+        "return vim.api.nvim_exec2('messages', { output = true }).output"
+    )
+    .await
+    .unwrap();
+    assert!(messages.contains("nvi request error: fail"), "{messages}");
+    assert!(messages.contains("boom"), "{messages}");
+    nvit.finish().await.unwrap();
 }
