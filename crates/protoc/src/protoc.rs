@@ -1,12 +1,13 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::{api, docs, overrides};
 
 /// Format code with prettyplease
-fn format_with_prettyplease(code: TokenStream) -> String {
-    prettyplease::unparse(&syn::parse2(code).expect("Failed to parse token stream"))
+fn format_with_prettyplease(code: TokenStream) -> Result<String> {
+    let file = syn::parse2(code).context("generated code does not parse")?;
+    Ok(prettyplease::unparse(&file))
 }
 
 /// Clean a name to be a valid identifier
@@ -378,6 +379,6 @@ pub fn protoc() -> Result<()> {
             #(#funcs)*
         }
     );
-    print!("{}", format_with_prettyplease(toks));
+    print!("{}", format_with_prettyplease(toks)?);
     Ok(())
 }

@@ -5,9 +5,8 @@
 /// ```
 use std::{collections::HashMap, fmt, process::Command};
 
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 use regex::Regex;
-use rmp_serde as rmps;
 use serde::de::IntoDeserializer;
 use serde_derive::Deserialize;
 
@@ -184,6 +183,16 @@ pub struct Api {
 
 /// Get the Neovim API definition
 pub fn get_api() -> Result<Api> {
-    let output = Command::new("nvim").arg("--api-info").output()?;
-    Ok(rmps::from_slice(&output.stdout)?)
+    let output = Command::new("nvim")
+        .arg("--api-info")
+        .output()
+        .context("failed to run nvim --api-info")?;
+    if !output.status.success() {
+        bail!(
+            "nvim --api-info failed with {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    rmp_serde::from_slice(&output.stdout).context("failed to decode nvim --api-info output")
 }
