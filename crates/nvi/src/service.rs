@@ -58,21 +58,17 @@ pub trait NviPlugin: Sync + Send + 'static {
     /// exit. Typically, this method will be derived with the `nvim_service`
     /// annotation, and should not be over-ridden by the user.
     async fn bootstrap(&self, client: &mut Client) -> Result<()> {
-        let methods = self.inspect();
-        for method in methods {
-            let name = method.name.clone();
+        for method in self.inspect() {
+            let name = &method.name;
+            let args: Vec<&str> = method.args.iter().map(|a| a.name.as_str()).collect();
 
             match method.method_type {
                 macro_types::MethodType::Notify => {
-                    let args: Vec<String> = method.args.iter().map(|a| a.name.clone()).collect();
-                    client
-                        .register_rpcnotify(&self.name(), &name, &args)
-                        .await?;
+                    client.register_rpcnotify(&self.name(), name, &args).await?;
                 }
                 macro_types::MethodType::Request => {
-                    let args: Vec<String> = method.args.iter().map(|a| a.name.clone()).collect();
                     client
-                        .register_rpcrequest(&self.name(), &name, &args)
+                        .register_rpcrequest(&self.name(), name, &args)
                         .await?;
 
                     // Handle autocmd registration if present
@@ -95,7 +91,7 @@ pub trait NviPlugin: Sync + Send + 'static {
                         client
                             .autocmd_pattern(
                                 &autocmd.patterns,
-                                &name,
+                                name,
                                 &events,
                                 group,
                                 false, // once (not supported yet)
@@ -104,10 +100,8 @@ pub trait NviPlugin: Sync + Send + 'static {
                             .await?;
                     }
                 }
-                macro_types::MethodType::Connected => (), /* Nothing to register for connected */
-                // methods
-                macro_types::MethodType::Highlights => (), /* Nothing to register for highlights
-                                                            * methods */
+                // Connected and highlights methods have nothing to register.
+                macro_types::MethodType::Connected | macro_types::MethodType::Highlights => {}
             }
         }
         client
