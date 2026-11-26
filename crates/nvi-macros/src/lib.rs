@@ -2,7 +2,6 @@
 use std::{result::Result as StdResult, vec};
 
 use macro_types::*;
-use proc_macro2_diagnostics::SpanDiagnosticExt;
 use quote::{ToTokens, quote};
 use syn::{Expr, ExprLit, Lit, Meta, Token, punctuated::Punctuated, spanned::Spanned};
 
@@ -34,8 +33,6 @@ struct ImplBlock {
     name: String,
     /// The methods in the impl block
     methods: Vec<Method>,
-    /// The run method (unused?)
-    run: Option<Method>,
 }
 
 /// Output the invocation clause of a connect function
@@ -469,13 +466,21 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
 /// Parse an impl block, and extract the methods marked with `request` or
 /// `notify`.
 fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBlock)> {
-    let v = syn::parse2::<syn::ItemImpl>(input.clone())?;
-    let tp = match *v.clone().self_ty {
-        syn::Type::Path(p) => p,
-        _ => panic!("unexpected input"),
+    let v = syn::parse2::<syn::ItemImpl>(input.clone())
+        .map_err(|e| syn::Error::new(e.span(), format!("Invalid impl block: {e}")))?;
+    let syn::Type::Path(tp) = &*v.self_ty else {
+        return Err(syn::Error::new(
+            v.self_ty.span(),
+            "Expected a struct or enum name",
+        ));
     };
-
-    let name = tp.path.segments[0].ident.to_string();
+    let name = tp
+        .path
+        .segments
+        .last()
+        .ok_or_else(|| syn::Error::new(v.self_ty.span(), "Invalid type name"))?
+        .ident
+        .to_string();
 
     let mut methods = vec![];
     for i in &v.items {
@@ -485,14 +490,7 @@ fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBl
             methods.push(command);
         }
     }
-    Ok((
-        v,
-        ImplBlock {
-            name,
-            methods,
-            run: None,
-        },
-    ))
+    Ok((v, ImplBlock { name, methods }))
 }
 
 // Extract this to ease testing, since proc_macro::TokenStream can't cross
@@ -567,30 +565,6 @@ fn inner_nvi_plugin(
     _attr: proc_macro2::TokenStream,
     input: &proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream> {
-    // First parse the input as an impl block to verify basic syntax
-    let impl_block = syn::parse2::<syn::ItemImpl>(input.clone())
-        .map_err(|e| input.span().error(format!("Invalid impl block: {e}")))?;
-
-    // Verify this is implementing a struct or enum
-    let impl_type = match &*impl_block.self_ty {
-        syn::Type::Path(p) => p,
-        _ => {
-            return Err(syn::Error::new(
-                impl_block.self_ty.span(),
-                "Expected a struct or enum name",
-            ));
-        }
-    };
-
-    // Get the name of the type being implemented
-    let type_name = impl_type
-        .path
-        .segments
-        .last()
-        .ok_or_else(|| impl_block.self_ty.span().error("Invalid type name"))?
-        .ident
-        .to_string();
-
     let (impl_block, imp) = parse_impl(input)?;
 
     let docs = collect_docs(&impl_block.attrs);
@@ -627,8 +601,8 @@ fn inner_nvi_plugin(
         .map(notify_invocation)
         .collect();
 
-    let name = syn::Ident::new(&type_name, proc_macro2::Span::call_site());
-    let namestr = heck::ToSnakeCase::to_snake_case(type_name.as_str());
+    let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
+    let namestr = heck::ToSnakeCase::to_snake_case(imp.name.as_str());
     let docs = &docs;
 
     let methods = generate_methods(&imp);
@@ -846,6 +820,12 @@ mod tests {
     }
 
     #[test]
+    fn it_rejects_impls_of_non_path_types() {
+        let err = parse_impl(&quote! { impl &'static Test {} }).unwrap_err();
+        assert_eq!(err.to_string(), "Expected a struct or enum name");
+    }
+
+    #[test]
     fn it_handles_special_methods() {
         // Test struct with highlights and connected methods
         let s = quote! {
@@ -902,7 +882,6 @@ mod tests {
 
         let expected = ImplBlock {
             name: "Test".into(),
-            run: None,
             methods: vec![
                 Method {
                     name: "test_method".into(),
