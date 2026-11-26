@@ -269,6 +269,43 @@ fn collect_docs(attrs: &[syn::Attribute]) -> String {
         .join("\n")
 }
 
+/// Classify the return type of an RPC method.
+fn parse_return(method: &syn::ImplItemFn) -> Result<Return> {
+    let invalid = || syn::Error::new(method.span(), "invalid rpc method");
+    let syn::ReturnType::Type(_, ty) = &method.sig.output else {
+        return Ok(Return::Void);
+    };
+    let syn::Type::Path(p) = &**ty else {
+        return Err(invalid());
+    };
+    let last = p
+        .path
+        .segments
+        .last()
+        .expect("a parsed type path has at least one segment");
+    if last.ident != "Result" {
+        return Ok(Return::Type(p.to_token_stream().to_string()));
+    }
+    let syn::PathArguments::AngleBracketed(a) = &last.arguments else {
+        return Err(invalid());
+    };
+    if a.args.len() != 1 {
+        return Err(invalid());
+    }
+    match a.args.first() {
+        Some(syn::GenericArgument::Type(syn::Type::Path(t))) => {
+            Ok(Return::Result(t.to_token_stream().to_string()))
+        }
+        Some(syn::GenericArgument::Type(syn::Type::Tuple(e))) if e.elems.is_empty() => {
+            Ok(Return::ResultVoid)
+        }
+        Some(syn::GenericArgument::Type(syn::Type::Tuple(e))) => {
+            Ok(Return::Result(e.to_token_stream().to_string()))
+        }
+        _ => Err(invalid()),
+    }
+}
+
 /// Parse a method definition
 fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     let mut method_type = None;
@@ -352,45 +389,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         args = args.into_iter().skip(1).collect::<Vec<_>>();
     }
 
-    let ret = match &method.sig.output {
-        syn::ReturnType::Default => Return::Void,
-        syn::ReturnType::Type(_, ty) => match &**ty {
-            syn::Type::Path(p) => {
-                if p.path.segments.last().unwrap().ident == "Result" {
-                    match &p.path.segments.last().unwrap().arguments {
-                        syn::PathArguments::AngleBracketed(a) => {
-                            if a.args.len() != 1 {
-                                return Err(syn::Error::new(method.span(), "invalid rpc method"));
-                            } else {
-                                match a.args.first().unwrap() {
-                                    syn::GenericArgument::Type(syn::Type::Path(t)) => {
-                                        Return::Result(t.to_token_stream().to_string())
-                                    }
-                                    syn::GenericArgument::Type(syn::Type::Tuple(e)) => {
-                                        if e.elems.is_empty() {
-                                            Return::ResultVoid
-                                        } else {
-                                            Return::Result(e.to_token_stream().to_string())
-                                        }
-                                    }
-                                    _ => {
-                                        return Err(syn::Error::new(
-                                            method.span(),
-                                            "invalid rpc method",
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                        _ => return Err(syn::Error::new(method.span(), "invalid rpc method")),
-                    }
-                } else {
-                    Return::Type(p.to_token_stream().to_string())
-                }
-            }
-            _ => return Err(syn::Error::new(method.span(), "invalid rpc method")),
-        },
-    };
+    let ret = parse_return(method)?;
 
     if method_type == MethodType::Notify && !(ret == Return::ResultVoid || ret == Return::Void) {
         return Err(syn::Error::new(
