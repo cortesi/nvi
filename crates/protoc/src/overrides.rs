@@ -28,16 +28,10 @@ pub struct Override {
 pub fn get_override(name: &str) -> Option<Override> {
     Some(match name {
         "nvim_buf_delete" => Override {
-            args: vec![
-                Arg {
-                    name: "buf".into(),
-                    typ: quote! { &Buffer },
-                },
-                Arg {
-                    name: "opts".into(),
-                    typ: quote! { opts::BufDelete },
-                },
-            ],
+            args: vec![Arg {
+                name: "opts".into(),
+                typ: quote! { opts::BufDelete },
+            }],
             ret: None,
         },
         "nvim_buf_set_lines" => Override {
@@ -123,13 +117,6 @@ pub fn get_override(name: &str) -> Option<Override> {
             args: vec![],
             ret: Some(quote! { Vec<Window> }),
         },
-        "nvim_notify" => Override {
-            args: vec![Arg {
-                name: "log_level".into(),
-                typ: quote! { u64 },
-            }],
-            ret: Some(quote! { () }),
-        },
         "nvim_put" => Override {
             args: vec![Arg {
                 name: "lines".into(),
@@ -185,10 +172,7 @@ pub fn get_override(name: &str) -> Option<Override> {
             ret: None,
         },
         "nvim_win_get_position" => Override {
-            args: vec![Arg {
-                name: "window".into(),
-                typ: quote! { &Window },
-            }],
+            args: vec![],
             ret: Some(quote! {(i64, i64)}),
         },
         _ => return None,
