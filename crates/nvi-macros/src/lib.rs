@@ -406,7 +406,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
             ));
         }
         let arg = &args[0];
-        if arg.typ != "AutocmdEvent" && arg.typ != "nvi::AutocmdEvent" {
+        if arg.typ != "AutocmdEvent" {
             return Err(syn::Error::new(
                 method.span(),
                 "autocmd argument must be of type AutocmdEvent",
