@@ -14,27 +14,26 @@ pub fn dump(raw: bool) -> Result<()> {
             if f.deprecated_since.is_some() {
                 continue;
             }
-            print!("\t{}(", f.name);
-            let args = f
-                .parameters
-                .iter()
-                .map(|p| format!("{}: {}", p.1, p.0))
-                .collect::<Vec<String>>()
-                .join(", ");
-            print!("{args})");
-            print!(") -> {}", f.return_type);
-            println!();
+            println!(
+                "\t{}({}) -> {}",
+                f.name,
+                format_params(&f.parameters),
+                f.return_type
+            );
         }
         println!("UI Events:");
         for e in v.ui_events {
-            let params = e
-                .parameters
-                .iter()
-                .map(|p| format!("{}: {}", p.1, p.0))
-                .collect::<Vec<String>>()
-                .join(", ");
-            println!("\t{}({})", e.name, params);
+            println!("\t{}({})", e.name, format_params(&e.parameters));
         }
     };
     Ok(())
+}
+
+/// Format parameters as a comma-separated list of `name: type` pairs.
+fn format_params(params: &[api::Parameter]) -> String {
+    params
+        .iter()
+        .map(|p| format!("{}: {}", p.1, p.0))
+        .collect::<Vec<String>>()
+        .join(", ")
 }
