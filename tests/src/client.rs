@@ -7,7 +7,7 @@ use nvi::{
     },
     test,
 };
-use nvi_macros::{nvi_plugin, request};
+use nvi_macros::{notify, nvi_plugin, request};
 use tokio::sync::broadcast;
 use tracing::debug;
 use tracing_test::traced_test;
@@ -119,5 +119,35 @@ async fn request_errors_reach_the_caller() {
     .unwrap();
     assert!(messages.contains("nvi request error: fail"), "{messages}");
     assert!(messages.contains("boom"), "{messages}");
+    nvit.finish().await.unwrap();
+}
+
+#[tokio::test]
+async fn notify_rejects_missing_arguments() {
+    #[derive(Clone)]
+    struct T {}
+
+    #[nvi_plugin]
+    impl T {
+        #[notify]
+        async fn takes(&self, _: &Client, a: i64) {
+            debug!("takes {a}");
+        }
+
+        async fn connected(&self, c: &Client) -> Result<()> {
+            nvi::lua_exec!(c, "vim.g.t_channel = ...", c.channel_id).await?;
+            Ok(())
+        }
+    }
+
+    let nvit = test::NviTest::builder()
+        .with_plugin(T {})
+        .run()
+        .await
+        .unwrap();
+    nvi::lua_exec!(nvit.client, "vim.rpcnotify(vim.g.t_channel, 'takes')")
+        .await
+        .unwrap();
+    nvit.await_log("invalid number of arguments").await.unwrap();
     nvit.finish().await.unwrap();
 }

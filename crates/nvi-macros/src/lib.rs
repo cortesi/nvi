@@ -75,8 +75,15 @@ fn notify_invocation(m: &Method) -> proc_macro2::TokenStream {
         _ => panic!("unreachable"),
     };
 
+    let arg_len = m.args.len();
+
     quote! {
         #name => {
+            if params.len() != #arg_len {
+                return Err(nvi::error::Error::Internal {
+                    msg: "invalid number of arguments".into(),
+                });
+            }
             #inv
         }
     }
