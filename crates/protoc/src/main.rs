@@ -21,7 +21,7 @@ mod protoc;
 struct Cli {
     #[command(subcommand)]
     /// The command to execute
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand)]
@@ -34,18 +34,14 @@ enum Commands {
         raw: bool,
     },
     /// Generate the Rust protocol definitions
-    Protoc {},
+    Protoc,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match &cli.command {
-        Some(Commands::Dump { raw }) => dump::dump(*raw)?,
-        Some(Commands::Protoc {}) => protoc::protoc()?,
-        None => {
-            unreachable!()
-        }
-    };
-    Ok(())
+    match cli.command {
+        Commands::Dump { raw } => dump::dump(raw),
+        Commands::Protoc => protoc::protoc(),
+    }
 }
