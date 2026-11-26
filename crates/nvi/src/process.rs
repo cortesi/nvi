@@ -1,5 +1,9 @@
 //! Utilities for managing Neovim processes.
-use std::{os::unix::process::CommandExt, path::PathBuf, process::Stdio};
+use std::{
+    os::unix::process::CommandExt,
+    path::PathBuf,
+    process::{self, Stdio},
+};
 
 use nix::{
     sys::signal::{Signal, killpg},
@@ -24,7 +28,7 @@ pub async fn start_nvim_headless(
     socket_path: PathBuf,
     clean: bool,
 ) -> Result<()> {
-    let mut oscmd = std::process::Command::new("nvim");
+    let mut oscmd = process::Command::new("nvim");
     oscmd.process_group(0);
     oscmd.arg("--headless");
 
@@ -34,7 +38,7 @@ pub async fn start_nvim_headless(
 
     oscmd
         .arg("--listen")
-        .arg(format!("{}", socket_path.to_string_lossy()))
+        .arg(&socket_path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
@@ -95,13 +99,11 @@ where
     P: Into<PathBuf>,
 {
     let path = socket_path.into();
-    let mut oscmd = std::process::Command::new("nvim");
+    let mut oscmd = process::Command::new("nvim");
     if clean {
         oscmd.arg("--clean");
     }
-    oscmd
-        .arg("--listen")
-        .arg(path.to_string_lossy().to_string());
+    oscmd.arg("--listen").arg(&path);
 
     let child = Command::from(oscmd).spawn()?;
     wait_for_path(&path).await?;
