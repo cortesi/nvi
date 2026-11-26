@@ -333,7 +333,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     }
 
     // The highlights method is special and takes no Client argument
-    if name != HIGHLIGHTS {
+    if method_type != MethodType::Highlights {
         if let Some(first) = args.first() {
             if !first.typ.ends_with("Client") {
                 return Err(syn::Error::new(
@@ -1199,6 +1199,28 @@ mod tests {
 
         let err = parse_impl(&s).unwrap_err();
         assert_eq!(err.to_string(), "invalid autocmd attribute");
+    }
+
+    #[test]
+    fn it_strips_client_from_a_request_named_highlights() {
+        let s = quote! {
+            impl Test {
+                #[request]
+                async fn highlights(&self, client: &mut nvi::Client, a: i32) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+            }
+        };
+
+        let (_, ret) = parse_impl(&s).unwrap();
+        assert_eq!(ret.methods[0].method_type, MethodType::Request);
+        assert_eq!(
+            ret.methods[0].args,
+            vec![Arg {
+                name: "a".into(),
+                typ: "i32".into(),
+            }]
+        );
     }
 
     #[test]
