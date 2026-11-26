@@ -117,8 +117,10 @@ async fn request_errors_reach_the_caller() {
     )
     .await
     .unwrap();
-    assert!(messages.contains("nvi request error: fail"), "{messages}");
-    assert!(messages.contains("boom"), "{messages}");
+    assert!(
+        messages.contains(r#"nvi request error: fail - "boom""#),
+        "{messages}"
+    );
     nvit.finish().await.unwrap();
 }
 

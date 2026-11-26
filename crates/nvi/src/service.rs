@@ -310,13 +310,7 @@ where
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(self
-                .report_error(
-                    "request",
-                    "NviRequestError",
-                    method,
-                    format!("{e:?}"),
-                    sender,
-                )
+                .report_error("request", "NviRequestError", method, e.to_string(), sender)
                 .await),
         }
     }
@@ -344,7 +338,7 @@ where
         match result {
             Ok(()) => Ok(()),
             Err(e) => Err(self
-                .report_error("notify", "NviNotifyError", method, format!("{e:?}"), sender)
+                .report_error("notify", "NviNotifyError", method, e.to_string(), sender)
                 .await),
         }
     }
