@@ -77,8 +77,9 @@ enum Commands {
     },
 }
 
-/// Run the plugin with the given arguments.
-async fn inner_run<T>(plugin: T, demos: Option<Demos>) -> Result<()>
+/// Parse the command line and run the selected command for the plugin, with
+/// optional demos.
+pub async fn run<T>(plugin: T, demos: Option<Demos>) -> Result<()>
 where
     T: NviPlugin + Unpin + Sync + 'static,
 {
@@ -193,12 +194,4 @@ where
             Ok(())
         }
     }
-}
-
-/// A variant of run() that takes a demos collection.
-pub async fn run<T>(service: T, demos: Option<Demos>) -> Result<()>
-where
-    T: NviPlugin + Unpin + Sync + 'static,
-{
-    inner_run(service, demos).await
 }

@@ -276,8 +276,9 @@ macro_rules! lua_exec {
 pub mod cmd {
     //! The standard Nvi command line interface.
 
-    /// A variant of run() that takes a demos collection.
-    pub async fn run<T>(service: T, demos: Option<Demos>) -> crate::error::Result<()>
+    /// Parse the command line and run the selected command for the plugin, with
+    /// optional demos.
+    pub async fn run<T>(plugin: T, demos: Option<Demos>) -> crate::error::Result<()>
     where
         T: 'static + NviPlugin + Sync + Unpin;
 }
