@@ -8,6 +8,5 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
-anyhow = "1.0.95"
-nvi = { path = "../../crates/nvi" }
-tokio = "1.37.0"
+nvi.workspace = true
+tokio.workspace = true

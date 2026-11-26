@@ -292,7 +292,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     for i in &method.sig.inputs {
         match i {
             syn::FnArg::Receiver(r) => {
-                is_mut = r.mutability.is_some();
+                is_mut = matches!(r.kind, syn::ReceiverKind::Reference(_, _, Some(_)));
             }
             syn::FnArg::Typed(x) => {
                 let mut arg = Arg::default();

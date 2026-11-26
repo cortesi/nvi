@@ -8,16 +8,14 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
-tokio = {workspace=true, features=["full"]}
-
-anyhow = "1.0.86"
-clap = { version = "4.5.2", features = ["derive"] }
-proc-macro2 = "1.0.84"
-quote = "1.0.36"
-regex = "1.10.3"
-rmp-serde = "1.1.2"
-serde = "1.0.203"
-serde_derive = "1.0.203"
-syn = { version = "2.0.66", features = ["full", "visit-mut"] }
-tempfile = "3.10.1"
-prettyplease = "0.2.27"
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+prettyplease.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+regex.workspace = true
+rmp-serde.workspace = true
+serde.workspace = true
+serde_derive.workspace = true
+syn = { workspace = true, features = ["full", "visit-mut"] }
+tokio = { workspace = true, features = ["full"] }
