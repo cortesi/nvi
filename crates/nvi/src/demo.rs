@@ -75,6 +75,11 @@ impl Demos {
     where
         T: NviPlugin + Send + Sync + Unpin + 'static,
     {
+        let f = self
+            .functions
+            .get(demo_name)
+            .ok_or_else(|| Error::User(format!("no such demo: {demo_name}")))?;
+
         let tempdir = tempfile::tempdir()?;
         let socket_path = tempdir.path().join("nvim.socket");
 
@@ -92,10 +97,6 @@ impl Demos {
         let mut demo_result = client.await_plugin(&plugin_name, TIMEOUT).await;
 
         if demo_result.is_ok() {
-            let f = self
-                .functions
-                .get(demo_name)
-                .ok_or_else(|| Error::User(format!("no such demo: {demo_name}")))?;
             demo_result = f(&client).await;
         }
 
@@ -126,8 +127,25 @@ impl Demos {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+
     use super::*;
     use crate::lua_exec;
+
+    struct Plugin;
+
+    #[async_trait]
+    impl NviPlugin for Plugin {
+        fn name(&self) -> String {
+            "plugin".into()
+        }
+    }
+
+    #[tokio::test]
+    async fn it_rejects_unknown_demos_before_starting() {
+        let err = Demos::new().run("missing", Plugin).await.unwrap_err();
+        assert!(matches!(err, Error::User(msg) if msg == "no such demo: missing"));
+    }
 
     #[tokio::test]
     async fn test_demos() {
