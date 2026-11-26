@@ -77,8 +77,8 @@ impl Simple {
 
 #[tokio::main]
 async fn main() {
-    // Nvi has a built-in command-line interface to invoke plugins. This is not just
-    // convenient, but standardized invocation lets us build tooling around
+    // Nvi has a built-in command-line interface to invoke plugins. This is not
+    // just convenient, but standardized invocation lets us build tooling around
     // plugins.
     run(Simple::default(), None).await.unwrap();
 }

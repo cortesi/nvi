@@ -427,8 +427,8 @@ pub async fn get_keypress(client: &Client) -> Result<KeyPress, Error> {
                         s.as_str().expect("Lua string conversion failed"),
                     ),
                     Value::Binary(bytes) => {
-                        // For binary data, we need to use vim.fn.keytrans to get the key notation
-                        // Pass the raw bytes directly to keytrans
+                        // For binary data, use vim.fn.keytrans to get the key
+                        // notation. Pass the raw bytes directly to keytrans.
                         let lua_keytrans = format!(
                             "return vim.fn.keytrans('{}')",
                             bytes.iter().fold(String::new(), |mut acc, &b| {

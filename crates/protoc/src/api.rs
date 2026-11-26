@@ -159,7 +159,8 @@ pub struct Version {
     pub api_level: u32,
     /// The API compatibility level
     pub api_compatible: u32,
-    // This suddenly switched from bool to now returning null - I'm assuming it's an Option<bool>
+    // This suddenly switched from bool to now returning null - I'm assuming
+    // it's an Option<bool>
     /// Whether the API is a prerelease
     pub api_prerelease: Option<bool>,
 }

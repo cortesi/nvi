@@ -139,8 +139,8 @@ pub struct Hl {
     #[setters(skip)]
     pub bg: Option<Color>,
 
-    // Text attributes omit anachronisms like "standout", and things that are GUI-only like blend,
-    // underdotted, etc..
+    // Text attributes omit anachronisms like "standout", and things that are
+    // GUI-only like blend, underdotted, etc..
     /// Bold text.
     pub bold: Option<bool>,
     /// Italic text.

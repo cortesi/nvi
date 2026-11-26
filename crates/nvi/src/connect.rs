@@ -234,8 +234,8 @@ mod tests {
 
         test::wait_for_path(&socket_path).await.unwrap();
 
-        // Now start a nvim instance, and connect to it with a client. Using the client,
-        // we instruct nvim to connect back to the listener.
+        // Now start a nvim instance, and connect to it with a client. Using the
+        // client, we instruct nvim to connect back to the listener.
         let ts = tokio::spawn(tserv(socket_path.clone(), tx.clone()));
         ts.await.unwrap().unwrap();
 

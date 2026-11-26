@@ -734,8 +734,8 @@ mod tests {
             )]))
         );
 
-        // Don't just directly test against the serialization format here, because maps
-        // are arrays and order may differ.
+        // Don't just directly test against the serialization format here,
+        // because maps are arrays and order may differ.
         let v2 = serde_rmpv::from_value(&serde_rmpv::to_value(&ret).unwrap()).unwrap();
         assert_eq!(ret, v2);
     }

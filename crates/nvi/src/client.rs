@@ -201,16 +201,17 @@ impl Client {
     ) -> Result<u64> {
         // Vim autocommands can return values through several mechanisms:
         //
-        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to
-        //    control autocommand lifecycle
-        // 2. Special variables in the input object that get modified (v:swapchoice,
-        //    v:fcs_choice, v:event.abort) to control Vim behavior
+        // 1. Direct callback returns in Lua (nvim_buf_attach,
+        //    nvim_create_autocmd) to control autocommand lifecycle
+        // 2. Special variables in the input object that get modified
+        //    (v:swapchoice, v:fcs_choice, v:event.abort) to control Vim
+        //    behavior
         // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd,
         //    FileWriteCmd, etc.)
         // 4. Event data modifications (CompleteChanged event)
         //
-        // Modifying variables in the input object specifically is not covered by the
-        // current API.
+        // Modifying variables in the input object specifically is not covered
+        // by the current API.
 
         if events.is_empty() {
             return Err(Error::Internal {
@@ -232,9 +233,9 @@ impl Client {
         let bufno: u64 = buffer.into();
 
         let namespace = &self.name;
-        // We execute a Lua function here because we need to specify a callback function
-        // for the rpcrequest. At the moment, we can't specify callbacks through
-        // the msgpack-rpc API.
+        // We execute a Lua function here because we need to specify a callback
+        // function for the rpcrequest. At the moment, we can't specify
+        // callbacks through the msgpack-rpc API.
         let ret: u64 = self
             .nvim
             .exec_lua(
@@ -272,16 +273,17 @@ impl Client {
     ) -> Result<u64> {
         // Vim autocommands can return values through several mechanisms:
         //
-        // 1. Direct callback returns in Lua (nvim_buf_attach, nvim_create_autocmd) to
-        //    control autocommand lifecycle
-        // 2. Special variables in the input object that get modified (v:swapchoice,
-        //    v:fcs_choice, v:event.abort) to control Vim behavior
+        // 1. Direct callback returns in Lua (nvim_buf_attach,
+        //    nvim_create_autocmd) to control autocommand lifecycle
+        // 2. Special variables in the input object that get modified
+        //    (v:swapchoice, v:fcs_choice, v:event.abort) to control Vim
+        //    behavior
         // 3. Buffer modifications and mark changes in *Cmd events (BufReadCmd,
         //    FileWriteCmd, etc.)
         // 4. Event data modifications (CompleteChanged event)
         //
-        // Modifying variables in the input object specifically is not covered by the
-        // current API.
+        // Modifying variables in the input object specifically is not covered
+        // by the current API.
 
         if events.is_empty() {
             return Err(Error::Internal {
@@ -308,9 +310,9 @@ impl Client {
         };
 
         let namespace = &self.name;
-        // We execute a Lua function here because we need to specify a callback function
-        // for the rpcrequest. At the moment, we can't specify callbacks through
-        // the msgpack-rpc API.
+        // We execute a Lua function here because we need to specify a callback
+        // function for the rpcrequest. At the moment, we can't specify
+        // callbacks through the msgpack-rpc API.
         let ret: u64 = self
             .nvim
             .exec_lua(
