@@ -1,68 +1,9 @@
 /// Documentation for Neovim API functions
 pub const DOCS: &[(&str, &str)] = &[
     (
-        "nvim__complete_set",
-        "
-        EXPERIMENTAL: this API may change in the future.
-
-        Sets info for the completion item at the given index. If the info text was 
-        shown in a window, returns the window and buffer ids, or empty dict if not
-        shown.
-        ",
-    ),
-    (
-        "nvim__fs_watch",
-        "Registers a recursive (filesystem) watcher.",
-    ),
-    (
-        "nvim__get_lib",
-        "Gets the paths contained in the runtimepath variable.",
-    ),
-    (
-        "nvim_buf_add_highlight",
-        "
-        Adds a highlight to buffer.
-
-        Useful for plugins that dynamically generate highlights to a buffer (like
-        a semantic highlighter or linter). The function adds a single highlight to
-        a buffer. Unlike `matchaddpos()` highlights follow changes to line
-        numbering (as lines are inserted/removed above the highlighted line), like
-        signs and marks do.
-
-        Namespaces are used for batch deletion/updating of a set of highlights. To
-        create a namespace, use `nvim_create_namespace()` which returns a
-        namespace id. Pass it in to this function as ns_id to add highlights to
-        the namespace. All highlights in the same namespace can then be cleared
-        with single call to `nvim_buf_clear_namespace()`. If the highlight never
-        will be deleted by an API call, pass ns_id = -1.
-
-        As a shorthand, ns_id = 0 can be used to create a new namespace for the
-        highlight, the allocated id is then returned. If hl_group is the empty
-        string no highlight is added, but a new ns_id is still returned. This is
-        supported for backwards compatibility, new code should use
-        `nvim_create_namespace()` to create a new empty namespace.
-        ",
-    ),
-    (
         "nvim_buf_attach",
         "
         Activates buffer-update events on a channel, or as Lua callbacks.
-        ",
-    ),
-    (
-        "nvim_buf_call",
-        "
-        Call a function with buffer as temporary current buffer.
-
-        This temporarily switches current buffer to buffer. If the current
-        window already shows buffer, the window is not switched. If a window
-        inside the current tabpage (including a float) already shows the buffer,
-        then one of these windows will be set as current window temporarily.
-        Otherwise a temporary scratch window (called the autocmd window for
-        historical reasons) will be used.
-
-        This is useful e.g. to call Vimscript functions that only work with the
-        current buffer/window currently, like `termopen()`.
         ",
     ),
     (
@@ -79,124 +20,6 @@ pub const DOCS: &[(&str, &str)] = &[
         "nvim_buf_del_extmark",
         "
         Removes an extmark.
-        ",
-    ),
-    ("nvim__get_runtime", "Find files in runtime directories."),
-    (
-        "nvim__id",
-        "Returns object given as argument.
-
-        This API function is used for testing. One should not rely on its presence
-        in plugins.",
-    ),
-    (
-        "nvim__id_array",
-        "Returns array given as argument.
-
-        This API function is used for testing. One should not rely on its presence
-        in plugins.",
-    ),
-    (
-        "nvim__id_dict",
-        "Returns dict given as argument.
-
-        This API function is used for testing. One should not rely on its presence
-        in plugins.",
-    ),
-    (
-        "nvim__id_float",
-        "Returns floating-point value given as argument.
-
-        This API function is used for testing. One should not rely on its presence
-        in plugins.",
-    ),
-    (
-        "nvim__inspect_cell",
-        "NB: if your UI does not use hlstate, this will not return hlstate first time.",
-    ),
-    (
-        "nvim__invalidate_glyph_cache",
-        "For testing. The condition in schar_cache_clear_if_full is hard to reach,
-        so this function can be used to force a cache clear in a test.",
-    ),
-    (
-        "nvim__ns_get",
-        "EXPERIMENTAL: this API will change in the future.
-
-        Get the properties for namespace.",
-    ),
-    (
-        "nvim__ns_set",
-        "EXPERIMENTAL: this API will change in the future.
-        
-        Set some properties for namespace.",
-    ),
-    (
-        "nvim__redraw",
-        "EXPERIMENTAL: this API will change in the future.
-
-        Instruct Nvim to redraw various components.",
-    ),
-    ("nvim__stats", "Gets internal stats."),
-    (
-        "nvim_buf_attach",
-        "
-            Activates buffer-update events on a channel, or as Lua callbacks.
-        ",
-    ),
-    (
-        "nvim_buf_add_highlight",
-        "Adds a highlight to buffer.
-
-        Useful for plugins that dynamically generate highlights to a buffer (like
-        a semantic highlighter or linter). The function adds a single highlight to
-        a buffer. Unlike |matchaddpos()| highlights follow changes to line
-        numbering (as lines are inserted/removed above the highlighted line), like
-        signs and marks do.
-
-        Namespaces are used for batch deletion/updating of a set of highlights. To
-        create a namespace, use |nvim_create_namespace()| which returns a
-        namespace id. Pass it in to this function as ns_id to add highlights to
-        the namespace. All highlights in the same namespace can then be cleared
-        with single call to |nvim_buf_clear_namespace()|. If the highlight never
-        will be deleted by an API call, pass ns_id = -1.
-
-        As a shorthand, ns_id = 0 can be used to create a new namespace for the
-        highlight, the allocated id is then returned. If hl_group is the empty
-        string no highlight is added, but a new ns_id is still returned. This is
-        supported for backwards compatibility, new code should use
-        |nvim_create_namespace()| to create a new empty namespace.",
-    ),
-    (
-        "nvim_buf_call",
-        "
-            Call a function with buffer as temporary current buffer.
-
-            This temporarily switches current buffer to buffer. If the current
-            window already shows buffer, the window is not switched. If a window
-            inside the current tabpage (including a float) already shows the buffer,
-            then one of these windows will be set as current window temporarily.
-            Otherwise a temporary scratch window (called the autocmd window for
-            historical reasons) will be used.
-
-            This is useful e.g. to call Vimscript functions that only work with the
-            current buffer/window currently, like |termopen()|.
-        ",
-    ),
-    (
-        "nvim_buf_clear_namespace",
-        "
-            Clears |namespace|d objects (highlights, |extmarks|, virtual text) from a
-            region.
-
-            Lines are 0-indexed. |api-indexing| To clear the namespace in the entire
-            buffer, specify line_start=0 and line_end=-1.
-        ",
-    ),
-    (
-        "nvim_buf_del_extmark",
-        "
-            Removes an |extmark|.
         ",
     ),
     (
@@ -592,20 +415,6 @@ pub const DOCS: &[(&str, &str)] = &[
         ",
     ),
     (
-        "nvim_err_write",
-        "
-        Writes a message to the Vim error buffer. Does not append \\n, the
-        message is buffered (will not display) until a linefeed is written.
-        ",
-    ),
-    (
-        "nvim_err_writeln",
-        "
-        Writes a message to the Vim error buffer. Appends \\n, so the buffer is
-        flushed (and displayed).
-        ",
-    ),
-    (
         "nvim_eval",
         "
         Evaluates a Vimscript expression. Dicts and Lists are recursively
@@ -917,15 +726,6 @@ pub const DOCS: &[(&str, &str)] = &[
         ",
     ),
     (
-        "nvim_notify",
-        "
-            Notify the user with a message.
-
-            Relays the call to vim.notify . By default forwards your message in the
-            echo area but can be overridden to trigger desktop notifications.
-        ",
-    ),
-    (
         "nvim_open_term",
         "
             Open a terminal instance in a buffer
@@ -979,13 +779,6 @@ pub const DOCS: &[(&str, &str)] = &[
             values so floats are fully within the main screen grid. External GUIs
             could let floats hover outside of the main window like a tooltip, but this
             should not be used to specify arbitrary WM screen positions.
-        ",
-    ),
-    (
-        "nvim_out_write",
-        "
-            Writes a message to the Vim output buffer. Does not append \\n, the
-            message is buffered (will not display) until a linefeed is written.
         ",
     ),
     (
@@ -1330,12 +1123,6 @@ pub const DOCS: &[(&str, &str)] = &[
             requested grid size or the maximum size if it exceeds size limits.
 
             On invalid grid handle, fails with error.
-        ",
-    ),
-    (
-        "nvim_win_call",
-        "
-            Calls a function with window as temporary current window.
         ",
     ),
     (
