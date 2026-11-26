@@ -412,56 +412,20 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use async_trait::async_trait;
     use tokio::sync::broadcast;
-    use tracing::warn;
     use tracing_test::traced_test;
 
     use crate::{error::Result, *};
 
-    macro_rules! qtest {
-        (@inner $s:stmt) => { $s };
-        ( $($s:stmt)+ ) => {
-                {
-                   #[derive(Clone)]
-                   struct TestPlugin {}
-
-                   #[async_trait]
-                   impl crate::NviPlugin for TestPlugin {
-                       fn name(&self) -> String {
-                           "TestPlugin".into()
-                       }
-
-                         async fn connected(&mut self, client: &mut Client) -> Result<()> {
-                           $(qtest!{@inner $s})+
-                           match ret(client).await {
-                               Ok(_) => (),
-                               Err(e) => {
-                                   warn!("error: {:?}", e);
-                                }
-                            };
-                           client.shutdown();
-                           Ok(())
-                       }
-                   }
-                   let (tx, _) = broadcast::channel(16);
-                   let rtx = tx.clone();
-                   test::run_plugin_with_shutdown(TestPlugin {}, rtx)
-               }
-        }
-    }
-
     #[tokio::test]
-    #[traced_test]
     async fn it_gets_cwd() {
-        qtest! {
-            async fn ret(c: &Client) -> Result<()> {
-                c.getcwd().await?;
-                Ok(())
-            }
-        }
-        .await
-        .unwrap();
+        let nvit = test::NviTest::builder().run().await.unwrap();
+        let cwd = nvit.client.getcwd().await.unwrap();
+        assert_eq!(cwd, env::current_dir().unwrap());
+        nvit.finish().await.unwrap();
     }
 
     #[derive(Clone)]
