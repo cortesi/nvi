@@ -1,9 +1,8 @@
-use std::time::Duration;
+use std::future;
 
 use futures_util::future::FutureExt;
 use nvi::{Client, error::Result, test::NviTest};
 use nvi_macros::nvi_plugin;
-use tokio::time::sleep;
 use tracing::info;
 
 #[tokio::test]
@@ -60,16 +59,7 @@ async fn test_concurrent() {
         .unwrap();
 
     let result = test
-        .concurrent(
-            |_| async { Ok(42) }.boxed(),
-            |_| {
-                async {
-                    sleep(Duration::from_secs(1)).await;
-                    Ok(())
-                }
-                .boxed()
-            },
-        )
+        .concurrent(|_| async { Ok(42) }.boxed(), |_| future::pending().boxed())
         .await
         .unwrap();
 
