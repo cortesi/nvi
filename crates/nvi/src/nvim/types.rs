@@ -5,9 +5,10 @@
 #![allow(missing_docs)]
 #![allow(clippy::absolute_paths)]
 
-use std::fmt;
+use std::{fmt, result};
 
 use derive_setters::*;
+use serde::{Deserializer, Serializer, de};
 use serde_derive::{Deserialize, Serialize};
 use serde_with::{Bytes, NoneAsEmptyString, serde_as};
 
@@ -21,25 +22,105 @@ pub const WINDOW_EXT_TYPE: i8 = 1;
 /// The type identifier for TabPage objects in the MessagePack protocol
 pub const TABPAGE_EXT_TYPE: i8 = 2;
 
-/// Convert a byte array to a u64
-fn u8_array_to_u64(bytes: &[u8]) -> u64 {
-    bytes
-        .iter()
-        .rev()
-        .fold(0u64, |acc, &b| (acc << 8) | b as u64)
+/// The msgpack extension value that carries a handle on the wire. Its data is
+/// the handle number, encoded as a msgpack integer.
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+#[serde(rename = "_ExtStruct")]
+struct HandleExt(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
+
+impl HandleExt {
+    /// Encode handle number `id` with extension type `ext_type`.
+    fn new(ext_type: i8, id: u64) -> Self {
+        let mut data = Vec::new();
+        rmp::encode::write_uint(&mut data, id).expect("writing to a Vec cannot fail");
+        Self((ext_type, data))
+    }
+
+    /// Decode the handle number, checking that the extension type is
+    /// `ext_type`.
+    fn id<E: de::Error>(self, ext_type: i8) -> result::Result<u64, E> {
+        let (found, data) = self.0;
+        if found != ext_type {
+            return Err(E::custom(format!(
+                "expected handle extension type {ext_type}, found {found}"
+            )));
+        }
+        rmp::decode::read_int(&mut data.as_slice()).map_err(E::custom)
+    }
 }
 
-#[serde_as]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(rename = "_ExtStruct")]
-/// A Neovim buffer handle. Buffers are containers that hold the content of
-/// files being edited.
-pub struct Buffer(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
+/// Define a Neovim handle type, which wraps the handle number and travels as a
+/// msgpack extension value of type `$ext_type`.
+macro_rules! handle {
+    ($(#[$meta:meta])* $name:ident, $ext_type:expr) => {
+        $(#[$meta])*
+        #[derive(Clone, PartialEq, Eq, Hash)]
+        pub struct $name(u64);
+
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}({})", stringify!($name), self.0)
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}({})", stringify!($name), self.0)
+            }
+        }
+
+        impl From<$name> for u64 {
+            fn from(val: $name) -> Self {
+                val.0
+            }
+        }
+
+        impl From<u64> for $name {
+            fn from(value: u64) -> Self {
+                Self(value)
+            }
+        }
+
+        impl serde::Serialize for $name {
+            fn serialize<S: Serializer>(&self, serializer: S) -> result::Result<S::Ok, S::Error> {
+                serde::Serialize::serialize(&HandleExt::new($ext_type, self.0), serializer)
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for $name {
+            fn deserialize<D: Deserializer<'de>>(deserializer: D) -> result::Result<Self, D::Error> {
+                <HandleExt as serde::Deserialize>::deserialize(deserializer)?
+                    .id($ext_type)
+                    .map(Self)
+            }
+        }
+    };
+}
+
+handle!(
+    /// A Neovim buffer handle. Buffers are containers that hold the content of
+    /// files being edited.
+    Buffer,
+    BUFFER_EXT_TYPE
+);
+
+handle!(
+    /// A Neovim window handle. Windows are viewports onto buffers.
+    Window,
+    WINDOW_EXT_TYPE
+);
+
+handle!(
+    /// A Neovim tabpage handle. Tabpages are collections of windows.
+    TabPage,
+    TABPAGE_EXT_TYPE
+);
 
 impl Buffer {
     /// Get the current buffer.
     pub fn current() -> Self {
-        Self((BUFFER_EXT_TYPE, vec![0, 0, 0, 0]))
+        Self(0)
     }
 
     /// Set an option on this buffer
@@ -59,42 +140,10 @@ impl Buffer {
     }
 }
 
-impl From<Buffer> for u64 {
-    fn from(val: Buffer) -> Self {
-        let (_, bytes) = val.0;
-        u8_array_to_u64(&bytes)
-    }
-}
-
-impl From<u64> for Buffer {
-    fn from(value: u64) -> Self {
-        let bytes = value.to_le_bytes().to_vec();
-        Self((BUFFER_EXT_TYPE, bytes))
-    }
-}
-
-#[serde_as]
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(rename = "_ExtStruct")]
-/// A Neovim window handle. Windows are viewports onto buffers.
-pub struct Window(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
-
-impl fmt::Debug for Window {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Window({})", u64::from(self.clone()))
-    }
-}
-
-impl fmt::Display for Window {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Window({})", u64::from(self.clone()))
-    }
-}
-
 impl Window {
     /// Get the current window.
     pub fn current() -> Self {
-        Self((WINDOW_EXT_TYPE, vec![0, 0, 0, 0]))
+        Self(0)
     }
 
     /// Get the window geometry.  
@@ -135,56 +184,10 @@ impl Window {
     }
 }
 
-impl From<Window> for u64 {
-    fn from(val: Window) -> Self {
-        let (_, bytes) = val.0;
-        u8_array_to_u64(&bytes)
-    }
-}
-
-impl From<u64> for Window {
-    fn from(value: u64) -> Self {
-        let bytes = value.to_le_bytes().to_vec();
-        Self((WINDOW_EXT_TYPE, bytes))
-    }
-}
-
-#[serde_as]
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(rename = "_ExtStruct")]
-/// A Neovim tabpage handle. Tabpages are collections of windows.
-pub struct TabPage(#[serde_as(as = "(_, Bytes)")] (i8, Vec<u8>));
-
-impl fmt::Debug for TabPage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TabPage({})", u64::from(self.clone()))
-    }
-}
-
-impl fmt::Display for TabPage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TabPage({})", u64::from(self.clone()))
-    }
-}
-
 impl TabPage {
     /// Get the current tabpage.
     pub fn current() -> Self {
-        Self((TABPAGE_EXT_TYPE, vec![0, 0, 0, 0]))
-    }
-}
-
-impl From<TabPage> for u64 {
-    fn from(val: TabPage) -> Self {
-        let (_, bytes) = val.0;
-        u8_array_to_u64(&bytes)
-    }
-}
-
-impl From<u64> for TabPage {
-    fn from(value: u64) -> Self {
-        let bytes = value.to_le_bytes().to_vec();
-        Self((TABPAGE_EXT_TYPE, bytes))
+        Self(0)
     }
 }
 
@@ -696,6 +699,30 @@ mod tests {
 
     use super::*;
     use crate::test::NviTest;
+
+    #[tokio::test]
+    async fn it_converts_handles_to_and_from_numbers() {
+        let test = NviTest::builder().run().await.unwrap();
+        let nvim = &test.client.nvim;
+
+        let win = nvim.get_current_win().await.unwrap();
+        let id: u64 = win.clone().into();
+        assert_eq!(id, 1000);
+        assert_eq!(Window::from(id), win);
+        nvim.win_get_width(&Window::from(id)).await.unwrap();
+
+        let buf = nvim.create_buf(false, true).await.unwrap();
+        let id: u64 = buf.clone().into();
+        assert_eq!(Buffer::from(id), buf);
+        nvim.buf_get_name(&Buffer::from(id)).await.unwrap();
+
+        let tab = nvim.get_current_tabpage().await.unwrap();
+        let id: u64 = tab.clone().into();
+        assert_eq!(TabPage::from(id), tab);
+        nvim.tabpage_get_number(&TabPage::from(id)).await.unwrap();
+
+        test.finish().await.unwrap();
+    }
 
     #[tokio::test]
     async fn test_window_geom() {

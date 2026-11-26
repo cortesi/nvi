@@ -3302,8 +3302,7 @@ pub mod nvim {
 
         /// A Neovim buffer handle. Buffers are containers that hold the content of
 /// files being edited.
-#[derive(Clone, Debug, Deserialize<'de>, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename = "_ExtStruct")]
+#[derive(Clone, Debug, Deserialize<'de>, Display, Eq, Hash, PartialEq, Serialize)]
         pub struct Buffer(_);
 
         impl Buffer {
@@ -3664,7 +3663,6 @@ pub mod nvim {
 
         /// A Neovim tabpage handle. Tabpages are collections of windows.
 #[derive(Clone, Debug, Deserialize<'de>, Display, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename = "_ExtStruct")]
         pub struct TabPage(_);
 
         impl TabPage {
@@ -3688,7 +3686,6 @@ pub mod nvim {
 
         /// A Neovim window handle. Windows are viewports onto buffers.
 #[derive(Clone, Debug, Deserialize<'de>, Display, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename = "_ExtStruct")]
         pub struct Window(_);
 
         impl Window {
