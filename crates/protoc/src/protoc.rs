@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -14,8 +14,11 @@ fn format_with_prettyplease(code: TokenStream) -> Result<String> {
 const GENERIC_NAMES: [&str; 4] = ["T", "U", "V", "W"];
 
 /// The identifier of the generic type parameter at `index`.
-fn generic_name(index: usize) -> Ident {
-    Ident::new(GENERIC_NAMES[index], Span::call_site())
+fn generic_name(index: usize) -> Result<Ident> {
+    let name = GENERIC_NAMES
+        .get(index)
+        .context("too many generic parameters")?;
+    Ok(Ident::new(name, Span::call_site()))
 }
 
 /// Clean a name to be a valid identifier
@@ -32,18 +35,21 @@ fn clean_name(name: &str) -> String {
 /// Takes the function name, a parameter, and the current meta variable count.
 /// Returns the argument and a boolean indicating whether the argument is a meta
 /// variable.
-fn generate_argument(func: &str, p: &api::Parameter, meta_count: usize) -> (TokenStream, bool) {
+fn generate_argument(
+    func: &str,
+    p: &api::Parameter,
+    meta_count: usize,
+) -> Result<(TokenStream, bool)> {
     let argname = clean_name(&p.1);
     let name = Ident::new(&argname, Span::call_site());
 
-    let metavar = generic_name(meta_count);
     if let Some(t) = overrides::get_arg_type(func, &argname) {
-        (
+        Ok((
             quote! {
                 #name: #t
             },
             false,
-        )
+        ))
     } else {
         let (typ, meta) = match &p.0 {
             api::Type::Array => (
@@ -59,7 +65,7 @@ fn generate_argument(func: &str, p: &api::Parameter, meta_count: usize) -> (Toke
                 false,
             ),
             api::Type::ArrayOf { typ, .. } => {
-                let typ = mk_return_type(typ);
+                let typ = mk_return_type(typ)?;
                 (
                     quote! {
                         Vec<#typ>
@@ -79,32 +85,29 @@ fn generate_argument(func: &str, p: &api::Parameter, meta_count: usize) -> (Toke
                 },
                 false,
             ),
-            api::Type::Dictionary => (
-                quote! {
-                    #metavar
-                },
-                true,
-            ),
             api::Type::Float => (
                 quote! {
                     f64
                 },
                 false,
             ),
-            api::Type::Function => unreachable!("function type in arg position"),
+            api::Type::Function => bail!("unsupported function type for argument {argname}"),
             api::Type::Integer => (
                 quote! {
                     i64
                 },
                 false,
             ),
-            api::Type::LuaRef => unreachable!("luaref type in arg"),
-            api::Type::Object => (
-                quote! {
-                    #metavar
-                },
-                true,
-            ),
+            api::Type::LuaRef => bail!("unsupported LuaRef type for argument {argname}"),
+            api::Type::Dictionary | api::Type::Object => {
+                let metavar = generic_name(meta_count)?;
+                (
+                    quote! {
+                        #metavar
+                    },
+                    true,
+                )
+            }
             api::Type::String => (
                 quote! {
                     &str
@@ -117,7 +120,7 @@ fn generate_argument(func: &str, p: &api::Parameter, meta_count: usize) -> (Toke
                 },
                 false,
             ),
-            api::Type::Void => unreachable!("void type in arg position"),
+            api::Type::Void => bail!("unsupported void type for argument {argname}"),
             api::Type::Window => (
                 quote! {
                     &Window
@@ -125,18 +128,18 @@ fn generate_argument(func: &str, p: &api::Parameter, meta_count: usize) -> (Toke
                 false,
             ),
         };
-        (
+        Ok((
             quote! {
                 #name: #typ
             },
             meta,
-        )
+        ))
     }
 }
 
 /// Make a return type
-fn mk_return_type(t: &api::Type) -> TokenStream {
-    match t {
+fn mk_return_type(t: &api::Type) -> Result<TokenStream> {
+    Ok(match t {
         api::Type::Array => quote! {
             Vec<Value>
         },
@@ -144,7 +147,7 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
             HashMap<String, Value>
         },
         api::Type::ArrayOf { typ, .. } => {
-            let typ = mk_return_type(typ);
+            let typ = mk_return_type(typ)?;
             quote! {
                 Vec<#typ>
             }
@@ -161,11 +164,11 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
         api::Type::Float => quote! {
             f64
         },
-        api::Type::Function => unreachable!("function type in return"),
+        api::Type::Function => bail!("unsupported function return type"),
         api::Type::Integer => quote! {
             i64
         },
-        api::Type::LuaRef => unreachable!("luaref type in return"),
+        api::Type::LuaRef => bail!("unsupported LuaRef return type"),
         api::Type::Object => quote! {
             Value
         },
@@ -181,7 +184,7 @@ fn mk_return_type(t: &api::Type) -> TokenStream {
         api::Type::Window => quote! {
             Window
         },
-    }
+    })
 }
 
 /// Retrieves and formats the documentation for a given function name.
@@ -200,15 +203,18 @@ fn get_docs(name: &str) -> Vec<TokenStream> {
 }
 
 /// Generate a function definition
-fn generate_function(f: &api::Function) -> TokenStream {
-    // All functions have the nvim_ prefix, so we strip it.
-    let id = Ident::new(&f.name[5..], Span::call_site());
+fn generate_function(f: &api::Function) -> Result<TokenStream> {
+    let short = f
+        .name
+        .strip_prefix("nvim_")
+        .context("function name lacks the nvim_ prefix")?;
+    let id = Ident::new(short, Span::call_site());
     let name = &f.name;
 
     let mut args = vec![];
     let mut meta_count = 0;
     for a in &f.parameters {
-        let (arg, meta) = generate_argument(name, a, meta_count);
+        let (arg, meta) = generate_argument(name, a, meta_count)?;
         if meta {
             meta_count += 1;
         }
@@ -221,7 +227,7 @@ fn generate_function(f: &api::Function) -> TokenStream {
 
     // Add serialize bounds for meta variables from arguments
     for i in 0..meta_count {
-        let param = generic_name(i);
+        let param = generic_name(i)?;
         generic_params.push(param.clone());
         where_bounds.push(quote! { #param: Serialize });
     }
@@ -232,12 +238,12 @@ fn generate_function(f: &api::Function) -> TokenStream {
         f.return_type,
         api::Type::Array | api::Type::Object | api::Type::Dictionary
     ) {
-        let ret_param = generic_name(meta_count);
+        let ret_param = generic_name(meta_count)?;
         generic_params.push(ret_param.clone());
         where_bounds.push(quote! { #ret_param: serde::de::DeserializeOwned });
         quote! { #ret_param }
     } else {
-        mk_return_type(&f.return_type)
+        mk_return_type(&f.return_type)?
     };
 
     let generics = if !generic_params.is_empty() {
@@ -269,7 +275,7 @@ fn generate_function(f: &api::Function) -> TokenStream {
         pub async fn #id #generics(&self, #(#args),*) -> Result<#ret_type>
     };
 
-    quote! {
+    Ok(quote! {
         #fn_def
             #where_clause
         {
@@ -278,7 +284,7 @@ fn generate_function(f: &api::Function) -> TokenStream {
             #[allow(clippy::needless_question_mark)]
             Ok(self.rpc_call(#name, req).await?)
         }
-    }
+    })
 }
 
 /// Write the compiled protocol definition file to stdout.
@@ -289,8 +295,8 @@ pub fn protoc() -> Result<()> {
         .into_iter()
         .filter(|f| !overrides::SKIP_FUNCTIONS.contains(&f.name.as_str()))
         .filter(|f| f.deprecated_since.is_none())
-        .map(|f| generate_function(&f))
-        .collect();
+        .map(|f| generate_function(&f).with_context(|| format!("cannot generate {}", f.name)))
+        .collect::<Result<_>>()?;
     let toks = quote!(
         #![allow(clippy::needless_question_mark)]
         #![allow(clippy::needless_borrow)]
@@ -372,4 +378,26 @@ pub fn protoc() -> Result<()> {
     );
     print!("{}", format_with_prettyplease(toks)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_rejects_unsupported_argument_types() {
+        let f = api::Function {
+            method: false,
+            name: "nvim_test".into(),
+            since: 1,
+            parameters: vec![api::Parameter(api::Type::LuaRef, "callback".into())],
+            return_type: api::Type::Void,
+            deprecated_since: None,
+        };
+        let err = generate_function(&f).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "unsupported LuaRef type for argument callback"
+        );
+    }
 }
