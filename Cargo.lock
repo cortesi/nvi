@@ -1509,7 +1509,6 @@ dependencies = [
 name = "tests"
 version = "0.0.1"
 dependencies = [
- "async-trait",
  "futures-util",
  "nvi",
  "nvi-macros",

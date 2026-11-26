@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 nvi.workspace = true
 nvi-macros.workspace = true
-async-trait.workspace = true
 futures-util.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
