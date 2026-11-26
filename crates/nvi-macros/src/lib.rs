@@ -252,10 +252,29 @@ fn parse_autocmd(a: &syn::Attribute) -> Result<Option<AutoCmd>> {
     }
 }
 
+/// Collect the text of an item's doc attributes, one trimmed line each. Doc
+/// attributes without text, such as `#[doc(hidden)]`, are skipped.
+fn collect_docs(attrs: &[syn::Attribute]) -> String {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("doc"))
+        .filter_map(|attr| match &attr.meta {
+            Meta::NameValue(syn::MetaNameValue {
+                value:
+                    Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }),
+                ..
+            }) => Some(s.value().trim().to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Parse a method definition
 fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
     let mut method_type = None;
-    let mut docs: Vec<String> = vec![];
     let mut autocmd = None;
     let name = method.sig.ident.to_string();
 
@@ -267,20 +286,6 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         } else if a.path().is_ident(RPC_AUTOCMD) {
             method_type = Some(MethodType::Request);
             autocmd = parse_autocmd(a)?;
-        } else if a.path().is_ident("doc") {
-            match &a.meta {
-                Meta::NameValue(syn::MetaNameValue {
-                    value:
-                        syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit),
-                            ..
-                        }),
-                    ..
-                }) => {
-                    docs.push(lit.value().trim().to_string());
-                }
-                _ => return Err(syn::Error::new(method.span(), "invalid doc attribute")),
-            }
         }
     }
 
@@ -455,7 +460,7 @@ fn parse_method(method: &syn::ImplItemFn) -> Result<Option<Method>> {
         method_type,
         ret,
         args,
-        docs: docs.join("\n"),
+        docs: collect_docs(&method.attrs),
         autocmd,
         is_mut,
     }))
@@ -588,22 +593,7 @@ fn inner_nvi_plugin(
 
     let (impl_block, imp) = parse_impl(input)?;
 
-    // Collect impl block doc comments
-    let mut docs = String::new();
-    for attr in &impl_block.attrs {
-        if attr.path().is_ident("doc")
-            && let Meta::NameValue(meta) = &attr.meta
-            && let Expr::Lit(ExprLit {
-                lit: Lit::Str(s), ..
-            }) = &meta.value
-        {
-            if !docs.is_empty() {
-                docs.push('\n');
-            }
-            docs.push_str(s.value().trim());
-        }
-    }
-    let docs = docs; // Make docs immutable
+    let docs = collect_docs(&impl_block.attrs);
 
     let request_invocations: Vec<proc_macro2::TokenStream> = imp
         .methods
@@ -833,6 +823,26 @@ mod tests {
         let result = inner_nvi_plugin(quote! {}, &s).unwrap();
         let result_str = result.to_string();
         assert!(result_str.contains("First line of doc\\nSecond line of doc"));
+    }
+
+    #[test]
+    fn it_skips_doc_attributes_without_text() {
+        let s = quote! {
+            impl Test {
+                /// Request docs
+                #[request]
+                async fn test(&self, client: &mut nvi::Client) -> nvi::error::Result<()> {
+                    Ok(())
+                }
+
+                #[doc(hidden)]
+                fn helper(&self) {}
+            }
+        };
+
+        let (_, ret) = parse_impl(&s).unwrap();
+        assert_eq!(ret.methods.len(), 1);
+        assert_eq!(ret.methods[0].docs, "Request docs");
     }
 
     #[test]
