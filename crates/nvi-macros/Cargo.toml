@@ -23,10 +23,8 @@ thiserror.workspace = true
 
 [dev-dependencies]
 nvi.workspace = true
-async-trait.workspace = true
 pretty_assertions.workspace = true
 rust-format = { workspace = true, features = ["token_stream"] }
-serde-rmpv.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-test.workspace = true

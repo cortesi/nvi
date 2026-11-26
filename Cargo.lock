@@ -936,7 +936,6 @@ dependencies = [
 name = "nvi-macros"
 version = "0.0.1"
 dependencies = [
- "async-trait",
  "heck",
  "macro-types",
  "nvi",
@@ -945,7 +944,6 @@ dependencies = [
  "proc-macro2-diagnostics",
  "quote",
  "rust-format",
- "serde-rmpv",
  "structmeta",
  "syn 3.0.10",
  "thiserror",
