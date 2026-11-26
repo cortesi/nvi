@@ -18,7 +18,7 @@ proc-macro2.workspace = true
 proc-macro2-diagnostics.workspace = true
 quote.workspace = true
 structmeta.workspace = true
-syn.workspace = true
+syn = { workspace = true, features = ["full"] }
 thiserror.workspace = true
 
 [dev-dependencies]
