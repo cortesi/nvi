@@ -1,12 +1,7 @@
 //! Macros for the nvi library.
-use std::{result::Result as StdResult, vec};
-
-use macro_types::*;
+use macro_types::{Arg, AutoCmd, Method, MethodType, Return};
 use quote::{ToTokens, quote};
-use syn::{Expr, ExprLit, Lit, Meta, Token, punctuated::Punctuated, spanned::Spanned};
-
-/// Result type for macro operations
-type Result<T> = StdResult<T, syn::Error>;
+use syn::{Expr, ExprLit, Lit, Meta, Result, Token, punctuated::Punctuated, spanned::Spanned};
 
 /// The name of the connected method
 const CONNECTED: &str = "connected";
@@ -35,7 +30,6 @@ struct ImplBlock {
     methods: Vec<Method>,
 }
 
-/// Output the invocation clause of a connect function
 /// Generate the invocation for the connected method implementation
 fn connected_invocation(m: &Method, type_name: &syn::Ident) -> proc_macro2::TokenStream {
     let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
@@ -48,7 +42,7 @@ fn connected_invocation(m: &Method, type_name: &syn::Ident) -> proc_macro2::Toke
 
 /// Output the invocation clause of a notify function
 fn notify_invocation(m: &Method) -> proc_macro2::TokenStream {
-    let name = m.name.clone();
+    let name = &m.name;
     let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
     let mut args = vec![];
     for (idx, _) in m.args.iter().enumerate() {
@@ -88,7 +82,7 @@ fn notify_invocation(m: &Method) -> proc_macro2::TokenStream {
 
 /// Output the invocation clause of a request function
 fn request_invocation(m: &Method) -> proc_macro2::TokenStream {
-    let name = m.name.clone();
+    let name = &m.name;
     let method = syn::Ident::new(&m.name, proc_macro2::Span::call_site());
     let mut args = vec![];
     for (idx, _) in m.args.iter().enumerate() {
@@ -492,8 +486,6 @@ fn parse_impl(input: &proc_macro2::TokenStream) -> Result<(syn::ItemImpl, ImplBl
     Ok((v, ImplBlock { name, methods }))
 }
 
-// Extract this to ease testing, since proc_macro::TokenStream can't cross
-// proc-macro boundaries.
 /// Generate the implementation methods
 fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     imp.methods.iter().map(|m| {
@@ -559,11 +551,10 @@ fn generate_methods(imp: &ImplBlock) -> impl Iterator<Item = proc_macro2::TokenS
     })
 }
 
-/// Inner function for the nvi_plugin macro
-fn inner_nvi_plugin(
-    _attr: proc_macro2::TokenStream,
-    input: &proc_macro2::TokenStream,
-) -> Result<proc_macro2::TokenStream> {
+/// Expand the nvi_plugin macro. This works on proc_macro2 tokens so that tests
+/// can call it, since proc_macro::TokenStream can't cross proc-macro
+/// boundaries.
+fn inner_nvi_plugin(input: &proc_macro2::TokenStream) -> Result<proc_macro2::TokenStream> {
     let (impl_block, imp) = parse_impl(input)?;
 
     let docs = collect_docs(&impl_block.attrs);
@@ -602,7 +593,6 @@ fn inner_nvi_plugin(
 
     let name = syn::Ident::new(&imp.name, proc_macro2::Span::call_site());
     let namestr = heck::ToSnakeCase::to_snake_case(imp.name.as_str());
-    let docs = &docs;
 
     let methods = generate_methods(&imp);
     // Handle the connected method
@@ -611,7 +601,7 @@ fn inner_nvi_plugin(
         .iter()
         .find(|x| x.method_type == MethodType::Connected)
         .map(|x| connected_invocation(x, &name))
-        .unwrap_or_else(|| quote! {});
+        .unwrap_or_default();
 
     // Handle the highlights method
     let highlights = if let Some(m) = imp
@@ -727,8 +717,7 @@ fn inner_nvi_plugin(
                 Ok(#docs.into())
             }
         }
-    }
-    .to_token_stream())
+    })
 }
 
 /// Add this attribute to the *impl* block for the `NviPlugin` trait to derive
@@ -738,8 +727,8 @@ pub fn nvi_plugin(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let input_span = proc_macro2::TokenStream::from(input);
-    match inner_nvi_plugin(_attr.into(), &input_span) {
+    let input = proc_macro2::TokenStream::from(input);
+    match inner_nvi_plugin(&input) {
         Ok(x) => x.into(),
         Err(e) => e.into_compile_error().into(),
     }
@@ -793,7 +782,7 @@ mod tests {
             }
         };
 
-        let result = inner_nvi_plugin(quote! {}, &s).unwrap();
+        let result = inner_nvi_plugin(&s).unwrap();
         let result_str = result.to_string();
         assert!(result_str.contains("First line of doc\\nSecond line of doc"));
     }
@@ -958,7 +947,7 @@ mod tests {
                 async fn test_void(&self) {}
             }
         };
-        assert!(inner_nvi_plugin(quote! {}, &s).is_err());
+        assert!(inner_nvi_plugin(&s).is_err());
     }
 
     #[test]
@@ -1056,7 +1045,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_plugin(quote! {}, &s).unwrap())
+                .format_tokens(inner_nvi_plugin(&s).unwrap())
                 .unwrap()
         );
     }
@@ -1096,7 +1085,7 @@ mod tests {
         println!(
             "{}",
             RustFmt::default()
-                .format_tokens(inner_nvi_plugin(quote! {}, &s).unwrap())
+                .format_tokens(inner_nvi_plugin(&s).unwrap())
                 .unwrap()
         );
     }
