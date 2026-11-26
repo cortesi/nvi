@@ -14,15 +14,14 @@ use crate::{
     nvim::opts::SetHl,
 };
 
-/// Create a full highlight name by joining a prefix and highlight name with
-/// validation.
+/// Create a full highlight name by joining a prefix and highlight name with an
+/// underscore, as in `my_plugin_Normal`.
 ///
-/// Both the prefix and name are validated according to Neovim highlight group
-/// naming rules.
+/// The result is validated according to Neovim highlight group naming rules.
 pub fn full_name(prefix: &str, name: &str) -> Result<String> {
-    check_group_name(prefix)?;
-    check_group_name(name)?;
-    Ok(format!("{prefix}{name}"))
+    let full = format!("{prefix}_{name}");
+    check_group_name(&full)?;
+    Ok(full)
 }
 
 impl fmt::Display for Hl {
@@ -337,6 +336,15 @@ mod tests {
 
         let err = validate_color("#invalid").unwrap_err().to_string(); // invalid hex
         assert!(err.contains("must be '#' followed by"));
+    }
+
+    #[test]
+    fn test_full_name() {
+        assert_eq!(
+            full_name("my_plugin", "Normal").unwrap(),
+            "my_plugin_Normal"
+        );
+        assert!(full_name("my plugin", "Normal").is_err());
     }
 
     #[test]

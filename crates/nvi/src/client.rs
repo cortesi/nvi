@@ -406,9 +406,7 @@ impl Client {
     /// This departs from the camelcase convention for highlight group names,
     /// but it gives us a consistent way to namespace over all features.
     pub fn hl_name(&self, group: &str) -> Result<String> {
-        let name = format!("{}_{group}", self.name);
-        highlights::check_group_name(&name)?;
-        Ok(name)
+        highlights::full_name(&self.name, group)
     }
 }
 

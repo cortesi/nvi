@@ -600,11 +600,10 @@ pub mod highlights {
         pub fn to_sethl(&self) -> SetHl;
     }
 
-    /// Create a full highlight name by joining a prefix and highlight name with
-    /// validation.
+    /// Create a full highlight name by joining a prefix and highlight name with an
+    /// underscore, as in `my_plugin_Normal`.
     ///
-    /// Both the prefix and name are validated according to Neovim highlight group
-    /// naming rules.
+    /// The result is validated according to Neovim highlight group naming rules.
     pub fn full_name(prefix: &str, name: &str) -> crate::error::Result<String>;
 
     /// Validates that a string is a valid RGB color specification of the form

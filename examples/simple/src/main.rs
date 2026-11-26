@@ -69,7 +69,7 @@ impl Simple {
     /// Return a `Highlights` struct that defines the highlight groups for this
     /// plugin. We break from convention somewhat because we use the
     /// `snake_case` name of our addon as a prefix. In this case, we're
-    /// defining a group called simpleNormal with a red foreground.
+    /// defining a group called simple_Normal with a red foreground.
     fn highlights(&self) -> Result<Highlights> {
         Ok(Highlights::default().hl("Normal", Hl::default().fg("red")?))
     }
